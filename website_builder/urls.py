@@ -26,13 +26,29 @@ from django.views.generic import RedirectView
 
 def serve_dist_frontend(request, path=''):
     dist_dir = settings.BASE_DIR / 'dist'
-    file_path = dist_dir / path
-    
-    # Serve static asset files directly if file exists in dist (e.g. assets/..., favicon.svg, icons.svg)
-    if path and file_path.exists() and file_path.is_file():
-        return serve(request, path, document_root=dist_dir)
-    
-    # Fallback to dist/index.html for React single page application routes (e.g. /, /create, /preview)
+    staticfiles_dir = settings.STATIC_ROOT
+
+    clean_path = path
+    if clean_path.startswith('static/'):
+        clean_path = clean_path[7:]
+    elif clean_path.startswith('staticfiles/'):
+        clean_path = clean_path[12:]
+
+    # 1. Check if file exists in dist
+    file_path = dist_dir / clean_path
+    if clean_path and file_path.exists() and file_path.is_file():
+        return serve(request, clean_path, document_root=dist_dir)
+
+    # 2. Check if file exists in staticfiles (e.g. admin/css/base.css)
+    static_file_path = staticfiles_dir / clean_path
+    if clean_path and static_file_path.exists() and static_file_path.is_file():
+        return serve(request, clean_path, document_root=staticfiles_dir)
+
+    # 3. Prevent returning index.html for static asset requests (.css, .js, images, fonts)
+    if any(clean_path.endswith(ext) for ext in ['.css', '.js', '.png', '.jpg', '.jpeg', '.svg', '.woff', '.woff2', '.ttf', '.ico']):
+        raise Http404(f"Static file {clean_path} not found")
+
+    # 4. Fallback to dist/index.html for React SPA routes (e.g. /, /create, /preview)
     index_path = dist_dir / 'index.html'
     if index_path.exists():
         with open(index_path, 'r', encoding='utf-8') as f:
@@ -45,12 +61,13 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('config.urls')),
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
+    re_path(r'^staticfiles/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# Catch-all route to serve dist/index.html and dist static assets for SPA (excluding admin, api, and static)
-urlpatterns.append(re_path(r'^(?!admin|api|static)(?P<path>.*)$', serve_dist_frontend, name='frontend'))
+# Catch-all route to serve dist/index.html and dist static assets for SPA (excluding admin, api, static, staticfiles)
+urlpatterns.append(re_path(r'^(?!admin|api|static|staticfiles)(?P<path>.*)$', serve_dist_frontend, name='frontend'))
 
 
