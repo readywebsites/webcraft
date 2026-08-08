@@ -42,7 +42,6 @@ if env_allowed_hosts:
 else:
     ALLOWED_HOSTS = [
         'webcraft.biz499.com',
-        '.biz499.com',
         'localhost',
         '127.0.0.1',
         '*',
