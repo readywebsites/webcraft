@@ -147,7 +147,10 @@ STATIC_URL = 'static/'
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'dist']
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+    BASE_DIR / 'dist',
+]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media Files Settings
