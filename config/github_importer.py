@@ -250,13 +250,61 @@ def auto_tag_github_html(html_code: str) -> str:
     return html_code
 
 
-def import_source_from_github(owner: str, repo_name: str, branch: str = '', category_slug: str = '', title: str = '') -> Dict[str, Any]:
+def parse_github_repo_url(url: str) -> Tuple[str, str, str]:
+    """
+    Parses owner, repo_name, and optional branch from any GitHub URL or repository string:
+    e.g., https://github.com/owner/repo.git
+          https://github.com/owner/repo/tree/master
+          owner/repo
+    Returns (owner, repo_name, branch_or_empty)
+    """
+    if not url:
+        return '', '', ''
+    clean = url.strip()
+    clean = re.sub(r'^https?://', '', clean, flags=re.I)
+    clean = re.sub(r'^github\.com/', '', clean, flags=re.I)
+    clean = clean.strip('/')
+    clean = re.sub(r'\.git$', '', clean, flags=re.I)
+
+    branch = ''
+    tree_match = re.search(r'/(?:tree|blob)/([^/]+)', clean, flags=re.I)
+    if tree_match:
+        branch = tree_match.group(1)
+        clean = re.sub(r'/(?:tree|blob)/.*$', '', clean, flags=re.I)
+
+    parts = [p for p in clean.split('/') if p]
+    owner = parts[0] if len(parts) >= 1 else ''
+    repo_name = parts[1] if len(parts) >= 2 else ''
+    return owner, repo_name, branch
+
+
+def import_source_from_github(owner: str, repo_name: str = '', branch: str = '', category_slug: str = '', title: str = '') -> Dict[str, Any]:
     """
     Imports and parses source code & CSS stylesheets from ANY GitHub repository dynamically via GitHub API & Tree Inspector.
     """
+    # Normalize owner and repo_name if a full URL or owner/repo string was passed as owner
+    if '/' in owner or 'http' in owner:
+        parsed_owner, parsed_repo, parsed_branch = parse_github_repo_url(owner)
+        if parsed_owner:
+            owner = parsed_owner
+        if parsed_repo:
+            repo_name = parsed_repo
+        if parsed_branch and not branch:
+            branch = parsed_branch
+
+    if repo_name and ('/' in repo_name or 'http' in repo_name):
+        _, parsed_repo, parsed_branch = parse_github_repo_url(repo_name)
+        if parsed_repo:
+            repo_name = parsed_repo
+        if parsed_branch and not branch:
+            branch = parsed_branch
+
+    # Clean any trailing .git or slashes from repo_name
+    repo_name = re.sub(r'\.git$', '', repo_name, flags=re.I).strip('/')
+
     # 1. Discover default branch and full repo file tree via GitHub REST API
     detected_branch, repo_files = discover_github_repo_files(owner, repo_name)
-    actual_branch = branch if branch and branch not in ['main', 'master'] else detected_branch
+    actual_branch = branch if branch and branch not in ['main', 'master'] else (detected_branch or 'main')
 
     html_code = ""
     css_code = ""

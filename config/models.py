@@ -97,17 +97,18 @@ class GitHubTemplate(models.Model):
         verbose_name_plural = "GitHub Templates"
 
     def save(self, *args, **kwargs):
-        # Auto extract owner and repo_name from repo_url if not provided
-        if self.repo_url and (not self.owner or not self.repo_name):
-            clean_url = self.repo_url.replace('https://github.com/', '').replace('http://github.com/', '').strip('/')
-            parts = clean_url.split('/')
-            if len(parts) >= 2:
-                if not self.owner:
-                    self.owner = parts[0]
-                if not self.repo_name:
-                    self.repo_name = parts[1]
+        # Auto extract owner and repo_name from repo_url if not provided or clean them up
+        if self.repo_url:
+            from .github_importer import parse_github_repo_url
+            parsed_owner, parsed_repo, parsed_branch = parse_github_repo_url(self.repo_url)
+            if parsed_owner:
+                self.owner = parsed_owner
+            if parsed_repo:
+                self.repo_name = parsed_repo
+            if parsed_branch and (not self.default_branch or self.default_branch == 'main'):
+                self.default_branch = parsed_branch
 
-        # Auto import source code from GitHub if not already imported
+        # Auto import source code from GitHub if not already imported or if source_code_html is missing
         if not self.source_code_html or not self.is_imported:
             from .github_importer import import_source_from_github
             cat_slug = self.category.slug if self.category else ''
@@ -118,11 +119,12 @@ class GitHubTemplate(models.Model):
                 category_slug=cat_slug,
                 title=self.title or self.repo_name
             )
-            self.source_code_html = imported_res.get('html', '')
-            self.source_code_css = imported_res.get('css', '')
-            self.source_code_js = imported_res.get('js', '')
-            self.editable_placeholders = imported_res.get('placeholders', {})
-            self.is_imported = True
+            if imported_res.get('html'):
+                self.source_code_html = imported_res.get('html', '')
+                self.source_code_css = imported_res.get('css', '')
+                self.source_code_js = imported_res.get('js', '')
+                self.editable_placeholders = imported_res.get('placeholders', {})
+                self.is_imported = True
 
         # Run Template Analysis Engine to classify logo capabilities
         if self.source_code_html:

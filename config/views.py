@@ -560,12 +560,14 @@ def get_business_types(request):
             data_list = []
             for cat in db_categories:
                 matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == cat.slug), None)
+                tpl_count = cat.github_templates.count()
                 gh_tpl = cat.github_templates.first()
                 template_title = gh_tpl.title if gh_tpl else (matched_preset['template_name'] if matched_preset else cat.name)
                 data_list.append({
                     "id": cat.slug,
                     "name": cat.name,
                     "description": cat.description or f"Templates for {cat.name}",
+                    "template_count": tpl_count,
                     "recommended_template": gh_tpl.repo_name if gh_tpl else f"{cat.slug}-default",
                     "template_name": template_title,
                     "default_tagline": matched_preset['default_tagline'] if matched_preset else f"Welcome to our {cat.name} business",
@@ -608,7 +610,7 @@ def generate_website(request):
         contact_email = data.get('contact_email') or ''
         contact_phone = data.get('contact_phone') or ''
 
-        category_name = "General Business"
+        category_name = business_type_id.replace('-', ' ').replace('_', ' ').title() if (business_type_id and business_type_id != 'general') else "General Business"
         db_cat = None
         candidate_templates = []
 
@@ -621,12 +623,17 @@ def generate_website(request):
 
         if db_cat:
             category_name = db_cat.name
-            # Strictly select templates belonging ONLY to the selected category (max 6, min 1)
+            # Strictly select templates belonging ONLY to the selected category
             candidate_templates = list(GitHubTemplate.objects.filter(category=db_cat)[:6])
 
-        # Only fallback to all templates if no category match was found or category has zero templates
+        # Enforce strict category template isolation:
+        # If a category is selected and has NO templates added, return an error message rather than falling back to other templates or static defaults.
         if not candidate_templates:
-            candidate_templates = list(GitHubTemplate.objects.all()[:6])
+            return Response({
+                "success": False,
+                "no_templates": True,
+                "error": f"No templates are available for the '{category_name}' category yet. Please add a template for this category in the Admin panel or select another category."
+            }, status=status.HTTP_404_NOT_FOUND)
 
         # Default fallback preset for category content
         matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == business_type_id), BUSINESS_TYPES_DATA[0])
@@ -678,15 +685,23 @@ def generate_website(request):
         previews_list = []
         for index, tpl in enumerate(candidate_templates):
             try:
-                if not tpl.source_code_html or 'imported-template-default' in tpl.source_code_html or len(tpl.source_code_html) < 200:
+                if not tpl.owner or not tpl.repo_name:
+                    from .github_importer import parse_github_repo_url
+                    o, r, b = parse_github_repo_url(tpl.repo_url)
+                    if o: tpl.owner = o
+                    if r: tpl.repo_name = r
+                    if b and not tpl.default_branch: tpl.default_branch = b
+
+                if not tpl.source_code_html or len(tpl.source_code_html) < 100:
                     from .github_importer import import_source_from_github
-                    imp_data = import_source_from_github(tpl.owner or 'vercel', tpl.repo_name or 'starter', tpl.default_branch or 'main', title=business_name)
-                    tpl.source_code_html = imp_data.get('html', '')
-                    tpl.source_code_css = imp_data.get('css', '')
-                    tpl.source_code_js = imp_data.get('js', '')
-                    tpl.editable_placeholders = imp_data.get('placeholders', {})
-                    tpl.is_imported = True
-                    tpl.save()
+                    imp_data = import_source_from_github(tpl.owner or '', tpl.repo_name or '', tpl.default_branch or 'main', category_slug=db_cat.slug if db_cat else '', title=business_name)
+                    if imp_data.get('html'):
+                        tpl.source_code_html = imp_data.get('html', '')
+                        tpl.source_code_css = imp_data.get('css', '')
+                        tpl.source_code_js = imp_data.get('js', '')
+                        tpl.editable_placeholders = imp_data.get('placeholders', {})
+                        tpl.is_imported = True
+                        tpl.save()
 
                 t_logo_type = getattr(tpl, 'logo_type', 'both')
 
@@ -744,44 +759,14 @@ def generate_website(request):
                     }
                 }
                 previews_list.append(item)
-            except Exception:
-                pass
+            except Exception as exc:
+                print(f"Error compiling template {tpl.id}: {exc}")
 
         if not previews_list:
-            fallback_item = {
-                "website_id": f"gh_web_fb_{uuid.uuid4().hex[:8]}",
-                "option_index": 1,
-                "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "business_name": business_name,
-                "business_type": business_type_id,
-                "category_name": category_name,
-                "template_id": "gh-default-starter",
-                "template_name": f"{category_name} Starter Option",
-                "thumbnail_url": "",
-                "logo_type": "both",
-                "github_source": {
-                    "repo_url": "https://github.com/vercel/nextjs-subscription-payments",
-                    "owner": "vercel",
-                    "repo_name": "nextjs-subscription-payments",
-                    "default_branch": "main"
-                },
-                "source_code_html": f"<html><body><header class='navbar-brand'>{business_name}</header><main><h1>Welcome to {business_name}</h1><p>{final_tagline}</p></main></body></html>",
-                "source_code_css": "body { font-family: sans-serif; padding: 2rem; background: #0f172a; color: white; }",
-                "source_code_js": "",
-                "content": {
-                    "business_name": business_name,
-                    "logo_url": logo_url,
-                    "logo_type": "both",
-                    "hero_image_url": hero_image_url,
-                    "tagline": final_tagline,
-                    "primary_color": final_color,
-                    "contact_email": final_email,
-                    "contact_phone": final_phone,
-                    "services": matched_preset['default_services'],
-                    "testimonials": matched_preset['default_testimonials']
-                }
-            }
-            previews_list.append(fallback_item)
+            return Response({
+                "success": False,
+                "error": f"Failed to generate website options for category '{category_name}'. Please check the template source code in Admin."
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         clean_previews = [dict(item) for item in previews_list]
         primary_data = dict(clean_previews[0])
