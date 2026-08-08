@@ -40,15 +40,17 @@ def serve_dist_frontend(request, path=''):
     raise Http404("Frontend index.html not found in dist")
 
 urlpatterns = [
+    path('favicon.ico', RedirectView.as_view(url='/static/favicon.svg', permanent=True)),
     path('admin', RedirectView.as_view(url='/admin/', permanent=True)),
     path('admin/', admin.site.urls),
     path('api/', include('config.urls')),
+    re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
 ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# Catch-all route to serve dist/index.html and dist static assets for SPA (excluding admin and api)
-urlpatterns.append(re_path(r'^(?!admin|api)(?P<path>.*)$', serve_dist_frontend, name='frontend'))
+# Catch-all route to serve dist/index.html and dist static assets for SPA (excluding admin, api, and static)
+urlpatterns.append(re_path(r'^(?!admin|api|static)(?P<path>.*)$', serve_dist_frontend, name='frontend'))
 
 
