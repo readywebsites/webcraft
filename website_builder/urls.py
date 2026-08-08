@@ -22,6 +22,8 @@ from django.conf.urls.static import static
 from django.http import HttpResponse, Http404
 from django.views.static import serve
 
+from django.views.generic import RedirectView
+
 def serve_dist_frontend(request, path=''):
     dist_dir = settings.BASE_DIR / 'dist'
     file_path = dist_dir / path
@@ -38,6 +40,7 @@ def serve_dist_frontend(request, path=''):
     raise Http404("Frontend index.html not found in dist")
 
 urlpatterns = [
+    path('admin', RedirectView.as_view(url='/admin/', permanent=True)),
     path('admin/', admin.site.urls),
     path('api/', include('config.urls')),
 ]
@@ -45,7 +48,7 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# Catch-all route to serve dist/index.html and dist static assets for SPA
-urlpatterns.append(re_path(r'^(?P<path>.*)$', serve_dist_frontend, name='frontend'))
+# Catch-all route to serve dist/index.html and dist static assets for SPA (excluding admin and api)
+urlpatterns.append(re_path(r'^(?!admin|api)(?P<path>.*)$', serve_dist_frontend, name='frontend'))
 
 
