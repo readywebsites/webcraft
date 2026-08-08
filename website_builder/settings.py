@@ -160,6 +160,8 @@ SITE_DOMAIN = os.environ.get('DOMAIN', 'webcraft.biz499.com')
 # CORS Settings
 CORS_ALLOW_ALL_ORIGINS = True  # Allowed for dev environment; can be restricted in production
 CORS_ALLOWED_ORIGINS = [
+    f"https://{SITE_DOMAIN}",
+    f"http://{SITE_DOMAIN}",
     "https://webcraft.biz499.com",
     "http://webcraft.biz499.com",
     "http://localhost:5173",
@@ -170,6 +172,8 @@ CORS_ALLOW_CREDENTIALS = True
 
 # CSRF Trusted Origins
 CSRF_TRUSTED_ORIGINS = [
+    f"https://{SITE_DOMAIN}",
+    f"http://{SITE_DOMAIN}",
     "https://webcraft.biz499.com",
     "http://webcraft.biz499.com",
     "http://localhost:5173",
