@@ -150,31 +150,39 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                 flags=re.IGNORECASE | re.DOTALL
             )
 
-    # 4. HERO BANNER REPLACEMENT IN HTML
+    # 4. HERO BANNER REPLACEMENT IN HTML (Scoped strictly to the main top Hero section)
     if hero_url:
         def repl_hero_img(m):
             img_tag = m.group(0)
-            if re.search(r'(?:logo|brand|client|partner|sponsor|tech-stack|trusted|showcase)', img_tag, re.I):
+            if re.search(r'(?:logo|brand|client|partner|sponsor|tech-stack|trusted|showcase|avatar|product|promo|footer|sidebar)', img_tag, re.I):
                 return img_tag
             img_tag = re.sub(r'src=["\'][^"\']+["\']', f'src="{hero_url}"', img_tag, flags=re.IGNORECASE)
             img_tag = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{hero_url}"', img_tag, flags=re.IGNORECASE)
             return img_tag
 
+        # 4a. Target explicitly tagged hero images or images inside main hero section / hero-img class
         html = re.sub(
-            r'<img\s+[^>]*?(?:class|id|alt|src|name|data-[^=]+)=["\'][^"\']*(?:hero|banner|jumbotron|slider|header-bg|hero-img|banner-img|cover)[^"\']*["\'][^>]*>',
+            r'<img\s+[^>]*?(?:class|id|alt|src|name|data-[^=]+)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image)[^"\']*["\'][^>]*>',
+            repl_hero_img,
+            html,
+            flags=re.IGNORECASE
+        )
+        html = re.sub(
+            r'<img\s+[^>]*?data-editable=["\']hero_image["\'][^>]*>',
             repl_hero_img,
             html,
             flags=re.IGNORECASE
         )
 
+        # 4b. Target background-image on main hero container section ONLY (excluding promo/product/footer/sidebar banners)
         def repl_style_bg(m):
             style_attr = m.group(0)
-            if re.search(r'(?:clients|partners|sponsors|tech-stack|trusted|showcase|logos)', style_attr, re.I):
+            if re.search(r'(?:clients|partners|sponsors|tech-stack|trusted|showcase|logos|promo|product|footer|sidebar|gallery)', style_attr, re.I):
                 return style_attr
             return re.sub(r'url\((?:&quot;|["\'])?[^"\'\)]+(?:&quot;|["\'])?\)', f"url('{hero_url}')", style_attr, flags=re.IGNORECASE)
 
         html = re.sub(
-            r'<(?:section|header|div|main)\s+[^>]*?(?:class|id|data-[^=]+)=["\'][^"\']*(?:hero|banner|jumbotron|header-bg|cover|welcome|intro|fit-hero|bistro-hero|saas-hero)[^"\']*["\'][^>]*>',
+            r'<(?:section|header|div|main)\s+[^>]*?(?:class|id|data-[^=]+)=["\'][^"\']*(?:fit-hero|bistro-hero|saas-hero|main-hero|home-hero|\bhero\b|data-editable="hero_image")[^"\']*["\'][^>]*>',
             lambda m: re.sub(r'style=["\'][^"\']*url\([^"\']+\)[^"\']*["\']', repl_style_bg, m.group(0), flags=re.IGNORECASE),
             html,
             flags=re.IGNORECASE

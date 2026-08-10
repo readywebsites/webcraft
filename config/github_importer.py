@@ -278,11 +278,274 @@ def parse_github_repo_url(url: str) -> Tuple[str, str, str]:
     return owner, repo_name, branch
 
 
+def clean_django_tags(content: str, owner: str, repo_name: str, branch: str, repo_files: list = None) -> str:
+    """
+    Cleans and converts Django template tags, variables, static files, and URLs into browser-friendly HTML.
+    """
+    if not content:
+        return content
+        
+    repo_files = repo_files or []
+    raw_base = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{branch}/"
+    jsdelivr_base = f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{branch}/"
+
+    # 1. Resolve {% static 'path/file.ext' %} or {% static "path/file.ext" %}
+    def repl_static(match):
+        rel_path = match.group(1).strip("'\"").lstrip('./').lstrip('/')
+        is_font = any(ext in rel_path.lower() for ext in ['.woff', '.woff2', '.ttf', '.eot', '.otf'])
+        target_base = jsdelivr_base if is_font else raw_base
+        
+        matched_file = None
+        for f in repo_files:
+            if f.endswith(rel_path) or f == f"static/{rel_path}":
+                matched_file = f
+                break
+        
+        final_rel = matched_file if matched_file else (f"static/{rel_path}" if not rel_path.startswith("static/") else rel_path)
+        return f"{target_base}{final_rel}"
+
+    content = re.sub(r'\{%\s*static\s+["\']?([^"\'%\s}]+)["\']?\s*%\}', repl_static, content, flags=re.IGNORECASE)
+
+    # 2. Resolve {% url 'route_name' %} -> "#"
+    content = re.sub(r'\{%\s*url\s+["\']?[^"\'%\s}]+["\']?[^%}]*%\}', '#', content, flags=re.IGNORECASE)
+
+    # 3. Clean {% load static %}, {% load staticfiles %}, {% csrf_token %}, etc.
+    content = re.sub(r'\{%\s*load\s+[^%}]*%\}', '', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{%\s*csrf_token\s*%\}', '', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{%\s*with\s+[^%}]*%\}', '', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{%\s*endwith\s*%\}', '', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}', '', content, flags=re.DOTALL | re.IGNORECASE)
+
+    # 4. Handle trans tags {% trans "Text" %} or {% _("Text") %}
+    content = re.sub(r'\{%\s*(?:trans|_)\s+["\']([^"\'%]+)["\']\s*%\}', r'\1', content, flags=re.IGNORECASE)
+
+    # 5. Clean control flow tags {% if ... %}, {% endif %}, {% for ... %}, {% endfor %} while preserving inner markup
+    content = re.sub(r'\{%\s*(?:if|elif|else|endif|for|endfor)\b[^%}]*%\}', '', content, flags=re.IGNORECASE)
+
+    # 6. Map common Django variables {{ title }}, {{ site_name }}, {{ brand_name }}, {{ logo_url }} to system placeholders
+    content = re.sub(r'\{\{\s*(?:title|site_title|site_name|brand|company_name)\s*\}\}', '{{SITE_TITLE}}', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{\{\s*(?:tagline|subtitle|lead)\s*\}\}', '{{TAGLINE}}', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{\{\s*(?:logo|logo_url)\s*\}\}', '{{LOGO_URL}}', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{\{\s*(?:hero_image|hero_bg|banner_image)\s*\}\}', '{{HERO_IMAGE_URL}}', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{\{\s*(?:email|contact_email)\s*\}\}', '{{CONTACT_EMAIL}}', content, flags=re.IGNORECASE)
+    content = re.sub(r'\{\{\s*(?:phone|contact_phone)\s*\}\}', '{{CONTACT_PHONE}}', content, flags=re.IGNORECASE)
+
+    # Clean remaining unparsed Django variables cleanly
+    content = re.sub(r'\{\{\s*(?!(?:SITE_TITLE|LOGO_URL|HERO_IMAGE_URL|TAGLINE|CONTACT_EMAIL|CONTACT_PHONE|PRIMARY_COLOR|SERVICE_\d+_TITLE|SERVICE_\d+_DESC)\}\})[a-zA-Z0-9_.]+\s*\}\}', '', content)
+
+    return content
+
+
+def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_files: list) -> Tuple[str, str, str]:
+    """
+    Parses Django templates, resolves {% extends %}, {% include %}, {% static %},
+    merges block structures, and cleans Django template syntax.
+    """
+    django_html_files = [f for f in repo_files if f.endswith('.html')]
+    if not django_html_files:
+        return "", "", ""
+
+    target_page = None
+    for name in ['index.html', 'home.html', 'landing.html', 'main.html', 'page.html']:
+        match = next((f for f in django_html_files if f.endswith('/' + name) or f == name), None)
+        if match:
+            target_page = match
+            break
+            
+    if not target_page:
+        target_page = next((f for f in django_html_files if 'base' not in f.lower() and 'layout' not in f.lower()), django_html_files[0])
+
+    page_html = fetch_raw_github_file(owner, repo_name, branch, target_page)
+    if not page_html or len(page_html.strip()) < 10:
+        return "", "", ""
+
+    # Resolve Django Template Inheritance ({% extends ... %})
+    merged_html = page_html
+    max_extends_depth = 5
+    curr_depth = 0
+
+    while curr_depth < max_extends_depth:
+        extends_match = re.search(r'\{%\s*extends\s+["\']([^"\'%]+)["\']\s*%\}', merged_html, re.IGNORECASE)
+        if not extends_match:
+            break
+
+        parent_ref = extends_match.group(1).strip()
+        parent_file = next((f for f in django_html_files if f.endswith('/' + parent_ref) or f.endswith(parent_ref)), None)
+        if not parent_file:
+            break
+
+        parent_html = fetch_raw_github_file(owner, repo_name, branch, parent_file)
+        if not parent_html:
+            break
+
+        child_blocks = {}
+        for block_match in re.finditer(r'\{%\s*block\s+([a-zA-Z0-9_]+)\s*%\}(.*?)\{%\s*endblock(?:\s+[a-zA-Z0-9_]+)?\s*%\}', merged_html, re.DOTALL | re.IGNORECASE):
+            b_name = block_match.group(1).strip()
+            b_content = block_match.group(2)
+            child_blocks[b_name] = b_content
+
+        def repl_parent_block(m):
+            b_name = m.group(1).strip()
+            default_content = m.group(2)
+            return child_blocks.get(b_name, default_content)
+
+        merged_html = re.sub(
+            r'\{%\s*block\s+([a-zA-Z0-9_]+)\s*%\}(.*?)\{%\s*endblock(?:\s+[a-zA-Z0-9_]+)?\s*%\}',
+            repl_parent_block,
+            parent_html,
+            flags=re.DOTALL | re.IGNORECASE
+        )
+        curr_depth += 1
+
+    merged_html = re.sub(r'\{%\s*block\s+[a-zA-Z0-9_]+\s*%\}(.*?)\{%\s*endblock(?:\s+[a-zA-Z0-9_]+)?\s*%\}', r'\1', merged_html, flags=re.DOTALL | re.IGNORECASE)
+
+    # Resolve Partials & Includes ({% include '...' %})
+    max_includes = 15
+    inc_count = 0
+    while inc_count < max_includes:
+        include_match = re.search(r'\{%\s*include\s+["\']([^"\'%]+)["\']\s*%\}', merged_html, re.IGNORECASE)
+        if not include_match:
+            break
+        
+        inc_ref = include_match.group(1).strip()
+        inc_file = next((f for f in django_html_files if f.endswith('/' + inc_ref) or f.endswith(inc_ref)), None)
+        inc_content = ""
+        if inc_file:
+            inc_content = fetch_raw_github_file(owner, repo_name, branch, inc_file) or ""
+
+        merged_html = merged_html.replace(include_match.group(0), inc_content)
+        inc_count += 1
+
+    cleaned_html = clean_django_tags(merged_html, owner, repo_name, branch, repo_files)
+    css_code = fetch_repo_css_files(owner, repo_name, branch, cleaned_html, repo_files)
+
+    return cleaned_html, css_code, ""
+
+
+def parse_and_process_react_repo(owner: str, repo_name: str, branch: str, repo_files: list) -> Tuple[str, str, str]:
+    """
+    Parses React repository files (.jsx, .tsx, .js, package.json), extracts components,
+    bundles JSX/TSX for browser transpilation, and fetches CSS files.
+    """
+    entry_candidates = [
+        'src/App.jsx', 'src/App.tsx', 'src/App.js', 'src/main.jsx', 'src/main.tsx',
+        'src/index.jsx', 'src/index.tsx', 'src/index.js', 'App.jsx', 'App.tsx', 'App.js', 'index.jsx'
+    ]
+    
+    entry_file = None
+    for cand in entry_candidates:
+        match = next((f for f in repo_files if f.lower() == cand.lower() or f.lower().endswith('/' + cand.lower())), None)
+        if match:
+            entry_file = match
+            break
+
+    if not entry_file:
+        entry_file = next((f for f in repo_files if (f.endswith('.jsx') or f.endswith('.tsx')) and 'app' in f.lower()), None)
+    
+    if not entry_file:
+        entry_file = next((f for f in repo_files if f.endswith('.jsx') or f.endswith('.tsx')), None)
+
+    if not entry_file:
+        return "", "", ""
+
+    entry_code = fetch_raw_github_file(owner, repo_name, branch, entry_file)
+    if not entry_code or len(entry_code.strip()) < 20:
+        return "", "", ""
+
+    child_components_code = []
+    child_files = [f for f in repo_files if (f.endswith('.jsx') or f.endswith('.tsx') or f.endswith('.js')) and f != entry_file and ('/components/' in f or '/pages/' in f or '/views/' in f)]
+    
+    for c_file in child_files[:8]:
+        code = fetch_raw_github_file(owner, repo_name, branch, c_file)
+        if code and len(code.strip()) > 30:
+            cleaned_child = re.sub(r'import\s+.*?\s+from\s+["\'][^"\']+["\'];?', '', code)
+            cleaned_child = re.sub(r'import\s+["\'][^"\']+["\'];?', '', cleaned_child)
+            cleaned_child = re.sub(r'export\s+default\s+function\s+', 'function ', cleaned_child)
+            cleaned_child = re.sub(r'export\s+default\s+', '', cleaned_child)
+            cleaned_child = re.sub(r'export\s+const\s+', 'const ', cleaned_child)
+            cleaned_child = re.sub(r'export\s+function\s+', 'function ', cleaned_child)
+            child_components_code.append(f"/* Component from: {c_file} */\n" + cleaned_child)
+
+    cleaned_entry = re.sub(r'import\s+.*?\s+from\s+["\'][^"\']+["\'];?', '', entry_code)
+    cleaned_entry = re.sub(r'import\s+["\'][^"\']+["\'];?', '', cleaned_entry)
+    
+    app_name = "App"
+    if re.search(r'export\s+default\s+function\s+([a-zA-Z0-9_]+)', cleaned_entry):
+        m = re.search(r'export\s+default\s+function\s+([a-zA-Z0-9_]+)', cleaned_entry)
+        if m:
+            app_name = m.group(1)
+        cleaned_entry = re.sub(r'export\s+default\s+function\s+', 'function ', cleaned_entry)
+    elif re.search(r'function\s+([a-zA-Z0-9_]+)', cleaned_entry):
+        m = re.search(r'function\s+([a-zA-Z0-9_]+)', cleaned_entry)
+        if m:
+            app_name = m.group(1)
+        cleaned_entry = re.sub(r'export\s+default\s+[a-zA-Z0-9_]+;?', '', cleaned_entry)
+    else:
+        cleaned_entry = re.sub(r'export\s+default\s+', 'const App = ', cleaned_entry)
+
+    bundled_react_js = "\n\n".join(child_components_code + [f"/* Main Entry Component: {entry_file} */\n" + cleaned_entry])
+    
+    mount_script = f"""
+if (typeof {app_name} !== 'undefined') {{
+  window.App = {app_name};
+}}
+
+(function() {{
+  if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') return;
+  const rootEl = document.getElementById('root') || document.getElementById('app') || document.body;
+  if (rootEl && !rootEl.hasChildNodes()) {{
+    const Component = window.App || (typeof App !== 'undefined' ? App : null);
+    if (Component) {{
+      try {{
+        if (ReactDOM.createRoot) {{
+          const root = ReactDOM.createRoot(rootEl);
+          root.render(React.createElement(Component));
+        }} else {{
+          ReactDOM.render(React.createElement(Component), rootEl);
+        }}
+      }} catch(e) {{
+        console.error('React Root Mount Error:', e);
+      }}
+    }}
+  }}
+}})();
+"""
+    bundled_react_js += mount_script
+
+    html_code = ""
+    candidate_html = ['index.html', 'public/index.html', 'src/index.html']
+    for h_path in candidate_html:
+        fetched_h = fetch_raw_github_file(owner, repo_name, branch, h_path)
+        if fetched_h and len(fetched_h.strip()) > 30:
+            html_code = fetched_h
+            break
+
+    if not html_code or '<div' not in html_code:
+        html_code = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{SITE_TITLE}}</title>
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>"""
+    else:
+        if 'id="root"' not in html_code and 'id="app"' not in html_code:
+            html_code = html_code.replace('<body>', '<body>\n  <div id="root"></div>')
+
+    css_code = fetch_repo_css_files(owner, repo_name, branch, html_code, repo_files)
+
+    return html_code, css_code, bundled_react_js
+
+
 def import_source_from_github(owner: str, repo_name: str = '', branch: str = '', category_slug: str = '', title: str = '') -> Dict[str, Any]:
     """
     Imports and parses source code & CSS stylesheets from ANY GitHub repository dynamically via GitHub API & Tree Inspector.
+    Supports Django, React, and standard HTML/CSS/JS applications.
     """
-    # Normalize owner and repo_name if a full URL or owner/repo string was passed as owner
     if '/' in owner or 'http' in owner:
         parsed_owner, parsed_repo, parsed_branch = parse_github_repo_url(owner)
         if parsed_owner:
@@ -299,10 +562,8 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
         if parsed_branch and not branch:
             branch = parsed_branch
 
-    # Clean any trailing .git or slashes from repo_name
     repo_name = re.sub(r'\.git$', '', repo_name, flags=re.I).strip('/')
 
-    # 1. Discover default branch and full repo file tree via GitHub REST API
     detected_branch, repo_files = discover_github_repo_files(owner, repo_name)
     actual_branch = branch if branch and branch not in ['main', 'master'] else (detected_branch or 'main')
 
@@ -310,49 +571,71 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
     css_code = ""
     js_code = ""
 
-    # Candidate HTML file paths to check
-    candidate_html_paths = [
-        'index.html', 'public/index.html', 'src/index.html', 'dist/index.html',
-        'docs/index.html', 'demo/index.html', 'app.html'
-    ]
-    # Include any .html files discovered in the repo tree
-    for f in repo_files:
-        if f.endswith('.html') and f not in candidate_html_paths:
-            candidate_html_paths.append(f)
+    # 1. Check for Django project
+    is_django = any(f.endswith('manage.py') or f.endswith('settings.py') or 'templates/' in f.lower() for f in repo_files)
+    if is_django:
+        d_html, d_css, d_js = parse_and_process_django_repo(owner, repo_name, actual_branch, repo_files)
+        if d_html:
+            html_code = d_html
+            css_code = d_css
+            js_code = d_js
 
-    # Multi-branch search loop if initial branch is empty
-    branches_to_try = [actual_branch]
-    for b in ['main', 'master', 'gh-pages', 'dev']:
-        if b not in branches_to_try:
-            branches_to_try.append(b)
+    # 2. Check for React project
+    is_react = any(
+        f.lower().endswith('.jsx') or f.lower().endswith('.tsx') or
+        f.lower() in ['src/app.js', 'src/app.jsx', 'src/app.tsx', 'src/main.jsx', 'src/main.tsx', 'src/index.jsx', 'src/index.tsx', 'app.jsx', 'app.tsx'] or
+        '/components/' in f.lower()
+        for f in repo_files
+    )
+    if not html_code and is_react:
+        r_html, r_css, r_js = parse_and_process_react_repo(owner, repo_name, actual_branch, repo_files)
+        if r_html and r_js:
+            html_code = r_html
+            css_code = r_css
+            js_code = r_js
 
-    for b in branches_to_try:
-        for path in candidate_html_paths:
-            fetched = fetch_raw_github_file(owner, repo_name, b, path)
-            if fetched and len(fetched.strip()) > 50:
-                html_code = fetched
-                actual_branch = b
+    # 3. Standard HTML discovery if Django/React did not match or produce HTML
+    if not html_code:
+        candidate_html_paths = [
+            'index.html', 'public/index.html', 'src/index.html', 'dist/index.html',
+            'docs/index.html', 'demo/index.html', 'app.html'
+        ]
+        for f in repo_files:
+            if f.endswith('.html') and f not in candidate_html_paths:
+                candidate_html_paths.append(f)
+
+        branches_to_try = [actual_branch]
+        for b in ['main', 'master', 'gh-pages', 'dev']:
+            if b not in branches_to_try:
+                branches_to_try.append(b)
+
+        for b in branches_to_try:
+            for path in candidate_html_paths:
+                fetched = fetch_raw_github_file(owner, repo_name, b, path)
+                if fetched and len(fetched.strip()) > 50:
+                    html_code = fetched
+                    actual_branch = b
+                    break
+            if html_code:
                 break
-        if html_code:
-            break
 
     # Clean & Auto-tag HTML
     if html_code:
+        if '{%' in html_code or '{{' in html_code:
+            html_code = clean_django_tags(html_code, owner, repo_name, actual_branch, repo_files)
         html_code = re.sub(r'<meta[^>]+http-equiv=["\']Content-Security-Policy["\'][^>]*>', '', html_code, flags=re.IGNORECASE)
         html_code = auto_tag_github_html(html_code)
-        css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files)
+        if not css_code:
+            css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files)
 
-    # If no HTML or CSS found, build custom template for this repo
     if not html_code or len(html_code) < 100:
         default_html, default_css, default_js, placeholders = get_default_category_template(category_slug, title, owner, repo_name)
         html_code = default_html
         css_code = default_css if not css_code else css_code + "\n\n" + default_css
         js_code = default_js
     else:
-        # Rewrite relative scripts and styles in HTML to GitHub raw URLs
         github_base = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{actual_branch}/"
         
-        # Rewrite framework7 script relative paths
         html_code = re.sub(
             r'<script[^>]+src=["\'](.*?framework7(?:\.bundle)?(?:\.min)?\.js)["\'][^>]*><\/script>',
             '<script src="https://cdn.jsdelivr.net/npm/framework7@8/framework7-bundle.min.js"></script>',
@@ -360,7 +643,6 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
             flags=re.IGNORECASE
         )
         
-        # Rewrite relative script srcs to jsDelivr CDN URLs (guaranteeing application/javascript Content-Type & passing nosniff checks)
         jsdelivr_script_base = f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{actual_branch}/"
         def rewrite_script(match):
             src = match.group(1)
@@ -371,7 +653,6 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
 
         html_code = re.sub(r'<script[^>]+src=["\']([^"\']+)["\'][^>]*><\/script>', rewrite_script, html_code, flags=re.IGNORECASE)
 
-        # Rewrite relative image & media srcs to GitHub raw URLs
         def rewrite_media_src(match):
             prefix = match.group(1)
             src = match.group(2)
@@ -398,6 +679,7 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
         "is_imported": True,
         "placeholders": placeholders
     }
+
 
 
 def get_default_category_template(category_slug: str, title: str, owner: str, repo_name: str) -> Tuple[str, str, str, Dict[str, Any]]:
