@@ -188,6 +188,10 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             flags=re.IGNORECASE
         )
 
+    # 5. Sanitize broken external placeholder domains & numerical image paths (e.g. via.placeholder.com, 1920x600)
+    html = re.sub(r"src=[\"'](?:https?:)?\/\/(?:via\.placeholder\.com|placehold\.it|dummyimage\.com|placehold\.co)\/([^\"']+)[\"']", 'src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80"', html, flags=re.IGNORECASE)
+    html = re.sub(r"src=[\"']\/?\d{2,4}x\d{2,4}[^\"']*[\"']", 'src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80"', html, flags=re.IGNORECASE)
+
     # 4. CONTACT EMAIL REPLACEMENT IN HTML
     if email:
         # 4a. Replace mailto: hrefs in <a> tags
