@@ -108,29 +108,80 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
       </style>
     `,S=`
       <script src="https://cdn.jsdelivr.net/npm/framework7@8/framework7-bundle.min.js"><\/script>
-      <script type="text/babel" data-presets="react,typescript,env">
+      <script>
         (function() {
-          try {
-            const { useState, useEffect, useRef, useMemo, useCallback, useContext, createContext, useReducer } = React;
-            ${n}
+          var rawJs = ${JSON.stringify(n||``)};
+          if (!rawJs || !rawJs.trim()) return;
 
-            const rootEl = document.getElementById('root') || document.getElementById('app') || document.getElementById('app-root');
-            if (rootEl && !rootEl.hasChildNodes()) {
-              const Comp = window.App || (typeof App !== 'undefined' ? App : null) || (typeof Main !== 'undefined' ? Main : null);
-              if (Comp) {
-                if (ReactDOM.createRoot) {
-                  ReactDOM.createRoot(rootEl).render(React.createElement(Comp));
-                } else {
-                  ReactDOM.render(React.createElement(Comp), rootEl);
+          function bindReactGlobals() {
+            if (typeof React !== 'undefined') {
+              try {
+                var R = React;
+                window.useState = window.useState || R.useState;
+                window.useEffect = window.useEffect || R.useEffect;
+                window.useRef = window.useRef || R.useRef;
+                window.useMemo = window.useMemo || R.useMemo;
+                window.useCallback = window.useCallback || R.useCallback;
+                window.useContext = window.useContext || R.useContext;
+                window.createContext = window.createContext || R.createContext;
+                window.useReducer = window.useReducer || R.useReducer;
+                window.useId = window.useId || R.useId;
+                window.Fragment = window.Fragment || R.Fragment;
+                window.memo = window.memo || R.memo;
+              } catch(e) {}
+            }
+          }
+
+          function runScript() {
+            bindReactGlobals();
+            var isReactCode = /\\b(?:React|ReactDOM|useState|useEffect|useRef|useMemo|jsx|className|<[A-Z])\\b/.test(rawJs) || /<[a-z0-9_]+[^>]*>/i.test(rawJs);
+            
+            try {
+              if (isReactCode && window.Babel) {
+                try {
+                  var transpiled = window.Babel.transform(rawJs, { presets: ['react', 'typescript', 'env'] }).code;
+                  var fn = new Function('React', 'ReactDOM', transpiled);
+                  fn(window.React, window.ReactDOM);
+                } catch(bErr) {
+                  console.warn('Babel Standalone transform warning, falling back to direct eval:', bErr);
+                  var fnFallback = new Function(rawJs);
+                  fnFallback();
+                }
+              } else {
+                var fnNorm = new Function(rawJs);
+                fnNorm();
+              }
+            } catch(e) {
+              console.warn('Script execution notice:', e);
+            }
+
+            // Auto-mount React component if DOM element is empty
+            if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+              var rootEl = document.getElementById('root') || document.getElementById('app') || document.getElementById('app-root') || document.body;
+              if (rootEl && !rootEl.hasChildNodes()) {
+                var Comp = window.App || (typeof App !== 'undefined' ? App : null) || (typeof Main !== 'undefined' ? Main : null) || (typeof Home !== 'undefined' ? Home : null) || (typeof Page !== 'undefined' ? Page : null);
+                if (Comp) {
+                  try {
+                    if (ReactDOM.createRoot) {
+                      ReactDOM.createRoot(rootEl).render(React.createElement(Comp));
+                    } else {
+                      ReactDOM.render(React.createElement(Comp), rootEl);
+                    }
+                  } catch(mErr) {
+                    console.warn('React Auto-Mount notice:', mErr);
+                  }
                 }
               }
             }
-          } catch(e) {
-            console.warn('React Component Transpilation Notice:', e);
+          }
+
+          if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runScript);
+          } else {
+            runScript();
           }
         })();
-      <\/script>
-      <script>
+
         document.addEventListener('DOMContentLoaded', function() {
           if (typeof Framework7 !== 'undefined' && !window.f7App && document.querySelector('#app')) {
             try {
@@ -145,13 +196,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             try { AOS.init({ duration: 800, once: true }); } catch(e) {}
           }
         });
-        try {
-          if (!/use(?:State|Effect|Ref|Memo|Context)|React\.|ReactDOM|<[A-Z]/i.test(\`${n.replace(/`/g,"\\`")}\`)) {
-            ${n}
-          }
-        } catch(e) {
-          console.warn('Template Script execution warning:', e);
-        }
       <\/script>
     `;return v&&y?(b=i.replace(/(<head[^>]*>)/i,`$1\n${x}`),b=b.replace(/<\/body>/i,`${S}\n</body>`)):b=y?`<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>${c}</title>\n${x}\n</head>\n${i.replace(/<\/body>/i,`${S}\n</body>`)}`:`
         <!DOCTYPE html>

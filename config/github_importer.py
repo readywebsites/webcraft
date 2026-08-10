@@ -278,6 +278,23 @@ def parse_github_repo_url(url: str) -> Tuple[str, str, str]:
     return owner, repo_name, branch
 
 
+def find_matching_file(file_ref: str, repo_files: list) -> str:
+    """Helper to match a relative file path in repo_files using exact, suffix, or basename strategy."""
+    if not file_ref or not repo_files:
+        return None
+    clean_ref = file_ref.strip().lstrip('./').lstrip('/')
+    if clean_ref in repo_files:
+        return clean_ref
+    suffix_match = next((f for f in repo_files if f.endswith('/' + clean_ref) or f.endswith(clean_ref)), None)
+    if suffix_match:
+        return suffix_match
+    base_name = os.path.basename(clean_ref)
+    base_match = next((f for f in repo_files if f.endswith('/' + base_name) or f == base_name), None)
+    if base_match:
+        return base_match
+    return None
+
+
 def clean_django_tags(content: str, owner: str, repo_name: str, branch: str, repo_files: list = None) -> str:
     """
     Cleans and converts Django template tags, variables, static files, and URLs into browser-friendly HTML.
@@ -295,12 +312,7 @@ def clean_django_tags(content: str, owner: str, repo_name: str, branch: str, rep
         is_font = any(ext in rel_path.lower() for ext in ['.woff', '.woff2', '.ttf', '.eot', '.otf'])
         target_base = jsdelivr_base if is_font else raw_base
         
-        matched_file = None
-        for f in repo_files:
-            if f.endswith(rel_path) or f == f"static/{rel_path}":
-                matched_file = f
-                break
-        
+        matched_file = find_matching_file(rel_path, repo_files)
         final_rel = matched_file if matched_file else (f"static/{rel_path}" if not rel_path.startswith("static/") else rel_path)
         return f"{target_base}{final_rel}"
 
@@ -319,10 +331,11 @@ def clean_django_tags(content: str, owner: str, repo_name: str, branch: str, rep
     # 4. Handle trans tags {% trans "Text" %} or {% _("Text") %}
     content = re.sub(r'\{%\s*(?:trans|_)\s+["\']([^"\'%]+)["\']\s*%\}', r'\1', content, flags=re.IGNORECASE)
 
-    # 5. Clean control flow tags {% if ... %}, {% endif %}, {% for ... %}, {% endfor %} while preserving inner markup
+    # 5. Handle conditionals {% if ... %} branch selection
+    content = re.sub(r'\{%\s*if\b[^%}]*%\}(.*?)(?:\{%\s*else\b[^%}]*%\}.*?)?\{%\s*endif\s*%\}', r'\1', content, flags=re.DOTALL | re.IGNORECASE)
     content = re.sub(r'\{%\s*(?:if|elif|else|endif|for|endfor)\b[^%}]*%\}', '', content, flags=re.IGNORECASE)
 
-    # 6. Map common Django variables {{ title }}, {{ site_name }}, {{ brand_name }}, {{ logo_url }} to system placeholders
+    # 6. Map common Django variables to placeholders
     content = re.sub(r'\{\{\s*(?:title|site_title|site_name|brand|company_name)\s*\}\}', '{{SITE_TITLE}}', content, flags=re.IGNORECASE)
     content = re.sub(r'\{\{\s*(?:tagline|subtitle|lead)\s*\}\}', '{{TAGLINE}}', content, flags=re.IGNORECASE)
     content = re.sub(r'\{\{\s*(?:logo|logo_url)\s*\}\}', '{{LOGO_URL}}', content, flags=re.IGNORECASE)
@@ -330,7 +343,7 @@ def clean_django_tags(content: str, owner: str, repo_name: str, branch: str, rep
     content = re.sub(r'\{\{\s*(?:email|contact_email)\s*\}\}', '{{CONTACT_EMAIL}}', content, flags=re.IGNORECASE)
     content = re.sub(r'\{\{\s*(?:phone|contact_phone)\s*\}\}', '{{CONTACT_PHONE}}', content, flags=re.IGNORECASE)
 
-    # Clean remaining unparsed Django variables cleanly
+    # Clean remaining unparsed Django variables
     content = re.sub(r'\{\{\s*(?!(?:SITE_TITLE|LOGO_URL|HERO_IMAGE_URL|TAGLINE|CONTACT_EMAIL|CONTACT_PHONE|PRIMARY_COLOR|SERVICE_\d+_TITLE|SERVICE_\d+_DESC)\}\})[a-zA-Z0-9_.]+\s*\}\}', '', content)
 
     return content
@@ -347,7 +360,7 @@ def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_
 
     target_page = None
     for name in ['index.html', 'home.html', 'landing.html', 'main.html', 'page.html']:
-        match = next((f for f in django_html_files if f.endswith('/' + name) or f == name), None)
+        match = find_matching_file(name, django_html_files)
         if match:
             target_page = match
             break
@@ -359,7 +372,6 @@ def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_
     if not page_html or len(page_html.strip()) < 10:
         return "", "", ""
 
-    # Resolve Django Template Inheritance ({% extends ... %})
     merged_html = page_html
     max_extends_depth = 5
     curr_depth = 0
@@ -370,7 +382,7 @@ def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_
             break
 
         parent_ref = extends_match.group(1).strip()
-        parent_file = next((f for f in django_html_files if f.endswith('/' + parent_ref) or f.endswith(parent_ref)), None)
+        parent_file = find_matching_file(parent_ref, django_html_files)
         if not parent_file:
             break
 
@@ -403,12 +415,12 @@ def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_
     max_includes = 15
     inc_count = 0
     while inc_count < max_includes:
-        include_match = re.search(r'\{%\s*include\s+["\']([^"\'%]+)["\']\s*%\}', merged_html, re.IGNORECASE)
+        include_match = re.search(r'\{%\s*include\s+["\']([^"\'%]+)["\']\s*(?:with\s+[^%}]*)?%\}', merged_html, re.IGNORECASE)
         if not include_match:
             break
         
         inc_ref = include_match.group(1).strip()
-        inc_file = next((f for f in django_html_files if f.endswith('/' + inc_ref) or f.endswith(inc_ref)), None)
+        inc_file = find_matching_file(inc_ref, django_html_files)
         inc_content = ""
         if inc_file:
             inc_content = fetch_raw_github_file(owner, repo_name, branch, inc_file) or ""
@@ -420,6 +432,22 @@ def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_
     css_code = fetch_repo_css_files(owner, repo_name, branch, cleaned_html, repo_files)
 
     return cleaned_html, css_code, ""
+
+
+def clean_react_component_code(code: str) -> str:
+    """Strips single and multi-line ESM imports and export keywords from React code."""
+    if not code:
+        return ""
+    code = re.sub(r'import\s+[\s\S]*?\s+from\s+["\'][^"\']+["\'];?', '', code)
+    code = re.sub(r'import\s+type\s+[\s\S]*?;', '', code)
+    code = re.sub(r'import\s+["\'][^"\']+["\'];?', '', code)
+    code = re.sub(r'export\s+default\s+function\s+', 'function ', code)
+    code = re.sub(r'export\s+default\s+class\s+', 'class ', code)
+    code = re.sub(r'export\s+default\s+', '', code)
+    code = re.sub(r'export\s+const\s+', 'const ', code)
+    code = re.sub(r'export\s+function\s+', 'function ', code)
+    code = re.sub(r'export\s+class\s+', 'class ', code)
+    return code
 
 
 def parse_and_process_react_repo(owner: str, repo_name: str, branch: str, repo_files: list) -> Tuple[str, str, str]:
@@ -434,7 +462,7 @@ def parse_and_process_react_repo(owner: str, repo_name: str, branch: str, repo_f
     
     entry_file = None
     for cand in entry_candidates:
-        match = next((f for f in repo_files if f.lower() == cand.lower() or f.lower().endswith('/' + cand.lower())), None)
+        match = find_matching_file(cand, repo_files)
         if match:
             entry_file = match
             break
@@ -455,35 +483,27 @@ def parse_and_process_react_repo(owner: str, repo_name: str, branch: str, repo_f
     child_components_code = []
     child_files = [f for f in repo_files if (f.endswith('.jsx') or f.endswith('.tsx') or f.endswith('.js')) and f != entry_file and ('/components/' in f or '/pages/' in f or '/views/' in f)]
     
-    for c_file in child_files[:8]:
+    for c_file in child_files[:12]:
         code = fetch_raw_github_file(owner, repo_name, branch, c_file)
         if code and len(code.strip()) > 30:
-            cleaned_child = re.sub(r'import\s+.*?\s+from\s+["\'][^"\']+["\'];?', '', code)
-            cleaned_child = re.sub(r'import\s+["\'][^"\']+["\'];?', '', cleaned_child)
-            cleaned_child = re.sub(r'export\s+default\s+function\s+', 'function ', cleaned_child)
-            cleaned_child = re.sub(r'export\s+default\s+', '', cleaned_child)
-            cleaned_child = re.sub(r'export\s+const\s+', 'const ', cleaned_child)
-            cleaned_child = re.sub(r'export\s+function\s+', 'function ', cleaned_child)
+            cleaned_child = clean_react_component_code(code)
             child_components_code.append(f"/* Component from: {c_file} */\n" + cleaned_child)
 
-    cleaned_entry = re.sub(r'import\s+.*?\s+from\s+["\'][^"\']+["\'];?', '', entry_code)
-    cleaned_entry = re.sub(r'import\s+["\'][^"\']+["\'];?', '', cleaned_entry)
+    cleaned_entry = clean_react_component_code(entry_code)
     
     app_name = "App"
-    if re.search(r'export\s+default\s+function\s+([a-zA-Z0-9_]+)', cleaned_entry):
-        m = re.search(r'export\s+default\s+function\s+([a-zA-Z0-9_]+)', cleaned_entry)
-        if m:
-            app_name = m.group(1)
-        cleaned_entry = re.sub(r'export\s+default\s+function\s+', 'function ', cleaned_entry)
-    elif re.search(r'function\s+([a-zA-Z0-9_]+)', cleaned_entry):
-        m = re.search(r'function\s+([a-zA-Z0-9_]+)', cleaned_entry)
-        if m:
-            app_name = m.group(1)
-        cleaned_entry = re.sub(r'export\s+default\s+[a-zA-Z0-9_]+;?', '', cleaned_entry)
-    else:
-        cleaned_entry = re.sub(r'export\s+default\s+', 'const App = ', cleaned_entry)
+    m_name = re.search(r'function\s+([a-zA-Z0-9_]+)', cleaned_entry)
+    if m_name:
+        app_name = m_name.group(1)
 
-    bundled_react_js = "\n\n".join(child_components_code + [f"/* Main Entry Component: {entry_file} */\n" + cleaned_entry])
+    hooks_header = """
+const {
+  useState, useEffect, useRef, useMemo, useCallback,
+  useContext, createContext, useReducer, useId, Fragment, memo, forwardRef
+} = (typeof React !== 'undefined' ? React : {});
+"""
+
+    bundled_react_js = hooks_header + "\n\n" + "\n\n".join(child_components_code + [f"/* Main Entry Component: {entry_file} */\n" + cleaned_entry])
     
     mount_script = f"""
 if (typeof {app_name} !== 'undefined') {{
@@ -492,9 +512,9 @@ if (typeof {app_name} !== 'undefined') {{
 
 (function() {{
   if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') return;
-  const rootEl = document.getElementById('root') || document.getElementById('app') || document.body;
+  const rootEl = document.getElementById('root') || document.getElementById('app') || document.getElementById('app-root') || document.body;
   if (rootEl && !rootEl.hasChildNodes()) {{
-    const Component = window.App || (typeof App !== 'undefined' ? App : null);
+    const Component = window.App || (typeof App !== 'undefined' ? App : null) || (typeof Main !== 'undefined' ? Main : null) || (typeof Home !== 'undefined' ? Home : null);
     if (Component) {{
       try {{
         if (ReactDOM.createRoot) {{
@@ -536,7 +556,13 @@ if (typeof {app_name} !== 'undefined') {{
         if 'id="root"' not in html_code and 'id="app"' not in html_code:
             html_code = html_code.replace('<body>', '<body>\n  <div id="root"></div>')
 
+    # Fetch ALL CSS files in the React repository
     css_code = fetch_repo_css_files(owner, repo_name, branch, html_code, repo_files)
+    for f in repo_files:
+        if f.endswith('.css') and f not in css_code:
+            extra_css = fetch_raw_github_file(owner, repo_name, branch, f)
+            if extra_css:
+                css_code += f"\n\n/* Imported: {f} */\n" + extra_css
 
     return html_code, css_code, bundled_react_js
 
