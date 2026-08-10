@@ -8,7 +8,9 @@ from .views import (
     import_github_template,
     generate_from_github_template,
     get_github_template_source,
-    export_github_repo_api
+    export_github_repo_api,
+    initiate_phonepe_payment,
+    verify_phonepe_payment
 )
 
 urlpatterns = [
@@ -23,6 +25,10 @@ urlpatterns = [
     path('github/generate/', generate_from_github_template, name='generate_from_github_template'),
     path('github/source/', get_github_template_source, name='get_github_template_source'),
     path('github/export-api/', export_github_repo_api, name='export_github_repo_api'),
+
+    # PhonePe Payment Gateway endpoints
+    path('payment/phonepe/initiate/', initiate_phonepe_payment, name='initiate_phonepe_payment'),
+    path('payment/phonepe/verify/', verify_phonepe_payment, name='verify_phonepe_payment'),
 ]
 
 

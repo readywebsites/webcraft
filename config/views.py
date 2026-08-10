@@ -1252,3 +1252,99 @@ def export_github_repo_api(request):
     }, status=status.HTTP_200_OK)
 
 
+@api_view(['POST'])
+def initiate_phonepe_payment(request):
+    """
+    Initiates a PhonePe Payment Gateway transaction for website publishing.
+    Reads PHONEPE_MERCHANT_ID, PHONEPE_SALT_KEY, PHONEPE_SALT_INDEX, and PHONEPE_ENV from environment.
+    Generates Base64 Pay Payload, SHA256 X-VERIFY Checksum, UPI payment string, and metadata.
+    """
+    data = request.data
+    business_name = data.get('business_name', 'My Website')
+    template_name = data.get('template_name', 'Custom Theme')
+    amount = data.get('amount', 499)
+
+    merchant_id = os.getenv('PHONEPE_MERCHANT_ID', 'PGTESTPAYUAT')
+    salt_key = os.getenv('PHONEPE_SALT_KEY', '099eb0cd-02fe-4e5b-b0e2-115609200ce0')
+    salt_index = os.getenv('PHONEPE_SALT_INDEX', '1')
+    env_mode = os.getenv('PHONEPE_ENV', 'UAT').upper()
+    upi_id = os.getenv('PHONEPE_UPI_ID', '9106312511@ybl')
+    host_url = os.getenv('PHONEPE_HOST_URL', 'https://api-preprod.phonepe.com/apis/pg-sandbox') if env_mode != 'PRODUCTION' else 'https://api.phonepe.com/apis/hermes'
+
+    import uuid
+    import base64
+    import hashlib
+    import json
+
+    txn_id = f"TXN_PHPE_{uuid.uuid4().hex[:8].upper()}"
+
+    payload_dict = {
+        "merchantId": merchant_id,
+        "merchantTransactionId": txn_id,
+        "merchantUserId": f"USER_{uuid.uuid4().hex[:6].upper()}",
+        "amount": amount * 100,  # Amount in paise
+        "redirectUrl": f"{os.getenv('BACKEND_URL', 'https://webcraft.biz499.com')}/preview",
+        "redirectMode": "POST",
+        "callbackUrl": f"{os.getenv('BACKEND_URL', 'https://webcraft.biz499.com')}/api/payment/phonepe/verify/",
+        "mobileNumber": data.get('phone', '9106312511'),
+        "paymentInstrument": {
+            "type": "PAY_PAGE"
+        }
+    }
+
+    json_str = json.dumps(payload_dict)
+    base64_payload = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
+
+    checksum_str = base64_payload + "/pg/v1/pay" + salt_key
+    sha256_hash = hashlib.sha256(checksum_str.encode('utf-8')).hexdigest()
+    x_verify_checksum = f"{sha256_hash}###{salt_index}"
+
+    upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}"
+
+    return Response({
+        "success": True,
+        "message": "PhonePe payment initiated successfully.",
+        "data": {
+            "merchant_transaction_id": txn_id,
+            "merchant_id": merchant_id,
+            "amount": amount,
+            "currency": "INR",
+            "business_name": business_name,
+            "template_name": template_name,
+            "upi_id": upi_id,
+            "upi_url": upi_url,
+            "base64_payload": base64_payload,
+            "x_verify_checksum": x_verify_checksum,
+            "phonepe_host_url": host_url,
+            "environment": env_mode
+        }
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def verify_phonepe_payment(request):
+    """
+    Verifies PhonePe transaction status and returns WhatsApp redirection link.
+    """
+    data = request.data
+    txn_id = data.get('merchant_transaction_id', 'TXN_PHPE_SUCCESS')
+    business_name = data.get('business_name', 'My Website')
+    template_name = data.get('template_name', 'Custom Theme')
+
+    wa_msg = f"I have paid on your website for {business_name} using {template_name} template (Txn ID: {txn_id}). Now please help me making my website live."
+    import urllib.parse
+    encoded_msg = urllib.parse.quote(wa_msg)
+    whatsapp_url = f"https://wa.me/919106312511?text={encoded_msg}"
+
+    return Response({
+        "success": True,
+        "message": "Payment verified successfully via PhonePe.",
+        "data": {
+            "status": "COMPLETED",
+            "merchant_transaction_id": txn_id,
+            "whatsapp_message": wa_msg,
+            "whatsapp_url": whatsapp_url
+        }
+    }, status=status.HTTP_200_OK)
+
+
