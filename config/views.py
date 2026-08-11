@@ -1252,11 +1252,6 @@ def export_github_repo_api(request):
     }, status=status.HTTP_200_OK)
 
 
-@api_view(['POST'])
-def initiate_phonepe_payment(request):
-    """
-    Initiates a PhonePe Payment Gateway transaction using Client ID & Client Secret.
-    Reads PHONEPE_CLIENT_ID and PHONEPE_CLIENT_SECRET from environment.
 def check_phonepe_transaction_status_server(merchant_id, txn_id, host_url, salt_key, salt_index, client_id):
     """
     Independently queries PhonePe's official Status API:
