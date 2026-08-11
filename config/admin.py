@@ -1,5 +1,4 @@
-from django.contrib import admin
-from .models import BusinessCategory, GeneratedWebsite, GitHubTemplate
+from .models import BusinessCategory, GeneratedWebsite, GitHubTemplate, PhonePeOrderTransaction
 
 @admin.register(BusinessCategory)
 class BusinessCategoryAdmin(admin.ModelAdmin):
@@ -20,5 +19,13 @@ class GitHubTemplateAdmin(admin.ModelAdmin):
     list_filter = ('category', 'is_popular', 'created_at')
     search_fields = ('title', 'owner', 'repo_name', 'description', 'repo_url')
     readonly_fields = ('created_at', 'updated_at')
+
+@admin.register(PhonePeOrderTransaction)
+class PhonePeOrderTransactionAdmin(admin.ModelAdmin):
+    list_display = ('merchant_transaction_id', 'business_name', 'amount', 'status', 'is_paid', 'created_at')
+    list_filter = ('status', 'is_paid', 'created_at')
+    search_fields = ('merchant_transaction_id', 'business_name', 'phonepe_transaction_id', 'customer_phone')
+    readonly_fields = ('created_at', 'updated_at')
+
 
 

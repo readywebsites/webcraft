@@ -137,9 +137,40 @@ class GitHubTemplate(models.Model):
 
         super().save(*args, **kwargs)
 
+class PhonePeOrderTransaction(models.Model):
+    """
+    Stores server-verified PhonePe Payment Gateway transactions and status tracking.
+    """
+    STATUS_CHOICES = [
+        ('PENDING', 'Payment Pending'),
+        ('SUCCESS', 'Payment Successful'),
+        ('FAILED', 'Payment Failed'),
+        ('CANCELLED', 'Payment Cancelled'),
+    ]
+
+    merchant_transaction_id = models.CharField(max_length=100, unique=True, db_index=True)
+    phonepe_transaction_id = models.CharField(max_length=100, blank=True, null=True)
+    provider_reference_id = models.CharField(max_length=100, blank=True, null=True)
+    business_name = models.CharField(max_length=150)
+    template_name = models.CharField(max_length=150, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=499.00)
+    currency = models.CharField(max_length=10, default='INR')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING', db_index=True)
+    is_paid = models.BooleanField(default=False)
+    upi_id = models.CharField(max_length=100, blank=True)
+    customer_phone = models.CharField(max_length=20, blank=True)
+    raw_response_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "PhonePe Order Transaction"
+        verbose_name_plural = "PhonePe Order Transactions"
+        ordering = ['-created_at']
+
     def __str__(self):
-        cat_name = self.category.name if self.category else "Uncategorized"
-        return f"{self.title} [{cat_name}] ({self.owner}/{self.repo_name})"
+        return f"{self.merchant_transaction_id} - {self.business_name} ({self.status})"
+
 
 
 
