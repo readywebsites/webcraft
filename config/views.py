@@ -1297,17 +1297,42 @@ def initiate_phonepe_payment(request):
     json_str = json.dumps(payload_dict)
     base64_payload = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
 
-    # HMAC-SHA256 Auth Token using Client Secret
-    signature = hmac.new(client_secret.encode('utf-8'), base64_payload.encode('utf-8'), hashlib.sha256).hexdigest()
-    auth_header = f"Bearer {client_id}:{signature}"
+    # HMAC-SHA256 Auth Token using Client Secret / Salt Key
+    salt_key = os.getenv('PHONEPE_SALT_KEY', client_secret)
+    salt_index = os.getenv('PHONEPE_SALT_INDEX', '1')
+    
+    checksum_str = base64_payload + "/pg/v1/pay" + salt_key
+    sha256_hash = hashlib.sha256(checksum_str.encode('utf-8')).hexdigest()
+    x_verify_checksum = f"{sha256_hash}###{salt_index}"
+    auth_header = f"Bearer {client_id}:{sha256_hash}"
 
     upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}"
-    
-    # Construct User-Facing PhonePe Mercury Pay Page URL (which shows Cards, NetBanking, Wallet, UPI)
-    if env_mode == 'PRODUCTION':
-        phonepe_pay_page_url = f"https://mercury.phonepe.com/transact/pg?token={txn_id}"
-    else:
-        phonepe_pay_page_url = f"https://mercury-tst.phonepe.com/transact/pg?token={txn_id}"
+    phonepe_pay_page_url = None
+
+    # Make real server-to-server API request to PhonePe to create payment session & fetch live Pay Page URL
+    try:
+        import urllib.request
+        api_url = f"{host_url}/pg/v1/pay"
+        req_body = json.dumps({"request": base64_payload}).encode('utf-8')
+        req_headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-VERIFY': x_verify_checksum,
+            'X-CLIENT-ID': client_id
+        }
+        
+        req = urllib.request.Request(api_url, data=req_body, headers=req_headers, method='POST')
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            resp_data = json.loads(resp.read().decode('utf-8'))
+            if resp_data.get('success'):
+                redirect_info = resp_data.get('data', {}).get('instrumentResponse', {}).get('redirectInfo', {})
+                phonepe_pay_page_url = redirect_info.get('url')
+    except Exception as api_err:
+        phonepe_pay_page_url = None
+
+    # Fallback to UPI deep link if PhonePe API is in UAT sandbox or credentials are test placeholders
+    if not phonepe_pay_page_url:
+        phonepe_pay_page_url = upi_url
 
     return Response({
         "success": True,
@@ -1324,8 +1349,8 @@ def initiate_phonepe_payment(request):
             "upi_url": upi_url,
             "phonepe_pay_page_url": phonepe_pay_page_url,
             "base64_payload": base64_payload,
+            "x_verify_checksum": x_verify_checksum,
             "auth_header": auth_header,
-            "signature": signature,
             "phonepe_host_url": host_url,
             "environment": env_mode
         }
