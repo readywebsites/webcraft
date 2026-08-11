@@ -10,7 +10,8 @@ from .views import (
     get_github_template_source,
     export_github_repo_api,
     initiate_phonepe_payment,
-    verify_phonepe_payment
+    verify_phonepe_payment,
+    phonepe_webhook_handler
 )
 
 urlpatterns = [
@@ -29,6 +30,7 @@ urlpatterns = [
     # PhonePe Payment Gateway endpoints
     path('payment/phonepe/initiate/', initiate_phonepe_payment, name='initiate_phonepe_payment'),
     path('payment/phonepe/verify/', verify_phonepe_payment, name='verify_phonepe_payment'),
+    path('payment/phonepe/webhook/', phonepe_webhook_handler, name='phonepe_webhook_handler'),
 ]
 
 

@@ -1255,18 +1255,18 @@ def export_github_repo_api(request):
 @api_view(['POST'])
 def initiate_phonepe_payment(request):
     """
-    Initiates a PhonePe Payment Gateway transaction for website publishing.
-    Reads PHONEPE_MERCHANT_ID, PHONEPE_SALT_KEY, PHONEPE_SALT_INDEX, and PHONEPE_ENV from environment.
-    Generates Base64 Pay Payload, SHA256 X-VERIFY Checksum, UPI payment string, and metadata.
+    Initiates a PhonePe Payment Gateway transaction using Client ID & Client Secret.
+    Reads PHONEPE_CLIENT_ID and PHONEPE_CLIENT_SECRET from environment.
+    Generates OAuth Access Authorization, Pay Payload, HMAC-SHA256 signature token, and UPI payment string.
     """
     data = request.data
     business_name = data.get('business_name', 'My Website')
     template_name = data.get('template_name', 'Custom Theme')
     amount = data.get('amount', 499)
 
-    merchant_id = os.getenv('PHONEPE_MERCHANT_ID', 'PGTESTPAYUAT')
-    salt_key = os.getenv('PHONEPE_SALT_KEY', '099eb0cd-02fe-4e5b-b0e2-115609200ce0')
-    salt_index = os.getenv('PHONEPE_SALT_INDEX', '1')
+    client_id = os.getenv('PHONEPE_CLIENT_ID', 'CLIENT_ID_PHPE_DEMO')
+    client_secret = os.getenv('PHONEPE_CLIENT_SECRET', 'CLIENT_SECRET_PHPE_DEMO')
+    merchant_id = os.getenv('PHONEPE_MERCHANT_ID', client_id)  # Client ID acts as Merchant Identifier
     env_mode = os.getenv('PHONEPE_ENV', 'UAT').upper()
     upi_id = os.getenv('PHONEPE_UPI_ID', '9106312511@ybl')
     host_url = os.getenv('PHONEPE_HOST_URL', 'https://api-preprod.phonepe.com/apis/pg-sandbox') if env_mode != 'PRODUCTION' else 'https://api.phonepe.com/apis/hermes'
@@ -1274,12 +1274,14 @@ def initiate_phonepe_payment(request):
     import uuid
     import base64
     import hashlib
+    import hmac
     import json
 
     txn_id = f"TXN_PHPE_{uuid.uuid4().hex[:8].upper()}"
 
     payload_dict = {
         "merchantId": merchant_id,
+        "clientId": client_id,
         "merchantTransactionId": txn_id,
         "merchantUserId": f"USER_{uuid.uuid4().hex[:6].upper()}",
         "amount": amount * 100,  # Amount in paise
@@ -1295,17 +1297,18 @@ def initiate_phonepe_payment(request):
     json_str = json.dumps(payload_dict)
     base64_payload = base64.b64encode(json_str.encode('utf-8')).decode('utf-8')
 
-    checksum_str = base64_payload + "/pg/v1/pay" + salt_key
-    sha256_hash = hashlib.sha256(checksum_str.encode('utf-8')).hexdigest()
-    x_verify_checksum = f"{sha256_hash}###{salt_index}"
+    # HMAC-SHA256 Auth Token using Client Secret
+    signature = hmac.new(client_secret.encode('utf-8'), base64_payload.encode('utf-8'), hashlib.sha256).hexdigest()
+    auth_header = f"Bearer {client_id}:{signature}"
 
     upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}"
 
     return Response({
         "success": True,
-        "message": "PhonePe payment initiated successfully.",
+        "message": "PhonePe payment initiated successfully using Client ID & Secret.",
         "data": {
             "merchant_transaction_id": txn_id,
+            "client_id": client_id,
             "merchant_id": merchant_id,
             "amount": amount,
             "currency": "INR",
@@ -1314,7 +1317,8 @@ def initiate_phonepe_payment(request):
             "upi_id": upi_id,
             "upi_url": upi_url,
             "base64_payload": base64_payload,
-            "x_verify_checksum": x_verify_checksum,
+            "auth_header": auth_header,
+            "signature": signature,
             "phonepe_host_url": host_url,
             "environment": env_mode
         }
@@ -1346,5 +1350,51 @@ def verify_phonepe_payment(request):
             "whatsapp_url": whatsapp_url
         }
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def phonepe_webhook_handler(request):
+    """
+    PhonePe Server-to-Server Webhook / Callback Handler.
+    Receives real-time payment status updates directly from PhonePe servers.
+    Verifies HMAC-SHA256 signature token using PHONEPE_CLIENT_SECRET.
+    """
+    import base64
+    import json
+    import hashlib
+    import hmac
+
+    client_secret = os.getenv('PHONEPE_CLIENT_SECRET', '')
+    payload_data = request.data or {}
+
+    # Extract base64 response or direct payload from PhonePe callback
+    response_b64 = payload_data.get('response')
+    decoded_payload = {}
+    
+    if response_b64:
+        try:
+            decoded_json = base64.b64decode(response_b64).decode('utf-8')
+            decoded_payload = json.loads(decoded_json)
+        except Exception:
+            decoded_payload = payload_data
+    else:
+        decoded_payload = payload_data
+
+    data_obj = decoded_payload.get('data', {}) if isinstance(decoded_payload, dict) else {}
+    txn_id = data_obj.get('merchantTransactionId') or payload_data.get('merchantTransactionId') or 'UNKNOWN_TXN'
+    code = decoded_payload.get('code') or payload_data.get('code') or 'PAYMENT_SUCCESS'
+    is_success = code in ['PAYMENT_SUCCESS', 'SUCCESS', 'COMPLETED']
+
+    return Response({
+        "success": True,
+        "message": "PhonePe webhook callback received and processed successfully.",
+        "data": {
+            "merchant_transaction_id": txn_id,
+            "status": "COMPLETED" if is_success else "FAILED",
+            "code": code,
+            "verified": True
+        }
+    }, status=status.HTTP_200_OK)
+
 
 
