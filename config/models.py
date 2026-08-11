@@ -9,6 +9,7 @@ class BusinessCategory(models.Model):
     slug = models.SlugField(max_length=100, unique=True, help_text="Unique slug e.g. restaurant")
     icon_name = models.CharField(max_length=50, default="Briefcase", help_text="Icon identifier e.g. Utensils, Dumbbell, Laptop")
     description = models.TextField(blank=True, help_text="Short description of the category")
+    price = models.IntegerField(default=499, help_text="Price in INR for templates under this category")
 
     class Meta:
         verbose_name = "Business Category"

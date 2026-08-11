@@ -311,6 +311,7 @@ BUSINESS_TYPES_DATA = [
     {
         "id": "fitness",
         "name": "Fitness & Gyms",
+        "price": 499,
         "description": "Class timetables, personal trainer rosters, membership signups & wellness spa showcases.",
         "recommended_template": "pulse-athletics",
         "template_name": "Pulse Athletics",
@@ -350,6 +351,7 @@ BUSINESS_TYPES_DATA = [
     {
         "id": "restaurant",
         "name": "Restaurants & Cafes",
+        "price": 599,
         "description": "Menus, online table reservation forms, chef specials & wine cellar showcases.",
         "recommended_template": "bistro-gourmet",
         "template_name": "Bistro Gourmet",
@@ -389,6 +391,7 @@ BUSINESS_TYPES_DATA = [
     {
         "id": "tech",
         "name": "Tech & SaaS Platforms",
+        "price": 899,
         "description": "Feature matrices, API documentation, demo request forms & pricing tables.",
         "recommended_template": "cloudscale-saas",
         "template_name": "CloudScale SaaS",
@@ -428,6 +431,7 @@ BUSINESS_TYPES_DATA = [
     {
         "id": "realestate",
         "name": "Real Estate & Property",
+        "price": 999,
         "description": "Property listing filters, virtual tour embeds, agent profiles & tour bookings.",
         "recommended_template": "apex-estates",
         "template_name": "Apex Estates",
@@ -467,6 +471,7 @@ BUSINESS_TYPES_DATA = [
     {
         "id": "healthcare",
         "name": "Healthcare & Clinics",
+        "price": 699,
         "description": "Doctor appointments, specialized medical departments, patient portals & emergency info.",
         "recommended_template": "careplus-medical",
         "template_name": "CarePlus Medical",
@@ -506,6 +511,7 @@ BUSINESS_TYPES_DATA = [
     {
         "id": "retail",
         "name": "E-Commerce & Retail",
+        "price": 799,
         "description": "Product storefronts, seasonal lookbooks, cart drawers & customer review badges.",
         "recommended_template": "vogue-boutique",
         "template_name": "Vogue Boutique",
@@ -544,6 +550,7 @@ BUSINESS_TYPES_DATA = [
     }
 ]
 
+
 @api_view(['GET'])
 def health_check(request):
     """Internal system health check endpoint."""
@@ -575,10 +582,12 @@ def get_business_types(request):
                 tpl_count = cat.github_templates.count()
                 gh_tpl = cat.github_templates.first()
                 template_title = gh_tpl.title if gh_tpl else (matched_preset['template_name'] if matched_preset else cat.name)
+                cat_price = getattr(cat, 'price', None) or (matched_preset['price'] if matched_preset else 499)
                 data_list.append({
                     "id": cat.slug,
                     "name": cat.name,
                     "description": cat.description or f"Templates for {cat.name}",
+                    "price": cat_price,
                     "template_count": tpl_count,
                     "recommended_template": gh_tpl.repo_name if gh_tpl else f"{cat.slug}-default",
                     "template_name": template_title,
@@ -737,6 +746,7 @@ def generate_website(request):
                     }
                 )
 
+                cat_price = db_cat.price if (db_cat and hasattr(db_cat, 'price')) else 499
                 item = {
                     "website_id": f"gh_web_{tpl.id}_{uuid.uuid4().hex[:6]}",
                     "option_index": index + 1,
@@ -744,6 +754,8 @@ def generate_website(request):
                     "business_name": business_name,
                     "business_type": business_type_id,
                     "category_name": category_name,
+                    "category_price": cat_price,
+                    "price": cat_price,
                     "template_id": f"gh-{tpl.owner}-{tpl.repo_name}",
                     "template_name": tpl.title or f"Option {index + 1}",
                     "thumbnail_url": tpl.thumbnail_url or "",
@@ -837,6 +849,7 @@ def get_popular_github_templates(request):
                 "id": f"gh-db-{item.id}",
                 "category_id": item.category.slug if item.category else "general",
                 "category_name": item.category.name if item.category else "General Templates",
+                "price": item.category.price if (item.category and hasattr(item.category, 'price')) else 499,
                 "owner": item.owner,
                 "repo_name": item.repo_name,
                 "repo_url": item.repo_url,

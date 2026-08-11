@@ -3,7 +3,8 @@ from .models import BusinessCategory, GeneratedWebsite, GitHubTemplate, PhonePeO
 
 @admin.register(BusinessCategory)
 class BusinessCategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'icon_name')
+    list_display = ('name', 'slug', 'price', 'icon_name')
+    list_editable = ('price',)
     prepopulated_fields = {'slug': ('name',)}
     search_fields = ('name', 'description')
 
