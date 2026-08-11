@@ -1302,6 +1302,7 @@ def initiate_phonepe_payment(request):
     auth_header = f"Bearer {client_id}:{signature}"
 
     upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}"
+    phonepe_pay_page_url = f"{host_url}/pg/v1/pay"
 
     return Response({
         "success": True,
@@ -1316,6 +1317,7 @@ def initiate_phonepe_payment(request):
             "template_name": template_name,
             "upi_id": upi_id,
             "upi_url": upi_url,
+            "phonepe_pay_page_url": phonepe_pay_page_url,
             "base64_payload": base64_payload,
             "auth_header": auth_header,
             "signature": signature,
