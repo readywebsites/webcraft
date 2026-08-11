@@ -1302,7 +1302,12 @@ def initiate_phonepe_payment(request):
     auth_header = f"Bearer {client_id}:{signature}"
 
     upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}"
-    phonepe_pay_page_url = f"{host_url}/pg/v1/pay"
+    
+    # Construct User-Facing PhonePe Mercury Pay Page URL (which shows Cards, NetBanking, Wallet, UPI)
+    if env_mode == 'PRODUCTION':
+        phonepe_pay_page_url = f"https://mercury.phonepe.com/transact/pg?token={txn_id}"
+    else:
+        phonepe_pay_page_url = f"https://mercury-tst.phonepe.com/transact/pg?token={txn_id}"
 
     return Response({
         "success": True,
