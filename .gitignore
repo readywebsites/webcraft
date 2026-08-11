@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
 # C extensions
 *.so
 
@@ -35,8 +36,7 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 media/
-
-# Django Migrations
+migrations/
 **/migrations/*.py
 !**/migrations/__init__.py
 
