@@ -1339,7 +1339,7 @@ def initiate_phonepe_payment(request):
     phonepe_pay_page_url = None
 
     # Call PhonePe API /pg/v1/pay to fetch live hosted checkout URL
-    if merchant_id and salt_key and salt_key != '099eb0cd-02fe-4e5b-b0e2-115609200ce0':
+    if merchant_id and salt_key:
         try:
             import urllib.request
             api_url = f"{host_url}/pg/v1/pay"
@@ -1347,25 +1347,19 @@ def initiate_phonepe_payment(request):
             req_headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-VERIFY': x_verify_checksum,
-                'X-CLIENT-ID': client_id
+                'X-VERIFY': x_verify_checksum
             }
+            if client_id:
+                req_headers['X-CLIENT-ID'] = client_id
             
             req = urllib.request.Request(api_url, data=req_body, headers=req_headers, method='POST')
-            with urllib.request.urlopen(req, timeout=8) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 resp_data = json.loads(resp.read().decode('utf-8'))
                 if resp_data.get('success'):
                     redirect_info = resp_data.get('data', {}).get('instrumentResponse', {}).get('redirectInfo', {})
                     phonepe_pay_page_url = redirect_info.get('url')
-        except Exception:
+        except Exception as api_err:
             phonepe_pay_page_url = None
-
-    # Construct user-facing hosted checkout URL if in Production or UAT testing mode
-    if not phonepe_pay_page_url:
-        if env_mode == 'PRODUCTION':
-            phonepe_pay_page_url = f"https://mercury.phonepe.com/transact/pg?token={txn_id}"
-        else:
-            phonepe_pay_page_url = f"https://mercury-tst.phonepe.com/transact/pg?token={txn_id}"
 
     # Create PENDING transaction record in Django Database
     try:
