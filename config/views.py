@@ -1337,11 +1337,14 @@ def initiate_phonepe_payment(request):
 
     upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}"
     phonepe_pay_page_url = None
+    phonepe_api_response = None
+    phonepe_api_error = None
 
     # Call PhonePe API /pg/v1/pay to fetch live hosted checkout URL
     if merchant_id and salt_key:
         try:
             import urllib.request
+            import urllib.error
             api_url = f"{host_url}/pg/v1/pay"
             req_body = json.dumps({"request": base64_payload}).encode('utf-8')
             req_headers = {
@@ -1355,11 +1358,19 @@ def initiate_phonepe_payment(request):
             req = urllib.request.Request(api_url, data=req_body, headers=req_headers, method='POST')
             with urllib.request.urlopen(req, timeout=10) as resp:
                 resp_data = json.loads(resp.read().decode('utf-8'))
+                phonepe_api_response = resp_data
                 if resp_data.get('success'):
                     redirect_info = resp_data.get('data', {}).get('instrumentResponse', {}).get('redirectInfo', {})
                     phonepe_pay_page_url = redirect_info.get('url')
+                else:
+                    phonepe_api_error = resp_data.get('message', 'PhonePe initiation returned success=false')
+        except urllib.error.HTTPError as http_err:
+            try:
+                phonepe_api_error = json.loads(http_err.read().decode('utf-8'))
+            except Exception:
+                phonepe_api_error = f"HTTP Error {http_err.code}: {http_err.reason}"
         except Exception as api_err:
-            phonepe_pay_page_url = None
+            phonepe_api_error = str(api_err)
 
     # Create PENDING transaction record in Django Database
     try:
@@ -1373,7 +1384,7 @@ def initiate_phonepe_payment(request):
                 'customer_phone': str(data.get('phone', '')),
                 'status': 'PENDING',
                 'is_paid': False,
-                'raw_response_payload': payload_dict
+                'raw_response_payload': phonepe_api_response or payload_dict
             }
         )
     except Exception:
@@ -1393,6 +1404,8 @@ def initiate_phonepe_payment(request):
             "upi_id": upi_id,
             "upi_url": upi_url,
             "phonepe_pay_page_url": phonepe_pay_page_url,
+            "phonepe_api_error": phonepe_api_error,
+            "phonepe_api_response": phonepe_api_response,
             "base64_payload": base64_payload,
             "x_verify_checksum": x_verify_checksum,
             "auth_header": auth_header,
