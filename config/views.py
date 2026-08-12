@@ -1332,7 +1332,7 @@ def initiate_phonepe_payment(request):
         "merchantUserId": f"USER_{uuid.uuid4().hex[:6].upper()}",
         "amount": int(float(amount) * 100),  # Amount in paise
         "redirectUrl": f"{os.getenv('BACKEND_URL', 'https://webcraft.biz499.com')}/preview",
-        "redirectMode": "POST",
+        "redirectMode": "REDIRECT",
         "callbackUrl": f"{os.getenv('BACKEND_URL', 'https://webcraft.biz499.com')}/api/payment/phonepe/webhook/",
         "mobileNumber": str(data.get('phone', '9106312511')),
         "paymentInstrument": {
@@ -1348,7 +1348,8 @@ def initiate_phonepe_payment(request):
     x_verify_checksum = f"{sha256_hash}###{salt_index}"
     auth_header = f"Bearer {client_id}:{sha256_hash}"
 
-    upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}"
+    upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
+    phonepe_intent_url = f"phonepe://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
     phonepe_pay_page_url = None
     phonepe_api_response = None
     phonepe_api_error = None
@@ -1416,6 +1417,7 @@ def initiate_phonepe_payment(request):
             "template_name": template_name,
             "upi_id": upi_id,
             "upi_url": upi_url,
+            "phonepe_intent_url": phonepe_intent_url,
             "phonepe_pay_page_url": phonepe_pay_page_url,
             "phonepe_api_error": phonepe_api_error,
             "phonepe_api_response": phonepe_api_response,
