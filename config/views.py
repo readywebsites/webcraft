@@ -1387,10 +1387,6 @@ def initiate_phonepe_payment(request):
         except Exception as api_err:
             phonepe_api_error = str(api_err)
 
-    # Fallback to universal PhonePe HTTPS web payment link if hosted PG URL is not provided
-    if not phonepe_pay_page_url:
-        phonepe_pay_page_url = phonepe_web_link
-
     # Create PENDING transaction record in Django Database
     try:
         PhonePeOrderTransaction.objects.update_or_create(
@@ -1423,6 +1419,7 @@ def initiate_phonepe_payment(request):
             "upi_id": upi_id,
             "upi_url": upi_url,
             "phonepe_intent_url": phonepe_intent_url,
+            "phonepe_web_link": phonepe_web_link,
             "phonepe_pay_page_url": phonepe_pay_page_url,
             "phonepe_api_error": phonepe_api_error,
             "phonepe_api_response": phonepe_api_response,
