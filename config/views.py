@@ -1313,7 +1313,7 @@ def initiate_phonepe_payment(request):
     client_secret = os.getenv('PHONEPE_CLIENT_SECRET', '')
     merchant_id = os.getenv('PHONEPE_MERCHANT_ID', client_id)
     env_mode = os.getenv('PHONEPE_ENV', 'UAT').upper()
-    upi_id = os.getenv('PHONEPE_UPI_ID', '9106312511@ybl')
+    upi_id = os.getenv('PHONEPE_UPI_ID', 'm23cuq5thr1lw@ybl')
     host_url = os.getenv('PHONEPE_HOST_URL', 'https://api-preprod.phonepe.com/apis/pg-sandbox') if env_mode != 'PRODUCTION' else 'https://api.phonepe.com/apis/hermes'
     salt_key = os.getenv('PHONEPE_SALT_KEY', client_secret)
     salt_index = os.getenv('PHONEPE_SALT_INDEX', '1')
