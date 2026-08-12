@@ -1350,6 +1350,7 @@ def initiate_phonepe_payment(request):
 
     upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
     phonepe_intent_url = f"phonepe://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
+    phonepe_web_link = f"https://phon.pe/pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
     phonepe_pay_page_url = None
     phonepe_api_response = None
     phonepe_api_error = None
@@ -1385,6 +1386,10 @@ def initiate_phonepe_payment(request):
                 phonepe_api_error = f"HTTP Error {http_err.code}: {http_err.reason}"
         except Exception as api_err:
             phonepe_api_error = str(api_err)
+
+    # Fallback to universal PhonePe HTTPS web payment link if hosted PG URL is not provided
+    if not phonepe_pay_page_url:
+        phonepe_pay_page_url = phonepe_web_link
 
     # Create PENDING transaction record in Django Database
     try:
