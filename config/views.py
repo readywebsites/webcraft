@@ -1387,6 +1387,9 @@ def initiate_phonepe_payment(request):
         except Exception as api_err:
             phonepe_api_error = str(api_err)
 
+    if not phonepe_pay_page_url:
+        phonepe_pay_page_url = phonepe_web_link
+
     # Create PENDING transaction record in Django Database
     try:
         PhonePeOrderTransaction.objects.update_or_create(
