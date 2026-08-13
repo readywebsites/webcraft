@@ -1364,6 +1364,21 @@ def initiate_phonepe_payment(request):
             "expireAfter": 1200,
             "paymentFlow": {
                 "type": "PG_CHECKOUT",
+                "paymentModeConfig": {
+                    "version": "V2",
+                    "enabledPaymentModes": [
+                        {
+                            "type": "UPI",
+                            "flows": ["QR", "INTENT"]
+                        },
+                        {
+                            "type": "CARD"
+                        },
+                        {
+                            "type": "NET_BANKING"
+                        }
+                    ]
+                },
                 "merchantUrls": {
                     "redirectUrl": f"{backend_url}/preview?merchantTransactionId={txn_id}"
                 }
