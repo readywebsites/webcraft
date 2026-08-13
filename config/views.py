@@ -1342,6 +1342,8 @@ def initiate_phonepe_payment(request):
 
     txn_id = f"TXN_PHPE_{uuid.uuid4().hex[:8].upper()}"
     amount_in_paise = int(float(amount) * 100)
+    customer_phone = str(data.get('phone', '')).strip()
+    user_id = customer_phone if customer_phone else f"USER_{uuid.uuid4().hex[:12].upper()}"
 
     upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
     phonepe_intent_url = f"phonepe://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
@@ -1356,7 +1358,9 @@ def initiate_phonepe_payment(request):
         
         payload_dict = {
             "merchantOrderId": txn_id,
+            "merchantUserId": user_id,
             "amount": amount_in_paise,
+            "expireAfter": 1200,
             "paymentFlow": {
                 "type": "PG_CHECKOUT",
                 "merchantUrls": {
@@ -1375,7 +1379,7 @@ def initiate_phonepe_payment(request):
         with urllib.request.urlopen(req, timeout=10) as resp:
             resp_data = json.loads(resp.read().decode('utf-8'))
             phonepe_api_response = resp_data
-            phonepe_pay_page_url = resp_data.get('redirectUrl')
+            phonepe_pay_page_url = resp_data.get('redirectUrl') or resp_data.get('data', {}).get('redirectUrl') or resp_data.get('data', {}).get('instrumentResponse', {}).get('redirectInfo', {}).get('url')
     except urllib.error.HTTPError as http_err:
         try:
             phonepe_api_error = json.loads(http_err.read().decode('utf-8'))
@@ -1393,7 +1397,7 @@ def initiate_phonepe_payment(request):
                 'template_name': template_name,
                 'amount': amount,
                 'upi_id': upi_id,
-                'customer_phone': str(data.get('phone', '')),
+                'customer_phone': customer_phone,
                 'status': 'PENDING',
                 'is_paid': False,
                 'raw_response_payload': phonepe_api_response or {}
