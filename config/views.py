@@ -1357,6 +1357,7 @@ def initiate_phonepe_payment(request):
         pay_url = "https://api.phonepe.com/apis/pg/checkout/v2/pay" if env_mode == 'PRODUCTION' else "https://api-preprod.phonepe.com/apis/pg-sandbox/checkout/v2/pay"
         
         payload_dict = {
+            "merchantId": merchant_id,
             "merchantOrderId": txn_id,
             "merchantUserId": user_id,
             "amount": amount_in_paise,
