@@ -1422,6 +1422,10 @@ def initiate_phonepe_payment(request):
     except Exception:
         pass
 
+    import urllib.parse
+    qr_target = phonepe_pay_page_url if (phonepe_pay_page_url and phonepe_pay_page_url.startswith('http')) else upi_url
+    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(qr_target)}"
+
     return Response({
         "success": True,
         "message": "PhonePe payment session created successfully.",
@@ -1435,6 +1439,7 @@ def initiate_phonepe_payment(request):
             "upi_url": upi_url,
             "phonepe_intent_url": phonepe_intent_url,
             "phonepe_pay_page_url": phonepe_pay_page_url,
+            "qr_code_url": qr_code_url,
             "phonepe_api_error": phonepe_api_error,
             "phonepe_api_response": phonepe_api_response,
             "environment": env_mode
@@ -1498,6 +1503,8 @@ def verify_phonepe_payment(request):
     )
 
     state = str(status_resp.get('state') or status_resp.get('code') or '').upper()
+    error_code = str(status_resp.get('errorCode') or status_resp.get('code') or '')
+    detailed_error = str(status_resp.get('detailedErrorCode') or '')
     is_confirmed_success = state in ['COMPLETED', 'SUCCESS', 'PAYMENT_SUCCESS']
 
     if is_confirmed_success:
@@ -1524,17 +1531,26 @@ def verify_phonepe_payment(request):
         }, status=status.HTTP_200_OK)
 
     # 3. If PhonePe returns FAILED, CANCELLED, or EXPIRED
-    if state in ['FAILED', 'PAYMENT_ERROR', 'PAYMENT_FAILED', 'CANCELLED', 'EXPIRED']:
+    if state in ['FAILED', 'PAYMENT_ERROR', 'PAYMENT_FAILED', 'CANCELLED', 'EXPIRED'] or detailed_error in ['ORDER_EXPIRED', 'TXN_NOT_COMPLETED']:
         if order_txn:
             order_txn.status = 'FAILED'
             order_txn.is_paid = False
             order_txn.save()
+
+        msg = f"Payment {state.lower()} on PhonePe."
+        if detailed_error == 'ORDER_EXPIRED':
+            msg = "Payment session expired on PhonePe. Please click 'Pay via PhonePe Gateway' to launch a fresh session."
+        elif detailed_error == 'TXN_NOT_COMPLETED':
+            msg = "Payment checkout was not completed on PhonePe."
+
         return Response({
             "success": False,
-            "message": f"Payment {state.lower()} on PhonePe.",
+            "message": msg,
             "data": {
                 "status": "FAILED",
                 "state": state,
+                "error_code": error_code,
+                "detailed_error_code": detailed_error,
                 "merchant_transaction_id": txn_id,
                 "is_paid": False
             }
@@ -1543,7 +1559,7 @@ def verify_phonepe_payment(request):
     # 4. Otherwise, payment remains PENDING — DO NOT MARK AS PAID!
     return Response({
         "success": False,
-        "message": "Payment is pending. Please complete payment on PhonePe gateway.",
+        "message": "Payment is pending. Please complete payment on PhonePe gateway page.",
         "data": {
             "status": "PENDING",
             "state": "PENDING",
