@@ -1423,8 +1423,8 @@ def initiate_phonepe_payment(request):
         pass
 
     import urllib.parse
-    qr_target = phonepe_pay_page_url if (phonepe_pay_page_url and phonepe_pay_page_url.startswith('http')) else upi_url
-    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(qr_target)}"
+    upi_qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(upi_url)}"
+    qr_code_url = upi_qr_code_url
 
     return Response({
         "success": True,
@@ -1440,6 +1440,7 @@ def initiate_phonepe_payment(request):
             "phonepe_intent_url": phonepe_intent_url,
             "phonepe_pay_page_url": phonepe_pay_page_url,
             "qr_code_url": qr_code_url,
+            "upi_qr_code_url": upi_qr_code_url,
             "phonepe_api_error": phonepe_api_error,
             "phonepe_api_response": phonepe_api_response,
             "environment": env_mode
