@@ -48,6 +48,7 @@ def get_phonepe_env_config():
     env_mode = os.environ.get('PHONEPE_ENV', 'PRODUCTION').strip().upper()
     client_id = os.environ.get('PHONEPE_CLIENT_ID', '').strip()
     client_secret = os.environ.get('PHONEPE_CLIENT_SECRET', '').strip()
+    webhook_secret = os.environ.get('PHONEPE_WEBHOOK_SECRET', client_secret).strip()
     client_version = os.environ.get('PHONEPE_CLIENT_VERSION', '1').strip()
     merchant_id = os.environ.get('PHONEPE_MERCHANT_ID', '').strip()
     backend_url = os.environ.get('BACKEND_URL', os.environ.get('DOMAIN', 'https://webcraft.biz499.com')).strip().rstrip('/')
@@ -70,6 +71,7 @@ def get_phonepe_env_config():
         "is_production": is_production,
         "client_id": client_id,
         "client_secret": client_secret,
+        "webhook_secret": webhook_secret,
         "client_version": client_version,
         "merchant_id": merchant_id,
         "backend_url": backend_url,
@@ -77,6 +79,53 @@ def get_phonepe_env_config():
         "pay_url": pay_url,
         "status_url_template": status_url_template,
     }
+
+
+def verify_phonepe_hmac_signature(raw_body, signature_header, key_id_header=None):
+    """
+    Verifies the HMAC-SHA256 signature sent in PhonePe Webhooks.
+    Headers checked:
+      - x-phonepe-checksum-signature
+      - x-phonepe-checksum-key-id
+    """
+    import hmac
+    import hashlib
+    import base64
+
+    if not signature_header:
+        logger.warning("No PhonePe HMAC signature header provided in webhook request.")
+        return True  # Fallback to server-to-server verification
+
+    config = get_phonepe_env_config()
+    secret = config["webhook_secret"] or config["client_secret"]
+    if not secret:
+        logger.error("No PhonePe Webhook Secret or Client Secret found to verify HMAC.")
+        return False
+
+    if isinstance(raw_body, str):
+        raw_body_bytes = raw_body.encode('utf-8')
+    else:
+        raw_body_bytes = bytes(raw_body)
+
+    secret_bytes = secret.encode('utf-8')
+
+    # 1. Compute HMAC SHA-256 Hex Digest
+    computed_hex = hmac.new(secret_bytes, raw_body_bytes, hashlib.sha256).hexdigest()
+    # 2. Compute HMAC SHA-256 Base64 Digest
+    computed_b64 = base64.b64encode(hmac.new(secret_bytes, raw_body_bytes, hashlib.sha256).digest()).decode('utf-8')
+
+    cleaned_header = signature_header.strip()
+
+    # Compare hex (case-insensitive) or base64
+    is_valid = (
+        hmac.compare_digest(computed_hex.lower(), cleaned_header.lower()) or
+        hmac.compare_digest(computed_b64, cleaned_header)
+    )
+
+    if not is_valid:
+        logger.warning("PhonePe HMAC signature mismatch! Header: %s | Expected Hex: %s", cleaned_header, computed_hex)
+
+    return is_valid
 
 
 def get_phonepe_access_token(force_refresh=False):
@@ -172,6 +221,21 @@ def create_phonepe_checkout_session(merchant_order_id, amount_in_rupees, redirec
         "expireAfter": 1200,  # 20 minutes expiration
         "paymentFlow": {
             "type": "PG_CHECKOUT",
+            "paymentModeConfig": {
+                "version": "V2",
+                "enabledPaymentModes": [
+                    {
+                        "type": "UPI",
+                        "flows": ["INTENT", "QR"]
+                    },
+                    {
+                        "type": "CARD"
+                    },
+                    {
+                        "type": "NET_BANKING"
+                    }
+                ]
+            },
             "merchantUrls": {
                 "redirectUrl": redirect_url
             }

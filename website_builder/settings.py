@@ -186,6 +186,7 @@ CSRF_TRUSTED_ORIGINS = [
 # Security & Proxy Settings
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 # REST Framework Global Permissions
 REST_FRAMEWORK = {

@@ -31,6 +31,7 @@ urlpatterns = [
     path('payment/phonepe/initiate/', initiate_phonepe_payment, name='initiate_phonepe_payment'),
     path('payment/phonepe/verify/', verify_phonepe_payment, name='verify_phonepe_payment'),
     path('payment/phonepe/webhook/', phonepe_webhook_handler, name='phonepe_webhook_handler'),
+    path('payment/phonepe/webhook', phonepe_webhook_handler, name='phonepe_webhook_handler_no_slash'),
 ]
 
 

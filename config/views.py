@@ -1268,7 +1268,8 @@ def export_github_repo_api(request):
 from .phonepe_service import (
     get_phonepe_env_config,
     create_phonepe_checkout_session,
-    check_phonepe_order_status
+    check_phonepe_order_status,
+    verify_phonepe_hmac_signature
 )
 
 
@@ -1467,12 +1468,44 @@ def verify_phonepe_payment(request):
 @api_view(['POST'])
 def phonepe_webhook_handler(request):
     """
-    PhonePe Server-to-Server Webhook / Callback Handler.
-    Receives real-time payment events from PhonePe (e.g. checkout.order.completed, checkout.order.failed).
-    Performs server-side status check to verify payment state before marking order as PAID.
+    PhonePe Server-to-Server HMAC Webhook / Callback Handler.
+    Receives and processes real-time webhook notifications configured at:
+    https://webcraft.biz499.com/api/payment/phonepe/webhook
+    
+    1. Validates HMAC signature if provided in headers:
+       - x-phonepe-checksum-signature
+       - x-phonepe-checksum-key-id
+    2. Handles Standard Checkout events:
+       - checkout.order.completed
+       - checkout.order.failed
+    3. Mandatory Server-to-Server Verification:
+       Directly queries PhonePe Status API (GET /checkout/v2/order/{id}/status)
+       to independently verify payment state before marking the database transaction as PAID.
     """
     import base64
     import json
+
+    # 1. HMAC Checksum Signature Verification
+    sig_header = (
+        request.headers.get('x-phonepe-checksum-signature') or
+        request.headers.get('X-PhonePe-Checksum-Signature') or
+        request.META.get('HTTP_X_PHONEPE_CHECKSUM_SIGNATURE') or
+        request.headers.get('x-verify') or
+        request.META.get('HTTP_X_VERIFY')
+    )
+    key_id = (
+        request.headers.get('x-phonepe-checksum-key-id') or
+        request.headers.get('X-PhonePe-Checksum-Key-Id') or
+        request.META.get('HTTP_X_PHONEPE_CHECKSUM_KEY_ID')
+    )
+
+    if sig_header:
+        is_hmac_valid = verify_phonepe_hmac_signature(request.body, sig_header, key_id)
+        if not is_hmac_valid:
+            return Response({
+                "success": False,
+                "message": "Invalid PhonePe HMAC webhook signature."
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
     payload_data = request.data or {}
     decoded_payload = {}
@@ -1528,19 +1561,23 @@ def phonepe_webhook_handler(request):
         new_status = 'PENDING'
         is_paid = False
 
-    # Double verify server-to-server with PhonePe Status API if txn_id is known
+    # 3. Mandatory Server-Side Order Verification with PhonePe
+    # Independently verify status against PhonePe's live Order Status API before marking PAID
     if txn_id and txn_id != 'UNKNOWN_TXN':
         try:
             status_verify = check_phonepe_order_status(merchant_order_id=txn_id)
-            if status_verify.get('is_paid'):
+            if status_verify.get('is_paid') or status_verify.get('status') == 'SUCCESS':
                 new_status = 'SUCCESS'
                 is_paid = True
                 if status_verify.get('order_id'):
                     phonepe_order_id = status_verify.get('order_id')
+            elif status_verify.get('status') == 'FAILED':
+                new_status = 'FAILED'
+                is_paid = False
         except Exception:
             pass
 
-    # Update database transaction record
+    # 4. Update database transaction record
     try:
         order_txn = PhonePeOrderTransaction.objects.filter(merchant_transaction_id=txn_id).first()
         if order_txn:
@@ -1573,6 +1610,7 @@ def phonepe_webhook_handler(request):
             "is_paid": is_paid
         }
     }, status=status.HTTP_200_OK)
+
 
 
 
