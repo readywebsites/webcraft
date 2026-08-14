@@ -1300,7 +1300,7 @@ def initiate_phonepe_payment(request):
         merchant_order_id=txn_id,
         amount_in_rupees=amount,
         redirect_url=redirect_url,
-        meta_info={"business_name": business_name, "template_name": template_name}
+        meta_info={"udf1": str(business_name)[:50], "udf2": str(template_name)[:50]}
     )
 
     phonepe_order_id = session_result.get('phonepe_order_id', '')

@@ -243,7 +243,13 @@ def create_phonepe_checkout_session(merchant_order_id, amount_in_rupees, redirec
     }
 
     if meta_info and isinstance(meta_info, dict):
-        payload["metaInfo"] = meta_info
+        sanitized_meta = {}
+        for k, v in meta_info.items():
+            k_clean = str(k).lower()
+            if k_clean.startswith('udf') and v is not None:
+                sanitized_meta[k_clean] = str(v)[:100]
+        if sanitized_meta:
+            payload["metaInfo"] = sanitized_meta
 
     req_body = json.dumps(payload).encode('utf-8')
     headers = {
