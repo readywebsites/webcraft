@@ -42,11 +42,11 @@ def apply_user_details_to_template(raw_html, raw_css, details):
 
     # 1. SUBSTITUTE EXPLICIT PLACEHOLDER TOKENS FIRST
     if b_name:
-        html = html.replace('{{SITE_TITLE}}', b_name).replace('{{SITE_NAME}}', b_name)
+        html = html.replace('{{SITE_TITLE}}', b_name).replace('{{SITE_NAME}}', b_name).replace('{{BUSINESS_NAME}}', b_name).replace('{{business_name}}', b_name)
     if logo_url:
         html = html.replace('{{LOGO_URL}}', logo_url).replace('{{logo_url}}', logo_url).replace('{{LOGO}}', logo_url)
     if hero_url:
-        html = html.replace('{{HERO_IMAGE_URL}}', hero_url).replace('{{hero_image_url}}', hero_url).replace('{{HERO_IMAGE}}', hero_url).replace('{{BANNER_IMAGE}}', hero_url).replace('{{HERO_BG}}', hero_url)
+        html = html.replace('{{HERO_IMAGE_URL}}', hero_url).replace('{{hero_image_url}}', hero_url).replace('{{HERO_IMAGE}}', hero_url).replace('{{BANNER_IMAGE}}', hero_url).replace('{{HERO_BG}}', hero_url).replace('{{banner_image}}', hero_url)
     if email:
         html = html.replace('{{CONTACT_EMAIL}}', email).replace('{{contact_email}}', email).replace('{{EMAIL}}', email).replace('{{email}}', email)
     if phone:
@@ -56,13 +56,114 @@ def apply_user_details_to_template(raw_html, raw_css, details):
     if color:
         html = html.replace('{{PRIMARY_COLOR}}', color).replace('{{primary_color}}', color)
 
-    # 2. TEXT LOGO REPLACEMENT IN HTML (When logo_url is empty)
+    # 2. DIRECT SPAN CLASS REPLACEMENTS (logo, banner-image, email, phone, business-name)
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
+
+        # A. Business Name: <span class="business-name"> / .business-name
+        if b_name:
+            bname_els = soup.select('span.business-name, .business-name, [data-editable="title"], [data-editable="business-name"]')
+            for el in bname_els:
+                el.string = b_name
+
+        # B. Logo: <span class="logo"> / .logo
+        if logo_url:
+            logo_els = soup.select('span.logo, .logo, [data-editable="logo"]')
+            for el in logo_els:
+                img = el if el.name == 'img' else el.find('img')
+                if img:
+                    img['src'] = logo_url
+                    if img.has_attr('srcset'):
+                        img['srcset'] = logo_url
+                    img['style'] = f"{img.get('style', '')}; max-height: 60px !important; max-width: 280px !important; object-fit: contain !important; width: auto !important;".strip('; ')
+                else:
+                    el.clear()
+                    new_img = soup.new_tag('img', src=logo_url, alt=b_name, style="max-height: 60px; max-width: 280px; object-fit: contain; width: auto;")
+                    el.append(new_img)
+        elif b_name:
+            text_logo_els = soup.select('span.logo, .logo')
+            for el in text_logo_els:
+                if el.name != 'img' and not el.find('img'):
+                    el.string = b_name
+
+        # C. Banner Image: <span class="banner-image"> / .banner-image
+        if hero_url:
+            banner_els = soup.select('span.banner-image, .banner-image, [data-editable="hero_image"], [data-editable="banner-image"]')
+            for el in banner_els:
+                img = el if el.name == 'img' else el.find('img')
+                if img:
+                    img['src'] = hero_url
+                    if img.has_attr('srcset'):
+                        img['srcset'] = hero_url
+                else:
+                    existing_style = el.get('style', '')
+                    if 'background' in existing_style.lower() or el.name in ['section', 'header', 'div', 'main']:
+                        el['style'] = f"{existing_style}; background-image: url('{hero_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+                    else:
+                        el.clear()
+                        new_img = soup.new_tag('img', src=hero_url, alt="Banner", style="width: 100%; height: 100%; object-fit: cover;")
+                        el.append(new_img)
+
+        # D. Contact Email: <span class="email"> / .email
+        if email:
+            email_els = soup.select('span.email, .email, [data-editable="contact_email"], [data-editable="email"]')
+            for el in email_els:
+                el.string = email
+                if el.name == 'a':
+                    el['href'] = f"mailto:{email}"
+                elif el.parent and el.parent.name == 'a':
+                    el.parent['href'] = f"mailto:{email}"
+
+        # E. Contact Phone: <span class="phone"> / .phone
+        if phone:
+            clean_digits = re.sub(r'[^\d+]', '', phone)
+            phone_els = soup.select('span.phone, .phone, [data-editable="contact_phone"], [data-editable="phone"]')
+            for el in phone_els:
+                el.string = phone
+                if el.name == 'a':
+                    el['href'] = f"tel:{clean_digits}"
+                elif el.parent and el.parent.name == 'a':
+                    el.parent['href'] = f"tel:{clean_digits}"
+
+        html = str(soup)
+    except Exception:
+        pass
+
+    # Regex fallbacks specifically for span tags
+    if b_name:
+        html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bbusiness-name\b[^"\']*["\'][^>]*>)(.*?)(</span>)', rf'\g<1>{b_name}\g<3>', html, flags=re.I | re.S)
+    if email:
+        html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bemail\b[^"\']*["\'][^>]*>)(.*?)(</span>)', rf'\g<1>{email}\g<3>', html, flags=re.I | re.S)
+    if phone:
+        html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bphone\b[^"\']*["\'][^>]*>)(.*?)(</span>)', rf'\g<1>{phone}\g<3>', html, flags=re.I | re.S)
+    if hero_url:
+        def repl_span_banner(m):
+            open_tag, inner, close_tag = m.group(1), m.group(2), m.group(3)
+            if '<img' in inner:
+                inner = re.sub(r'src=["\'][^"\']+["\']', f'src="{hero_url}"', inner, flags=re.I)
+                inner = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{hero_url}"', inner, flags=re.I)
+                return f"{open_tag}{inner}{close_tag}"
+            return f'{open_tag}<img src="{hero_url}" style="width:100%;height:100%;object-fit:cover;" />{close_tag}'
+        html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bbanner-image\b[^"\']*["\'][^>]*>)(.*?)(</span>)', repl_span_banner, html, flags=re.I | re.S)
+    if logo_url:
+        def repl_span_logo(m):
+            open_tag, inner, close_tag = m.group(1), m.group(2), m.group(3)
+            if '<img' in inner:
+                inner = re.sub(r'src=["\'][^"\']+["\']', f'src="{logo_url}"', inner, flags=re.I)
+                inner = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{logo_url}"', inner, flags=re.I)
+                return f"{open_tag}{inner}{close_tag}"
+            return f'{open_tag}<img src="{logo_url}" style="max-height:60px;max-width:280px;object-fit:contain;" />{close_tag}'
+        html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\blogo\b[^"\']*["\'][^>]*>)(.*?)(</span>)', repl_span_logo, html, flags=re.I | re.S)
+    elif b_name:
+        html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\blogo\b[^"\']*["\'][^>]*>)(.*?)(</span>)', rf'\g<1>{b_name}\g<3>', html, flags=re.I | re.S)
+
+    # 3. GENERIC SEMANTIC REPLACEMENTS FALLBACK (When span tags are not present)
     if b_name and not logo_url:
-        bs_updated = False
         try:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(html, 'html.parser')
-            text_logo_els = soup.select('.navbar-brand, .site-logo, .header-logo, .brand, .logo, .nav-brand, .site-identity, .logo-link, .site-name, [data-editable="title"]')
+            text_logo_els = soup.select('.navbar-brand, .site-logo, .header-logo, .brand, .nav-brand, .site-identity, .logo-link, .site-name, [data-editable="title"]')
             if text_logo_els:
                 for el in text_logo_els:
                     if el.name != 'img' and not el.find('img'):
@@ -74,29 +175,8 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                         else:
                             el.string = b_name
                 html = str(soup)
-                bs_updated = True
         except Exception:
             pass
-
-        # Regex fallback if BS4 is missing or failed
-        if not bs_updated:
-            def repl_text_logo(m):
-                prefix = m.group(1)
-                close_tag = m.group(3)
-                inner = m.group(2)
-                if '<img' in inner.lower():
-                    return m.group(0)
-                icon_match = re.search(r'<i\s+[^>]*>.*?</i>|<svg\s+[^>]*>.*?</svg>', inner, re.I | re.S)
-                if icon_match:
-                    return f"{prefix}{icon_match.group(0)} {b_name}{close_tag}"
-                return f"{prefix}{b_name}{close_tag}"
-
-            html = re.sub(
-                r'(<(?:a|div|span|h1|h2)\s+[^>]*?(?:class|id)=["\'][^"\']*(?:navbar-brand|site-logo|header-logo|brand|logo|site-identity|logo-link)[^"\']*["\'][^>]*>)(.*?)(</(?:a|div|span|h1|h2)>)',
-                repl_text_logo,
-                html,
-                flags=re.IGNORECASE | re.DOTALL
-            )
 
     # 3. LOGO IMAGE REPLACEMENT IN HTML (Header/Navbar and Footer ONLY)
     if logo_url:
