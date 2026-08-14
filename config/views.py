@@ -1336,10 +1336,14 @@ def initiate_phonepe_payment(request):
             }
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Direct UPI Intent & QR Generation (Works universally across PhonePe, GPay, Paytm, BHIM)
+    # Direct NPCI Standard UPI Payment URI & Universal QR Code
+    # Standard format: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...&tr=...
     upi_vpa = os.environ.get('PHONEPE_UPI_ID', 'm23cuq5thr1lw@ybl').strip()
-    upi_intent_string = f"upi://pay?pa={upi_vpa}&pn={urllib.parse.quote('Biz499 WebCraft')}&am={amount}&tr={txn_id}&tn={urllib.parse.quote(f'Publish {business_name}')}&cu=INR"
-    upi_qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(upi_intent_string)}"
+    formatted_amount = f"{float(amount):.2f}"
+    clean_bname = str(business_name).strip() or "Website"
+
+    upi_intent_string = f"upi://pay?pa={upi_vpa}&pn={urllib.parse.quote('Biz499 WebCraft')}&am={formatted_amount}&cu=INR&tn={urllib.parse.quote(f'Publish {clean_bname}')}&tr={txn_id}&mc=5734"
+    upi_qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data={urllib.parse.quote(upi_intent_string)}"
 
     return Response({
         "success": True,
@@ -1353,6 +1357,7 @@ def initiate_phonepe_payment(request):
             "currency": "INR",
             "business_name": business_name,
             "template_name": template_name,
+            "upi_intent_string": upi_intent_string,
             "qr_code_url": upi_qr_code_url,
             "environment": config["env_mode"]
         }
