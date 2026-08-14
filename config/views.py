@@ -1265,185 +1265,93 @@ def export_github_repo_api(request):
     }, status=status.HTTP_200_OK)
 
 
-def get_phonepe_oauth_token():
-    """
-    Fetches a fresh PhonePe V2 OAuth Access Token using Client ID and Client Secret.
-    """
-    client_id = os.getenv('PHONEPE_CLIENT_ID', 'SU2511102330423259429916')
-    client_secret = os.getenv('PHONEPE_CLIENT_SECRET', '318ce180-20c4-4593-86a6-f5e16d3095c0')
-    env_mode = os.getenv('PHONEPE_ENV', 'PRODUCTION').upper()
-    
-    oauth_url = 'https://api.phonepe.com/apis/identity-manager/v1/oauth/token' if env_mode == 'PRODUCTION' else 'https://api-preprod.phonepe.com/apis/pg-sandbox/v1/oauth/token'
-    
-    import urllib.parse
-    import urllib.request
-    import json
-
-    params = urllib.parse.urlencode({
-        'client_id': client_id,
-        'client_secret': client_secret,
-        'grant_type': 'client_credentials',
-        'client_version': '1'
-    }).encode('utf-8')
-    headers = {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'}
-    req = urllib.request.Request(oauth_url, data=params, headers=headers, method='POST')
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        res = json.loads(resp.read().decode('utf-8'))
-        return res.get('access_token')
-
-
-def check_phonepe_transaction_status_server(merchant_id, txn_id, host_url, salt_key, salt_index, client_id):
-    """
-    Independently queries PhonePe's official V2 Order Status API:
-    GET /apis/pg/checkout/v2/order/{merchantOrderId}/status
-    """
-    import urllib.request
-    import json
-
-    env_mode = os.getenv('PHONEPE_ENV', 'PRODUCTION').upper()
-    status_url = f"https://api.phonepe.com/apis/pg/checkout/v2/order/{txn_id}/status" if env_mode == 'PRODUCTION' else f"https://api-preprod.phonepe.com/apis/pg-sandbox/checkout/v2/order/{txn_id}/status"
-
-    try:
-        token = get_phonepe_oauth_token()
-        headers = {
-            'Authorization': f'O-Bearer {token}',
-            'Accept': 'application/json'
-        }
-        req = urllib.request.Request(status_url, headers=headers, method='GET')
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            resp_data = json.loads(resp.read().decode('utf-8'))
-            return resp_data
-    except Exception as err:
-        return {"success": False, "state": "UNKNOWN", "code": "STATUS_CHECK_FAILED", "error": str(err)}
+from .phonepe_service import (
+    get_phonepe_env_config,
+    create_phonepe_checkout_session,
+    check_phonepe_order_status
+)
 
 
 @api_view(['POST'])
 def initiate_phonepe_payment(request):
     """
-    Initiates a fresh PhonePe V2 Payment Gateway session.
-    Generates a unique merchantOrderId and fetches a fresh hosted checkout URL (redirectUrl).
-    Creates a PENDING PhonePeOrderTransaction record in Django database.
+    PhonePe Standard Checkout (v2) Payment Initiation Endpoint.
+    1. Authenticates via OAuth 2.0 (Client ID + Client Secret + Client Version).
+    2. Calls PhonePe POST /checkout/v2/pay to generate hosted checkout session.
+    3. Creates a PENDING PhonePeOrderTransaction record in Django database.
+    4. Returns the hosted checkout redirect_url to React frontend.
     """
     data = request.data or {}
     business_name = data.get('business_name', 'My Website')
     template_name = data.get('template_name', 'Custom Theme')
     amount = data.get('amount', 499)
-
-    client_id = os.getenv('PHONEPE_CLIENT_ID', 'SU2511102330423259429916')
-    client_secret = os.getenv('PHONEPE_CLIENT_SECRET', '318ce180-20c4-4593-86a6-f5e16d3095c0')
-    merchant_id = os.getenv('PHONEPE_MERCHANT_ID', 'M23CUQ5THR1LW')
-    upi_id = os.getenv('PHONEPE_UPI_ID', 'm23cuq5thr1lw@ybl')
-    env_mode = os.getenv('PHONEPE_ENV', 'PRODUCTION').upper()
-    backend_url = os.getenv('BACKEND_URL', 'https://webcraft.biz499.com')
+    customer_phone = str(data.get('phone', '')).strip()
 
     import uuid
-    import urllib.request
-    import json
+    import urllib.parse
+    txn_id = f"TXN_PHPE_{uuid.uuid4().hex[:10].upper()}"
 
-    txn_id = f"TXN_PHPE_{uuid.uuid4().hex[:8].upper()}"
-    amount_in_paise = int(float(amount) * 100)
-    customer_phone = str(data.get('phone', '')).strip()
-    user_id = customer_phone if customer_phone else f"USER_{uuid.uuid4().hex[:12].upper()}"
+    config = get_phonepe_env_config()
+    redirect_url = f"{config['backend_url']}/preview?merchantTransactionId={txn_id}"
 
-    upi_url = f"upi://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
-    phonepe_intent_url = f"phonepe://pay?pa={upi_id}&pn=WebCraft%20Builder&am={amount}&tn=Publishing%20{txn_id}&cu=INR"
-    
-    phonepe_pay_page_url = None
-    phonepe_api_response = None
-    phonepe_api_error = None
+    # Call PhonePe Standard Checkout v2 Pay API
+    session_result = create_phonepe_checkout_session(
+        merchant_order_id=txn_id,
+        amount_in_rupees=amount,
+        redirect_url=redirect_url,
+        meta_info={"business_name": business_name, "template_name": template_name}
+    )
 
-    try:
-        token = get_phonepe_oauth_token()
-        pay_url = "https://api.phonepe.com/apis/pg/checkout/v2/pay" if env_mode == 'PRODUCTION' else "https://api-preprod.phonepe.com/apis/pg-sandbox/checkout/v2/pay"
-        
-        payload_dict = {
-            "merchantId": merchant_id,
-            "merchantOrderId": txn_id,
-            "merchantUserId": user_id,
-            "amount": amount_in_paise,
-            "expireAfter": 1200,
-            "paymentFlow": {
-                "type": "PG_CHECKOUT",
-                "paymentModeConfig": {
-                    "version": "V2",
-                    "enabledPaymentModes": [
-                        {
-                            "type": "UPI",
-                            "flows": ["QR", "INTENT"]
-                        },
-                        {
-                            "type": "CARD"
-                        },
-                        {
-                            "type": "NET_BANKING"
-                        }
-                    ]
-                },
-                "merchantUrls": {
-                    "redirectUrl": f"{backend_url}/preview?merchantTransactionId={txn_id}"
-                }
-            }
-        }
-        
-        req_body = json.dumps(payload_dict).encode('utf-8')
-        req_headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'O-Bearer {token}'
-        }
-        
-        req = urllib.request.Request(pay_url, data=req_body, headers=req_headers, method='POST')
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            resp_data = json.loads(resp.read().decode('utf-8'))
-            phonepe_api_response = resp_data
-            phonepe_pay_page_url = resp_data.get('redirectUrl') or resp_data.get('data', {}).get('redirectUrl') or resp_data.get('data', {}).get('instrumentResponse', {}).get('redirectInfo', {}).get('url')
-    except urllib.error.HTTPError as http_err:
-        try:
-            phonepe_api_error = json.loads(http_err.read().decode('utf-8'))
-        except Exception:
-            phonepe_api_error = f"HTTP Error {http_err.code}: {http_err.reason}"
-    except Exception as api_err:
-        phonepe_api_error = str(api_err)
+    phonepe_order_id = session_result.get('phonepe_order_id', '')
+    checkout_url = session_result.get('redirect_url', '')
 
-    # Create PENDING transaction record in Django Database
+    # Record transaction in Django Database
     try:
         PhonePeOrderTransaction.objects.update_or_create(
             merchant_transaction_id=txn_id,
             defaults={
+                'phonepe_transaction_id': phonepe_order_id,
                 'business_name': business_name,
                 'template_name': template_name,
                 'amount': amount,
-                'upi_id': upi_id,
                 'customer_phone': customer_phone,
                 'status': 'PENDING',
                 'is_paid': False,
-                'raw_response_payload': phonepe_api_response or {}
+                'raw_response_payload': session_result.get('raw_response', {})
             }
         )
-    except Exception:
+    except Exception as db_err:
         pass
 
-    import urllib.parse
-    upi_qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(upi_url)}"
-    qr_code_url = upi_qr_code_url
+    if not session_result.get('success'):
+        return Response({
+            "success": False,
+            "message": session_result.get('error', 'Failed to initiate PhonePe payment session.'),
+            "error": session_result.get('error'),
+            "data": {
+                "merchant_transaction_id": txn_id,
+                "environment": config["env_mode"],
+                "raw_response": session_result.get('raw_response')
+            }
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Optional dynamic QR helper fallback for quick scanning
+    upi_qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(checkout_url)}" if checkout_url else None
 
     return Response({
         "success": True,
-        "message": "PhonePe payment session created successfully.",
+        "message": "PhonePe checkout session created successfully.",
         "data": {
             "merchant_transaction_id": txn_id,
+            "phonepe_order_id": phonepe_order_id,
+            "checkout_url": checkout_url,
+            "redirect_url": checkout_url,
             "amount": amount,
             "currency": "INR",
             "business_name": business_name,
             "template_name": template_name,
-            "upi_id": upi_id,
-            "upi_url": upi_url,
-            "phonepe_intent_url": phonepe_intent_url,
-            "phonepe_pay_page_url": phonepe_pay_page_url,
-            "qr_code_url": qr_code_url,
-            "upi_qr_code_url": upi_qr_code_url,
-            "phonepe_api_error": phonepe_api_error,
-            "phonepe_api_response": phonepe_api_response,
-            "environment": env_mode
+            "qr_code_url": upi_qr_code_url,
+            "environment": config["env_mode"]
         }
     }, status=status.HTTP_200_OK)
 
@@ -1451,10 +1359,11 @@ def initiate_phonepe_payment(request):
 @api_view(['POST'])
 def verify_phonepe_payment(request):
     """
-    STRICT Server-Side PhonePe Verification Endpoint.
-    Queries PhonePe V2 Status API server-to-server.
-    Marks as SUCCESS and is_paid=True ONLY if PhonePe API returns COMPLETED or SUCCESS state!
-    Handles PENDING, FAILED, CANCELLED, and EXPIRED.
+    Strict Server-Side PhonePe Verification Endpoint.
+    1. Direct Server-to-Server query to PhonePe Order Status API:
+       GET /checkout/v2/order/{merchantOrderId}/status
+    2. Marks order as SUCCESS and is_paid=True ONLY if PhonePe API returns COMPLETED or SUCCESS!
+    3. Handles SUCCESS, FAILED, CANCELLED, EXPIRED, and PENDING.
     """
     data = request.data or {}
     txn_id = data.get('merchant_transaction_id')
@@ -1464,11 +1373,9 @@ def verify_phonepe_payment(request):
     if not txn_id:
         return Response({
             "success": False,
-            "message": "Missing merchant_transaction_id parameter.",
-            "data": { "status": "FAILED", "is_paid": False }
+            "message": "Missing required merchant_transaction_id parameter.",
+            "data": {"status": "FAILED", "is_paid": False}
         }, status=status.HTTP_400_BAD_REQUEST)
-
-    merchant_id = os.getenv('PHONEPE_MERCHANT_ID', 'M23CUQ5THR1LW')
 
     order_txn = None
     try:
@@ -1476,7 +1383,7 @@ def verify_phonepe_payment(request):
     except Exception:
         pass
 
-    # 1. If database already shows verified SUCCESS (e.g. updated by background Webhook)
+    # 1. If DB is already marked as verified SUCCESS (e.g. updated by background Webhook)
     if order_txn and order_txn.is_paid and order_txn.status == 'SUCCESS':
         wa_msg = f"I have paid on your website for {business_name} using {template_name} template (Txn ID: {txn_id}). Now please help me making my website live."
         import urllib.parse
@@ -1487,33 +1394,28 @@ def verify_phonepe_payment(request):
             "data": {
                 "status": "SUCCESS",
                 "merchant_transaction_id": txn_id,
+                "phonepe_order_id": order_txn.phonepe_transaction_id or '',
                 "is_paid": True,
                 "whatsapp_message": wa_msg,
                 "whatsapp_url": f"https://wa.me/919106312511?text={encoded_msg}"
             }
         }, status=status.HTTP_200_OK)
 
-    # 2. Server-to-Server direct status query against PhonePe V2 Status API
-    status_resp = check_phonepe_transaction_status_server(
-        merchant_id=merchant_id,
-        txn_id=txn_id,
-        host_url='',
-        salt_key='',
-        salt_index='1',
-        client_id=''
-    )
+    # 2. Server-to-server query against PhonePe Order Status API
+    status_result = check_phonepe_order_status(merchant_order_id=txn_id)
 
-    state = str(status_resp.get('state') or status_resp.get('code') or '').upper()
-    error_code = str(status_resp.get('errorCode') or status_resp.get('code') or '')
-    detailed_error = str(status_resp.get('detailedErrorCode') or '')
-    is_confirmed_success = state in ['COMPLETED', 'SUCCESS', 'PAYMENT_SUCCESS']
+    state = status_result.get('state', '').upper()
+    is_paid = status_result.get('is_paid', False)
+    payment_status = status_result.get('status', 'PENDING')
+    phonepe_order_id = status_result.get('order_id', '')
 
-    if is_confirmed_success:
+    if is_paid or payment_status == 'SUCCESS':
         if order_txn:
             order_txn.status = 'SUCCESS'
             order_txn.is_paid = True
-            order_txn.phonepe_transaction_id = status_resp.get('orderId') or status_resp.get('data', {}).get('transactionId', '')
-            order_txn.raw_response_payload = status_resp
+            if phonepe_order_id:
+                order_txn.phonepe_transaction_id = phonepe_order_id
+            order_txn.raw_response_payload = status_result.get('raw_response', {})
             order_txn.save()
 
         wa_msg = f"I have paid on your website for {business_name} using {template_name} template (Txn ID: {txn_id}). Now please help me making my website live."
@@ -1525,45 +1427,37 @@ def verify_phonepe_payment(request):
             "data": {
                 "status": "SUCCESS",
                 "merchant_transaction_id": txn_id,
+                "phonepe_order_id": phonepe_order_id,
                 "is_paid": True,
                 "whatsapp_message": wa_msg,
                 "whatsapp_url": f"https://wa.me/919106312511?text={encoded_msg}"
             }
         }, status=status.HTTP_200_OK)
 
-    # 3. If PhonePe returns FAILED, CANCELLED, or EXPIRED
-    if state in ['FAILED', 'PAYMENT_ERROR', 'PAYMENT_FAILED', 'CANCELLED', 'EXPIRED'] or detailed_error in ['ORDER_EXPIRED', 'TXN_NOT_COMPLETED']:
+    if payment_status == 'FAILED':
         if order_txn:
             order_txn.status = 'FAILED'
             order_txn.is_paid = False
             order_txn.save()
 
-        msg = f"Payment {state.lower()} on PhonePe."
-        if detailed_error == 'ORDER_EXPIRED':
-            msg = "Payment session expired on PhonePe. Please click 'Pay via PhonePe Gateway' to launch a fresh session."
-        elif detailed_error == 'TXN_NOT_COMPLETED':
-            msg = "Payment checkout was not completed on PhonePe."
-
         return Response({
             "success": False,
-            "message": msg,
+            "message": f"Payment {state.lower()} on PhonePe.",
             "data": {
                 "status": "FAILED",
                 "state": state,
-                "error_code": error_code,
-                "detailed_error_code": detailed_error,
                 "merchant_transaction_id": txn_id,
                 "is_paid": False
             }
         }, status=status.HTTP_200_OK)
 
-    # 4. Otherwise, payment remains PENDING — DO NOT MARK AS PAID!
+    # 3. Otherwise, payment remains PENDING
     return Response({
         "success": False,
-        "message": "Payment is pending. Please complete payment on PhonePe gateway page.",
+        "message": "Payment is pending. Please complete payment on the PhonePe checkout page.",
         "data": {
             "status": "PENDING",
-            "state": "PENDING",
+            "state": state or "PENDING",
             "merchant_transaction_id": txn_id,
             "is_paid": False
         }
@@ -1574,16 +1468,18 @@ def verify_phonepe_payment(request):
 def phonepe_webhook_handler(request):
     """
     PhonePe Server-to-Server Webhook / Callback Handler.
-    Receives real-time payment status updates directly from PhonePe servers.
+    Receives real-time payment events from PhonePe (e.g. checkout.order.completed, checkout.order.failed).
+    Performs server-side status check to verify payment state before marking order as PAID.
     """
     import base64
     import json
 
     payload_data = request.data or {}
-    response_b64 = payload_data.get('response')
     decoded_payload = {}
-    
-    if response_b64:
+
+    # Handle base64 encoded response wrappers if present
+    response_b64 = payload_data.get('response')
+    if response_b64 and isinstance(response_b64, str):
         try:
             decoded_json = base64.b64decode(response_b64).decode('utf-8')
             decoded_payload = json.loads(decoded_json)
@@ -1592,36 +1488,74 @@ def phonepe_webhook_handler(request):
     else:
         decoded_payload = payload_data
 
+    # Parse PhonePe Standard Checkout Webhook event payload
+    # Format: { "event": "checkout.order.completed", "payload": { "orderId": "...", "merchantOrderId": "...", "state": "COMPLETED" } }
+    inner_payload = decoded_payload.get('payload', {}) if isinstance(decoded_payload, dict) else {}
     data_obj = decoded_payload.get('data', {}) if isinstance(decoded_payload, dict) else {}
-    txn_id = decoded_payload.get('merchantOrderId') or data_obj.get('merchantTransactionId') or payload_data.get('merchantTransactionId') or 'UNKNOWN_TXN'
-    phonepe_txn_id = decoded_payload.get('orderId') or data_obj.get('transactionId') or payload_data.get('transactionId', '')
-    state = str(decoded_payload.get('state') or decoded_payload.get('code') or payload_data.get('code') or '').upper()
 
-    if state in ['COMPLETED', 'SUCCESS', 'PAYMENT_SUCCESS']:
+    txn_id = (
+        inner_payload.get('merchantOrderId') or
+        decoded_payload.get('merchantOrderId') or
+        data_obj.get('merchantTransactionId') or
+        payload_data.get('merchantTransactionId') or
+        'UNKNOWN_TXN'
+    )
+
+    phonepe_order_id = (
+        inner_payload.get('orderId') or
+        decoded_payload.get('orderId') or
+        data_obj.get('transactionId') or
+        payload_data.get('transactionId', '')
+    )
+
+    event_name = str(decoded_payload.get('event') or '').lower()
+    state = str(
+        inner_payload.get('state') or
+        decoded_payload.get('state') or
+        decoded_payload.get('code') or
+        payload_data.get('code') or
+        ''
+    ).upper()
+
+    # Determine status from webhook event & state
+    if event_name == 'checkout.order.completed' or state in ['COMPLETED', 'SUCCESS', 'PAYMENT_SUCCESS']:
         new_status = 'SUCCESS'
         is_paid = True
-    elif state in ['FAILED', 'PAYMENT_ERROR', 'PAYMENT_FAILED', 'CANCELLED', 'EXPIRED']:
+    elif event_name == 'checkout.order.failed' or state in ['FAILED', 'PAYMENT_ERROR', 'PAYMENT_FAILED', 'CANCELLED', 'EXPIRED']:
         new_status = 'FAILED'
         is_paid = False
     else:
         new_status = 'PENDING'
         is_paid = False
 
+    # Double verify server-to-server with PhonePe Status API if txn_id is known
+    if txn_id and txn_id != 'UNKNOWN_TXN':
+        try:
+            status_verify = check_phonepe_order_status(merchant_order_id=txn_id)
+            if status_verify.get('is_paid'):
+                new_status = 'SUCCESS'
+                is_paid = True
+                if status_verify.get('order_id'):
+                    phonepe_order_id = status_verify.get('order_id')
+        except Exception:
+            pass
+
+    # Update database transaction record
     try:
         order_txn = PhonePeOrderTransaction.objects.filter(merchant_transaction_id=txn_id).first()
         if order_txn:
-            if not order_txn.is_paid:
+            if not order_txn.is_paid or new_status == 'SUCCESS':
                 order_txn.status = new_status
                 order_txn.is_paid = is_paid
-                if phonepe_txn_id:
-                    order_txn.phonepe_transaction_id = phonepe_txn_id
+                if phonepe_order_id:
+                    order_txn.phonepe_transaction_id = phonepe_order_id
                 order_txn.raw_response_payload = decoded_payload
                 order_txn.save()
         else:
             PhonePeOrderTransaction.objects.create(
                 merchant_transaction_id=txn_id,
-                phonepe_transaction_id=phonepe_txn_id,
-                business_name=decoded_payload.get('merchantUserId', 'Customer Website'),
+                phonepe_transaction_id=phonepe_order_id,
+                business_name=inner_payload.get('merchantUserId', decoded_payload.get('merchantUserId', 'Customer Website')),
                 status=new_status,
                 is_paid=is_paid,
                 raw_response_payload=decoded_payload
@@ -1634,10 +1568,12 @@ def phonepe_webhook_handler(request):
         "message": f"PhonePe webhook processed. Order status: {new_status}",
         "data": {
             "merchant_transaction_id": txn_id,
+            "phonepe_order_id": phonepe_order_id,
             "status": new_status,
             "is_paid": is_paid
         }
     }, status=status.HTTP_200_OK)
+
 
 
 
