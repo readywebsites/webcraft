@@ -1336,8 +1336,10 @@ def initiate_phonepe_payment(request):
             }
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Optional dynamic QR helper fallback for quick scanning
-    upi_qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(checkout_url)}" if checkout_url else None
+    # Direct UPI Intent & QR Generation (Works universally across PhonePe, GPay, Paytm, BHIM)
+    upi_vpa = os.environ.get('PHONEPE_UPI_ID', 'm23cuq5thr1lw@ybl').strip()
+    upi_intent_string = f"upi://pay?pa={upi_vpa}&pn={urllib.parse.quote('Biz499 WebCraft')}&am={amount}&tr={txn_id}&tn={urllib.parse.quote(f'Publish {business_name}')}&cu=INR"
+    upi_qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(upi_intent_string)}"
 
     return Response({
         "success": True,
