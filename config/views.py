@@ -121,47 +121,75 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             for el in tagline_els:
                 el.string = tagline
 
-        # D. Hero Banner Image: <span class="banner-image"> / span.hero-image / span.hero-banner / [data-editable="hero_image"]
-        if hero_url:
-            banner_els = soup.select('span.banner-image, .banner-image, span.hero-banner, .hero-banner, span.hero-image, .hero-image, [data-editable="hero_image"], [data-editable="banner-image"]')
-            for el in banner_els:
-                img = el if el.name == 'img' else el.find('img')
-                if img:
-                    img['src'] = hero_url
-                    if img.has_attr('srcset'):
-                        img['srcset'] = hero_url
+        # Build distinct banner images list for multi-frame hero carousels/sliders
+        distinct_banner_images = []
+        if hero_url and hero_url.strip():
+            distinct_banner_images.append(hero_url.strip())
+        for h_key in ['hero', 'hero_1', 'hero_2', 'hero_3', 'hero_4', 'about', 'service_1', 'gallery_1']:
+            val = images.get(h_key)
+            if val and val not in distinct_banner_images:
+                distinct_banner_images.append(val)
+        if image_pool:
+            for p in image_pool:
+                if isinstance(p, dict) and p.get('url') and p['url'] not in distinct_banner_images:
+                    distinct_banner_images.append(p['url'])
+
+        # D. Hero Banner Images: <span class="banner-image"> / span.hero-image / span.hero-banner / [data-editable="hero_image"]
+        banner_els = soup.select('span.banner-image, .banner-image, span.hero-banner, .hero-banner, span.hero-image, .hero-image, [data-editable="hero_image"], [data-editable="banner-image"], .hero-slide, .banner-slide')
+        for b_idx, el in enumerate(banner_els):
+            frame_img = distinct_banner_images[b_idx % len(distinct_banner_images)] if distinct_banner_images else hero_url
+            if not frame_img:
+                continue
+            img = el if el.name == 'img' else el.find('img')
+            if img:
+                img['src'] = frame_img
+                if img.has_attr('srcset'):
+                    img['srcset'] = frame_img
+            else:
+                existing_style = el.get('style', '')
+                if 'background' in existing_style.lower() or el.name in ['section', 'header', 'div', 'main', 'li']:
+                    cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
+                    el['style'] = f"{cleaned_style}; background-image: url('{frame_img}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
                 else:
-                    existing_style = el.get('style', '')
-                    if 'background' in existing_style.lower() or el.name in ['section', 'header', 'div', 'main']:
-                        cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
-                        el['style'] = f"{cleaned_style}; background-image: url('{hero_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
-                    else:
-                        el.clear()
-                        new_img = soup.new_tag('img', src=hero_url, alt="Banner", style="width: 100%; height: 100%; object-fit: cover;")
-                        el.append(new_img)
+                    el.clear()
+                    new_img = soup.new_tag('img', src=frame_img, alt=f"Banner Frame {b_idx + 1}", style="width: 100%; height: 100%; object-fit: cover;")
+                    el.append(new_img)
 
         # E. Pexels Business Images: <img data-image="role">
-        if images:
+        if images or distinct_banner_images:
             img_data_els = soup.select('img[data-image]')
             for img in img_data_els:
                 role_val = img.get('data-image', '').strip().lower()
-                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
+                target_img_url = images.get(role_val)
+                if not target_img_url:
+                    if role_val.startswith('hero_') and role_val[5:].isdigit():
+                        idx_num = int(role_val[5:]) - 1
+                        target_img_url = distinct_banner_images[idx_num % len(distinct_banner_images)] if distinct_banner_images else hero_url
+                    elif role_val == 'hero':
+                        target_img_url = hero_url or (distinct_banner_images[0] if distinct_banner_images else '')
                 if target_img_url:
                     img['src'] = target_img_url
                     if img.has_attr('srcset'):
                         img['srcset'] = target_img_url
 
         # F. Pexels Background Images: [data-background-image="role"]
-        if images:
+        if images or distinct_banner_images:
             bg_data_els = soup.select('[data-background-image]')
             for el in bg_data_els:
                 role_val = el.get('data-background-image', '').strip().lower()
-                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
+                target_img_url = images.get(role_val)
+                if not target_img_url:
+                    if role_val.startswith('hero_') and role_val[5:].isdigit():
+                        idx_num = int(role_val[5:]) - 1
+                        target_img_url = distinct_banner_images[idx_num % len(distinct_banner_images)] if distinct_banner_images else hero_url
+                    elif role_val == 'hero':
+                        target_img_url = hero_url or (distinct_banner_images[0] if distinct_banner_images else '')
                 if target_img_url:
                     existing_style = el.get('style', '')
                     cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
                     new_style = f"{cleaned_style}; background-image: url('{target_img_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
                     el['style'] = new_style
+
 
         # G. Remaining Content Images Replacement from Pexels Pool
         # Replaces template placeholder images with high-resolution Pexels photos
@@ -265,15 +293,20 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bemail\b[^"\']*["\'][^>]*>)(.*?)(</span>)', rf'\g<1>{email}\g<3>', html, flags=re.I | re.S)
     if phone:
         html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bphone\b[^"\']*["\'][^>]*>)(.*?)(</span>)', rf'\g<1>{phone}\g<3>', html, flags=re.I | re.S)
-    if hero_url:
+    if distinct_banner_images or hero_url:
+        span_banner_idx = 0
         def repl_span_banner(m):
+            nonlocal span_banner_idx
+            frame_img = distinct_banner_images[span_banner_idx % len(distinct_banner_images)] if distinct_banner_images else hero_url
+            span_banner_idx += 1
             open_tag, inner, close_tag = m.group(1), m.group(2), m.group(3)
             if '<img' in inner:
-                inner = re.sub(r'src=["\'][^"\']+["\']', f'src="{hero_url}"', inner, flags=re.I)
-                inner = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{hero_url}"', inner, flags=re.I)
+                inner = re.sub(r'src=["\'][^"\']+["\']', f'src="{frame_img}"', inner, flags=re.I)
+                inner = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{frame_img}"', inner, flags=re.I)
                 return f"{open_tag}{inner}{close_tag}"
-            return f'{open_tag}<img src="{hero_url}" style="width:100%;height:100%;object-fit:cover;" />{close_tag}'
+            return f'{open_tag}<img src="{frame_img}" style="width:100%;height:100%;object-fit:cover;" />{close_tag}'
         html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bbanner-image\b[^"\']*["\'][^>]*>)(.*?)(</span>)', repl_span_banner, html, flags=re.I | re.S)
+
     if logo_url:
         def repl_span_logo(m):
             open_tag, inner, close_tag = m.group(1), m.group(2), m.group(3)

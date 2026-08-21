@@ -7,8 +7,12 @@ import urllib.parse
 from django.conf import settings
 
 # Predefined standard website image roles
+# Predefined standard website image roles including multi-frame hero banners
 IMAGE_ROLES = [
     'hero',
+    'hero_2',
+    'hero_3',
+    'hero_4',
     'about',
     'service_1',
     'service_2',
@@ -362,13 +366,23 @@ def build_image_pool_for_business(
         for item in image_pool:
             images_by_role[item["role"]] = item["url"]
 
-    # If user explicitly uploaded a hero image, prioritize it for the hero role URL
+    # Map multi-banner alias roles
+    images_by_role['hero_1'] = images_by_role.get('hero', '')
+    images_by_role['banner_1'] = images_by_role.get('hero', '')
+    images_by_role['banner_2'] = images_by_role.get('hero_2', '')
+    images_by_role['banner_3'] = images_by_role.get('hero_3', '')
+    images_by_role['banner_4'] = images_by_role.get('hero_4', '')
+
+    # If user explicitly uploaded a hero image, prioritize it for the primary hero/banner frame
     if user_hero_url and user_hero_url.strip():
         images_by_role['hero'] = user_hero_url.strip()
+        images_by_role['hero_1'] = user_hero_url.strip()
+        images_by_role['banner_1'] = user_hero_url.strip()
         for item in image_pool:
-            if item.get('role') == 'hero':
+            if item.get('role') in ['hero', 'hero_1']:
                 item['url'] = user_hero_url.strip()
                 item['source'] = 'user_upload'
                 item['alt'] = f"{name} Hero Banner"
 
     return image_pool, images_by_role, keywords
+
