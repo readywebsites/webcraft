@@ -886,13 +886,13 @@ def generate_website(request):
 
         if db_cat:
             category_name = db_cat.name
-            candidate_templates = list(GitHubTemplate.objects.filter(category=db_cat)[:6])
+            candidate_templates = list(GitHubTemplate.objects.filter(category=db_cat))
 
-        # If selected category has no templates yet, fallback to all imported GitHub templates
+        # If selected category has no templates yet in Admin, fallback to all imported GitHub templates
         if not candidate_templates:
-            candidate_templates = list(GitHubTemplate.objects.filter(is_imported=True)[:6])
+            candidate_templates = list(GitHubTemplate.objects.filter(is_imported=True).exclude(source_code_html=''))
             if not candidate_templates:
-                candidate_templates = list(GitHubTemplate.objects.all()[:6])
+                candidate_templates = list(GitHubTemplate.objects.all())
 
         # Default fallback preset for category content
         matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == business_type_id), BUSINESS_TYPES_DATA[0])
@@ -962,14 +962,7 @@ def generate_website(request):
                     if r: tpl.repo_name = r
                     if b and not tpl.default_branch: tpl.default_branch = b
 
-                is_fallback_stock = (
-                    not tpl.source_code_html
-                    or len(tpl.source_code_html) < 100
-                    or 'saas-template-root' in tpl.source_code_html
-                    or 'fit-template-root' in tpl.source_code_html
-                    or 'bistro-template-root' in tpl.source_code_html
-                )
-                if is_fallback_stock or not tpl.is_imported:
+                if not tpl.source_code_html or len(tpl.source_code_html) < 100:
                     from .github_importer import import_source_from_github
                     imp_data = import_source_from_github(tpl.owner or '', tpl.repo_name or '', tpl.default_branch or 'main', category_slug=db_cat.slug if db_cat else '', title=business_name)
                     if imp_data.get('html'):
@@ -979,6 +972,7 @@ def generate_website(request):
                         tpl.editable_placeholders = imp_data.get('placeholders', {})
                         tpl.is_imported = True
                         tpl.save()
+
 
 
                 t_logo_type = getattr(tpl, 'logo_type', 'both')
