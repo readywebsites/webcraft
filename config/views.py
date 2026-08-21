@@ -816,12 +816,14 @@ def get_business_types(request):
     """
     try:
         db_categories = BusinessCategory.objects.all()
+        total_admin_templates = GitHubTemplate.objects.count()
         if db_categories.exists():
             data_list = []
             for cat in db_categories:
                 matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == cat.slug), None)
-                tpl_count = cat.github_templates.count()
-                gh_tpl = cat.github_templates.first()
+                cat_tpl_count = cat.github_templates.count()
+                effective_count = cat_tpl_count if cat_tpl_count > 0 else (total_admin_templates if total_admin_templates > 0 else 6)
+                gh_tpl = cat.github_templates.first() or GitHubTemplate.objects.first()
                 template_title = gh_tpl.title if gh_tpl else (matched_preset['template_name'] if matched_preset else cat.name)
                 cat_price = getattr(cat, 'price', None) or (matched_preset['price'] if matched_preset else 499)
                 data_list.append({
@@ -829,7 +831,7 @@ def get_business_types(request):
                     "name": cat.name,
                     "description": cat.description or f"Templates for {cat.name}",
                     "price": cat_price,
-                    "template_count": tpl_count,
+                    "template_count": effective_count,
                     "recommended_template": gh_tpl.repo_name if gh_tpl else f"{cat.slug}-default",
                     "template_name": template_title,
                     "default_tagline": matched_preset['default_tagline'] if matched_preset else f"Welcome to our {cat.name} business",
@@ -842,6 +844,7 @@ def get_business_types(request):
             return Response({"success": True, "count": len(data_list), "data": data_list}, status=status.HTTP_200_OK)
     except Exception:
         pass
+
 
     return Response({
         "success": True,
