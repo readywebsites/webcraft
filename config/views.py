@@ -24,7 +24,8 @@ def apply_user_details_to_template(raw_html, raw_css, details):
     """
     Generic Content Replacement Engine:
     Safely replaces Logos, Hero Banner Images (img, background-image, picture, source),
-    Contact Email, and Phone Number without corrupting URLs or CSS.
+    Pexels Business Images (data-image, data-background-image), Contact Email, and Phone Number
+    without corrupting URLs or CSS.
     """
     if not raw_html:
         return raw_html, raw_css or ''
@@ -36,6 +37,14 @@ def apply_user_details_to_template(raw_html, raw_css, details):
     phone = details.get('contact_phone', '').strip()
     tagline = details.get('tagline', '').strip()
     color = details.get('primary_color', '').strip()
+    images = dict(details.get('images') or {})
+    image_pool = details.get('image_pool') or []
+
+    # If hero_url is not set but hero is present in images pool, use it
+    if not hero_url and images.get('hero'):
+        hero_url = images.get('hero', '').strip()
+    elif hero_url:
+        images['hero'] = hero_url
 
     html = raw_html
     css = raw_css or ''
@@ -56,7 +65,14 @@ def apply_user_details_to_template(raw_html, raw_css, details):
     if color:
         html = html.replace('{{PRIMARY_COLOR}}', color).replace('{{primary_color}}', color)
 
-    # 2. DIRECT SPAN CLASS REPLACEMENTS (logo, banner-image, email, phone, business-name)
+    # Dynamic replacement for image role placeholders e.g. {{IMAGE_HERO}}, {{IMAGE_ABOUT}}, {{IMAGE_SERVICE_1}}
+    if images:
+        for role_k, img_v in images.items():
+            if img_v:
+                html = html.replace(f'{{{{IMAGE_{role_k.upper()}}}}}', img_v)
+                html = html.replace(f'{{{{image_{role_k.lower()}}}}}', img_v)
+
+    # 2. DIRECT DOM REPLACEMENTS (BeautifulSoup)
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, 'html.parser')
@@ -67,9 +83,10 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             for el in bname_els:
                 el.string = b_name
 
-        # B. Logo: <span class="logo"> / .logo
+        # B. User Logo Replacement (data-logo="business_logo" / span.logo / .logo / [data-editable="logo"])
+        # Kept strictly separate from Pexels stock images
         if logo_url:
-            logo_els = soup.select('span.logo, .logo, [data-editable="logo"]')
+            logo_els = soup.select('span.logo, .logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]')
             for el in logo_els:
                 img = el if el.name == 'img' else el.find('img')
                 if img:
@@ -82,12 +99,35 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                     new_img = soup.new_tag('img', src=logo_url, alt=b_name, style="max-height: 60px; max-width: 280px; object-fit: contain; width: auto;")
                     el.append(new_img)
         elif b_name:
-            text_logo_els = soup.select('span.logo, .logo')
+            text_logo_els = soup.select('span.logo, .logo, [data-logo="business_logo"]')
             for el in text_logo_els:
                 if el.name != 'img' and not el.find('img'):
                     el.string = b_name
 
-        # C. Banner Image: <span class="banner-image"> / .banner-image
+        # C. Pexels Business Images: <img data-image="role">
+        if images:
+            img_data_els = soup.select('img[data-image]')
+            for img in img_data_els:
+                role_val = img.get('data-image', '').strip().lower()
+                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
+                if target_img_url:
+                    img['src'] = target_img_url
+                    if img.has_attr('srcset'):
+                        img['srcset'] = target_img_url
+
+        # D. Pexels Background Images: [data-background-image="role"]
+        if images:
+            bg_data_els = soup.select('[data-background-image]')
+            for el in bg_data_els:
+                role_val = el.get('data-background-image', '').strip().lower()
+                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
+                if target_img_url:
+                    existing_style = el.get('style', '')
+                    cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
+                    new_style = f"{cleaned_style}; background-image: url('{target_img_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+                    el['style'] = new_style
+
+        # E. Banner Image: <span class="banner-image"> / .banner-image / [data-editable="hero_image"]
         if hero_url:
             banner_els = soup.select('span.banner-image, .banner-image, [data-editable="hero_image"], [data-editable="banner-image"]')
             for el in banner_els:
@@ -99,13 +139,14 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                 else:
                     existing_style = el.get('style', '')
                     if 'background' in existing_style.lower() or el.name in ['section', 'header', 'div', 'main']:
-                        el['style'] = f"{existing_style}; background-image: url('{hero_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+                        cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
+                        el['style'] = f"{cleaned_style}; background-image: url('{hero_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
                     else:
                         el.clear()
                         new_img = soup.new_tag('img', src=hero_url, alt="Banner", style="width: 100%; height: 100%; object-fit: cover;")
                         el.append(new_img)
 
-        # D. Contact Email: <span class="email"> / .email
+        # F. Contact Email: <span class="email"> / .email
         if email:
             email_els = soup.select('span.email, .email, [data-editable="contact_email"], [data-editable="email"]')
             for el in email_els:
@@ -115,7 +156,7 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                 elif el.parent and el.parent.name == 'a':
                     el.parent['href'] = f"mailto:{email}"
 
-        # E. Contact Phone: <span class="phone"> / .phone
+        # G. Contact Phone: <span class="phone"> / .phone
         if phone:
             clean_digits = re.sub(r'[^\d+]', '', phone)
             phone_els = soup.select('span.phone, .phone, [data-editable="contact_phone"], [data-editable="phone"]')
@@ -129,6 +170,54 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         html = str(soup)
     except Exception:
         pass
+
+    # Regex fallbacks for Pexels data-image and data-background-image
+    if images:
+        def repl_data_image(m):
+            tag = m.group(0)
+            role_m = re.search(r'data-image=["\']([^"\']+)["\']', tag, re.I)
+            if role_m:
+                role_val = role_m.group(1).lower().strip()
+                target_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
+                if target_url:
+                    tag = re.sub(r'src=["\'][^"\']+["\']', f'src="{target_url}"', tag, flags=re.I)
+                    tag = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{target_url}"', tag, flags=re.I)
+            return tag
+        html = re.sub(r'<img\s+[^>]*?data-image=["\'][^"\']+["\'][^>]*>', repl_data_image, html, flags=re.I)
+
+        def repl_data_bg_img(m):
+            tag_open = m.group(0)
+            role_m = re.search(r'data-background-image=["\']([^"\']+)["\']', tag_open, re.I)
+            if role_m:
+                role_val = role_m.group(1).lower().strip()
+                target_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
+                if target_url:
+                    if target_url in tag_open:
+                        return tag_open
+                    if 'style=' in tag_open:
+                        def repl_style_val(sm):
+                            quote_char = sm.group(1)
+                            s_val = sm.group(2)
+                            cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', s_val, flags=re.I).strip('; ')
+                            return f'style={quote_char}{cleaned + "; " if cleaned else ""}background-image: url(\'{target_url}\') !important; background-size: cover !important; background-position: center !important;{quote_char}'
+                        tag_open = re.sub(r'style=(["\'])(.*?)\1', repl_style_val, tag_open, flags=re.I | re.DOTALL)
+                    else:
+                        tag_open = tag_open[:-1] + f' style="background-image: url(\'{target_url}\') !important; background-size: cover !important; background-position: center !important;">'
+            return tag_open
+        html = re.sub(r'<[^>]+data-background-image=["\'][^"\']+["\'][^>]*>', repl_data_bg_img, html, flags=re.I)
+
+
+    # Regex fallback for data-logo="business_logo"
+    if logo_url:
+        def repl_data_logo_img(m):
+            tag = m.group(0)
+            tag = re.sub(r'src=["\'][^"\']+["\']', f'src="{logo_url}"', tag, flags=re.I)
+            tag = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{logo_url}"', tag, flags=re.I)
+            return tag
+        html = re.sub(r'<img\s+[^>]*?data-logo=["\'][^"\']*["\'][^>]*>', repl_data_logo_img, html, flags=re.I)
+    elif b_name:
+        html = re.sub(r'(<[^>]+data-logo=["\'][^"\']*["\'][^>]*>)(.*?)(<\/[^>]+>)', rf'\g<1>{b_name}\g<3>', html, flags=re.I)
+
 
     # Regex fallbacks specifically for span tags
     if b_name:
@@ -705,6 +794,7 @@ def generate_website(request):
 
         data = request.data
         business_name = data.get('business_name') or 'My Business'
+        business_description = (data.get('business_description') or data.get('description') or '').strip()
         business_type_id = data.get('business_type') or 'general'
         tagline = data.get('tagline') or ''
         primary_color = data.get('primary_color') or ''
@@ -782,7 +872,19 @@ def generate_website(request):
         final_email = contact_email.strip() if contact_email and contact_email.strip() else f"contact@{business_name.lower().replace(' ', '')}.com"
         final_phone = contact_phone.strip() if contact_phone and contact_phone.strip() else "+1 (555) 234-5678"
 
-        # 2. Build Customized Website Previews for each template
+        # Build unified Pexels image pool once for all candidate templates
+        from .pexels_service import build_image_pool_for_business
+        image_pool, images_by_role, extracted_keywords = build_image_pool_for_business(
+            description=business_description,
+            name=business_name,
+            category=category_name or business_type_id,
+            tagline=final_tagline,
+            user_hero_url=hero_image_url
+        )
+        if not hero_image_url and images_by_role.get('hero'):
+            hero_image_url = images_by_role.get('hero', '')
+
+        # 2. Build Customized Website Previews for each template using the shared image pool
         previews_list = []
         for index, tpl in enumerate(candidate_templates):
             try:
@@ -816,9 +918,12 @@ def generate_website(request):
                     tpl.source_code_css or '',
                     {
                         'business_name': business_name,
+                        'business_description': business_description,
                         'logo_url': t_logo_url,
                         'logo_type': t_logo_type,
                         'hero_image_url': hero_image_url,
+                        'images': images_by_role,
+                        'image_pool': image_pool,
                         'contact_email': final_email,
                         'contact_phone': final_phone,
                         'tagline': final_tagline,
@@ -832,6 +937,7 @@ def generate_website(request):
                     "option_index": index + 1,
                     "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "business_name": business_name,
+                    "business_description": business_description,
                     "business_type": business_type_id,
                     "category_name": category_name,
                     "category_price": cat_price,
@@ -840,6 +946,9 @@ def generate_website(request):
                     "template_name": tpl.title or f"Option {index + 1}",
                     "thumbnail_url": tpl.thumbnail_url or "",
                     "logo_type": t_logo_type,
+                    "image_pool": image_pool,
+                    "images": images_by_role,
+                    "extracted_keywords": extracted_keywords,
                     "github_source": {
                         "repo_url": tpl.repo_url or "",
                         "owner": tpl.owner or "github",
@@ -851,9 +960,12 @@ def generate_website(request):
                     "source_code_js": tpl.source_code_js or '',
                     "content": {
                         "business_name": business_name,
+                        "business_description": business_description,
                         "logo_url": logo_url,
                         "logo_type": t_logo_type,
                         "hero_image_url": hero_image_url,
+                        "images": images_by_role,
+                        "image_pool": image_pool,
                         "tagline": final_tagline,
                         "primary_color": final_color,
                         "contact_email": final_email,
@@ -867,6 +979,7 @@ def generate_website(request):
                 print(f"Error compiling template {tpl.id}: {exc}")
 
         if not previews_list:
+
             return Response({
                 "success": False,
                 "error": f"Failed to generate website options for category '{category_name}'. Please check the template source code in Admin."
@@ -1136,6 +1249,20 @@ def generate_from_github_template(request):
     elif isinstance(hero_file, str) and hero_file.startswith('http'):
         hero_image_url = hero_file
 
+    business_description = (data.get('business_description') or data.get('description') or '').strip()
+
+    # Build Pexels image pool for this GitHub template generation
+    from .pexels_service import build_image_pool_for_business
+    image_pool, images_by_role, extracted_keywords = build_image_pool_for_business(
+        description=business_description,
+        name=business_name,
+        category=f"{owner} {repo_name}",
+        tagline=tagline,
+        user_hero_url=hero_image_url if (hero_file or (isinstance(data.get('hero_image'), str) and data.get('hero_image').startswith('http'))) else ''
+    )
+    if not hero_file and not (isinstance(data.get('hero_image'), str) and data.get('hero_image').startswith('http')) and images_by_role.get('hero'):
+        hero_image_url = images_by_role.get('hero', hero_image_url)
+
     # Look up or import source code for this repo
     from .github_importer import import_source_from_github
     db_tpl = GitHubTemplate.objects.filter(repo_url__iexact=repo_url).first()
@@ -1160,8 +1287,11 @@ def generate_from_github_template(request):
         css_src,
         {
             'business_name': business_name,
+            'business_description': business_description,
             'logo_url': logo_url,
             'hero_image_url': hero_image_url,
+            'images': images_by_role,
+            'image_pool': image_pool,
             'contact_email': contact_email,
             'contact_phone': contact_phone,
             'tagline': tagline,
@@ -1173,10 +1303,14 @@ def generate_from_github_template(request):
         "website_id": f"gh_web_{uuid.uuid4().hex[:10]}",
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "business_name": business_name,
+        "business_description": business_description,
         "business_type": "github-template",
         "category_name": f"GitHub Repo: {owner}/{repo_name}",
         "template_id": f"gh-{owner}-{repo_name}",
         "template_name": f"{owner}/{repo_name}",
+        "image_pool": image_pool,
+        "images": images_by_role,
+        "extracted_keywords": extracted_keywords,
         "github_source": {
             "repo_url": repo_url,
             "owner": owner,
@@ -1188,8 +1322,11 @@ def generate_from_github_template(request):
         "source_code_js": js_src,
         "content": {
             "business_name": business_name,
+            "business_description": business_description,
             "logo_url": logo_url,
             "hero_image_url": hero_image_url,
+            "images": images_by_role,
+            "image_pool": image_pool,
             "tagline": tagline,
             "primary_color": primary_color,
             "contact_email": contact_email,
@@ -1198,19 +1335,19 @@ def generate_from_github_template(request):
                 {
                     "title": "GitHub Template Engine",
                     "desc": f"Automated dynamic token replacement from repository {owner}/{repo_name}.",
-                    "img": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&q=80",
+                    "img": images_by_role.get('service_1', "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&q=80"),
                     "tag": "GitHub Core"
                 },
                 {
                     "title": "Custom Code Generation",
                     "desc": "Transpiled components, variables & layout structure compiled ready for export.",
-                    "img": "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&q=80",
+                    "img": images_by_role.get('service_2', "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&q=80"),
                     "tag": "Vite/Next.js"
                 },
                 {
                     "title": "Instant Deployment Ready",
                     "desc": "Includes Vercel / Netlify configuration & Docker environment files.",
-                    "img": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&q=80",
+                    "img": images_by_role.get('service_3', "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&q=80"),
                     "tag": "Production"
                 }
             ],
@@ -1224,6 +1361,7 @@ def generate_from_github_template(request):
             ]
         }
     }
+
 
     try:
         GeneratedWebsite.objects.create(

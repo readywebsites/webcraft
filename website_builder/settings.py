@@ -159,6 +159,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Domain & Server Settings
 SITE_DOMAIN = os.environ.get('DOMAIN', 'webcraft.biz499.com')
 
+# Pexels API Configuration
+PEXELS_API_KEY = os.environ.get('PEXELS_API_KEY', '')
+
 # CORS Settings
 CORS_ALLOW_ALL_ORIGINS = True  # Allowed for dev environment; can be restricted in production
 CORS_ALLOWED_ORIGINS = [

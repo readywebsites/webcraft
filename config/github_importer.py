@@ -191,7 +191,7 @@ def fetch_repo_css_files(owner: str, repo_name: str, branch: str, html_code: str
 
 def auto_tag_github_html(html_code: str) -> str:
     """
-    Intelligently injects data-editable attributes and {{PLACEHOLDER}} tokens
+    Intelligently injects data-editable, data-image, data-background-image, and data-logo attributes
     into raw imported HTML from GitHub repositories for Logo, Title, Hero Banner, and Tagline.
     """
     if not html_code:
@@ -200,9 +200,9 @@ def auto_tag_github_html(html_code: str) -> str:
     # 1. Tag Logo Elements
     def tag_logo_img(match):
         attrs = match.group(1)
-        if 'data-editable' in attrs.lower():
+        if 'data-logo' in attrs.lower():
             return match.group(0)
-        return f'<img {attrs} data-editable="logo"'
+        return f'<img {attrs} data-logo="business_logo" data-editable="logo"'
     
     html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:logo|brand)[^"\']*["\'][^>]*)', tag_logo_img, html_code, flags=re.IGNORECASE)
 
@@ -233,11 +233,20 @@ def auto_tag_github_html(html_code: str) -> str:
 
     # 3. Tag Hero Banner Images / Backgrounds
     def tag_hero_bg(match):
+        tag_name = match.group(1)
         attrs = match.group(2)
-        if 'data-editable' in attrs.lower():
+        if 'data-background-image' in attrs.lower() or 'data-editable' in attrs.lower():
             return match.group(0)
-        return f'<{match.group(1)} {attrs} data-editable="hero_image"'
+        return f'<{tag_name} {attrs} data-background-image="hero" data-editable="hero_image"'
     html_code = re.sub(r'<(section|div|header|main)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:hero|banner|jumbotron|main-banner|header-bg)[^"\']*["\'][^>]*)', tag_hero_bg, html_code, count=1, flags=re.IGNORECASE)
+
+    # Tag explicitly styled Hero <img> elements with data-image="hero"
+    def tag_hero_img(match):
+        attrs = match.group(1)
+        if 'data-image' in attrs.lower():
+            return match.group(0)
+        return f'<img {attrs} data-image="hero" data-editable="hero_image"'
+    html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image)[^"\']*["\'][^>]*)', tag_hero_img, html_code, flags=re.IGNORECASE)
 
     # 4. Tag Hero Taglines / Subtitles
     def tag_tagline(match):
@@ -248,6 +257,7 @@ def auto_tag_github_html(html_code: str) -> str:
     html_code = re.sub(r'<(p|h2|h3|span)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:tagline|subtitle|hero-sub|sub-title|lead|hero-text)[^"\']*["\'][^>]*)', tag_tagline, html_code, count=1, flags=re.IGNORECASE)
 
     return html_code
+
 
 
 def parse_github_repo_url(url: str) -> Tuple[str, str, str]:
@@ -723,7 +733,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
           <header class="fit-header">
             <div class="fit-container fit-nav-bar">
               <div class="fit-brand">
-                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="fit-logo-img" data-editable="logo" />
+                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="fit-logo-img" data-logo="business_logo" data-editable="logo" />
                 <span class="fit-brand-text" data-editable="title">{{{{SITE_TITLE}}}}</span>
               </div>
               <nav class="fit-nav-links">
@@ -737,7 +747,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
             </div>
           </header>
 
-          <section id="hero" class="fit-hero" style="background-image: linear-gradient(180deg, rgba(10,10,15,0.7) 0%, rgba(10,10,15,0.95) 100%), url('{{{{HERO_IMAGE_URL}}}}');">
+          <section id="hero" class="fit-hero" data-background-image="hero" data-editable="hero_image" style="background-image: linear-gradient(180deg, rgba(10,10,15,0.7) 0%, rgba(10,10,15,0.95) 100%), url('{{{{HERO_IMAGE_URL}}}}');">
             <div class="fit-container fit-hero-content">
               <div class="fit-badge">🔥 HIGH PERFORMANCE ATHLETICS — GITHUB: {owner}/{repo_name}</div>
               <h1 class="fit-hero-title" data-editable="tagline">{{{{TAGLINE}}}}</h1>
@@ -757,7 +767,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
               </div>
               <div class="fit-grid-3">
                 <div class="fit-card">
-                  <div class="fit-card-img" style="background-image: url('https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600&q=80');"></div>
+                  <div class="fit-card-img" data-background-image="service_1" style="background-image: url('https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600&q=80');"></div>
                   <div class="fit-card-body">
                     <span class="fit-card-tag">HIGH INTENSITY</span>
                     <h3 data-editable="service_1_title">HIIT &amp; Conditioning</h3>
@@ -765,7 +775,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
                   </div>
                 </div>
                 <div class="fit-card">
-                  <div class="fit-card-img" style="background-image: url('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80');"></div>
+                  <div class="fit-card-img" data-background-image="service_2" style="background-image: url('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80');"></div>
                   <div class="fit-card-body">
                     <span class="fit-card-tag">PERSONALIZED</span>
                     <h3 data-editable="service_2_title">1-on-1 Personal Coaching</h3>
@@ -773,7 +783,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
                   </div>
                 </div>
                 <div class="fit-card">
-                  <div class="fit-card-img" style="background-image: url('https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&q=80');"></div>
+                  <div class="fit-card-img" data-background-image="service_3" style="background-image: url('https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=600&q=80');"></div>
                   <div class="fit-card-body">
                     <span class="fit-card-tag">RECOVERY</span>
                     <h3 data-editable="service_3_title">Cryo &amp; Spa Recovery</h3>
@@ -848,7 +858,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
           <nav class="bistro-navbar">
             <div class="bistro-container bistro-nav-flex">
               <div class="bistro-brand">
-                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="bistro-logo" data-editable="logo" />
+                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="bistro-logo" data-logo="business_logo" data-editable="logo" />
                 <span class="bistro-title" data-editable="title">{{{{SITE_TITLE}}}}</span>
               </div>
               <div class="bistro-menu-items">
@@ -861,7 +871,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
             </div>
           </nav>
 
-          <section class="bistro-hero" style="background-image: linear-gradient(rgba(20, 14, 10, 0.75), rgba(20, 14, 10, 0.9)), url('{{{{HERO_IMAGE_URL}}}}');">
+          <section class="bistro-hero" data-background-image="hero" data-editable="hero_image" style="background-image: linear-gradient(rgba(20, 14, 10, 0.75), rgba(20, 14, 10, 0.9)), url('{{{{HERO_IMAGE_URL}}}}');">
             <div class="bistro-container bistro-hero-box">
               <span class="bistro-sub-tag">MICHELIN INSPIRED DINING — GITHUB: {owner}/{repo_name}</span>
               <h1 class="bistro-hero-heading" data-editable="tagline">{{{{TAGLINE}}}}</h1>
@@ -878,7 +888,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
               </div>
               <div class="bistro-grid-3">
                 <div class="bistro-menu-card">
-                  <img src="https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600&q=80" alt="Special 1" class="bistro-card-img" />
+                  <img src="https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600&q=80" alt="Special 1" class="bistro-card-img" data-image="service_1" />
                   <div class="bistro-card-content">
                     <h3 data-editable="service_1_title">Artisanal Hand-Rolled Tagliatelle</h3>
                     <p data-editable="service_1_desc">Tuscan black truffle shavings, 36-month aged Parmigiano Reggiano, and organic free-range egg yolks.</p>
@@ -886,7 +896,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
                   </div>
                 </div>
                 <div class="bistro-menu-card">
-                  <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&q=80" alt="Special 2" class="bistro-card-img" />
+                  <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&q=80" alt="Special 2" class="bistro-card-img" data-image="service_2" />
                   <div class="bistro-card-content">
                     <h3 data-editable="service_2_title">Wood-Fired Neapolitan Pizza</h3>
                     <p data-editable="service_2_desc">Baked at 900° in authentic volcanic brick oven with San Marzano DOP tomatoes and fresh fior di latte.</p>
@@ -894,7 +904,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
                   </div>
                 </div>
                 <div class="bistro-menu-card">
-                  <img src="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&q=80" alt="Special 3" class="bistro-card-img" />
+                  <img src="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&q=80" alt="Special 3" class="bistro-card-img" data-image="service_3" />
                   <div class="bistro-card-content">
                     <h3 data-editable="service_3_title">Sommelier Reserve Wine Pairings</h3>
                     <p data-editable="service_3_desc">Curated flights of rare estate vintages from Piedmont, Tuscany, and Bordeaux cellars.</p>
@@ -967,7 +977,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
           <header class="saas-header">
             <div class="saas-container saas-nav">
               <div class="saas-brand">
-                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="saas-logo" data-editable="logo" />
+                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="saas-logo" data-logo="business_logo" data-editable="logo" />
                 <span class="saas-title" data-editable="title">{{{{SITE_TITLE}}}}</span>
               </div>
               <div class="saas-links">
@@ -983,7 +993,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
             </div>
           </header>
 
-          <section class="saas-hero" style="background-image: radial-gradient(circle at 50% 0%, rgba(59,130,246,0.18) 0%, transparent 70%), url('{{{{HERO_IMAGE_URL}}}}');">
+          <section class="saas-hero" data-background-image="hero" data-editable="hero_image" style="background-image: radial-gradient(circle at 50% 0%, rgba(59,130,246,0.18) 0%, transparent 70%), url('{{{{HERO_IMAGE_URL}}}}');">
             <div class="saas-container saas-hero-content">
               <div class="saas-pill">✨ POWERED BY GITHUB REPO: {owner}/{repo_name}</div>
               <h1 class="saas-hero-title" data-editable="tagline">{{{{TAGLINE}}}}</h1>
@@ -994,6 +1004,7 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
               </div>
             </div>
           </section>
+
 
           <section id="features" class="saas-section">
             <div class="saas-container">
