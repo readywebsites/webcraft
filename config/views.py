@@ -1630,9 +1630,10 @@ def get_github_template_source(request):
     if not db_tpl and cat_slug:
         db_tpl = GitHubTemplate.objects.filter(category__slug__iexact=cat_slug).first()
 
-    # 4. Unconditional fallback ONLY if no ID, repo_url, or category requested
-    if not db_tpl and not (template_id or repo_url or cat_slug):
-        db_tpl = GitHubTemplate.objects.first()
+    # 4. Universal Fallback to any available GitHub template from Admin
+    if not db_tpl:
+        db_tpl = GitHubTemplate.objects.filter(is_imported=True).first() or GitHubTemplate.objects.first()
+
 
     if db_tpl:
         is_fallback_stock = (
