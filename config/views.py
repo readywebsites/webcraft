@@ -1057,8 +1057,81 @@ def generate_website(request):
                 print(f"Error compiling template {tpl.id}: {exc}")
 
         clean_previews = [dict(item) for item in previews_list]
+        if not clean_previews:
+            for index, tpl in enumerate(GitHubTemplate.objects.all()[:6]):
+                try:
+                    t_logo_type = getattr(tpl, 'logo_type', 'both')
+                    t_logo_url = "" if (t_logo_type == 'text' or logo_mode == 'text') else logo_url
+                    t_edited_html, t_edited_css = apply_user_details_to_template(
+                        tpl.source_code_html or '',
+                        tpl.source_code_css or '',
+                        {
+                            'business_name': business_name,
+                            'business_description': business_description,
+                            'logo_url': t_logo_url,
+                            'logo_type': t_logo_type,
+                            'hero_image_url': hero_image_url,
+                            'images': images_by_role,
+                            'image_pool': image_pool,
+                            'contact_email': final_email,
+                            'contact_phone': final_phone,
+                            'tagline': final_tagline,
+                            'primary_color': final_color,
+                        }
+                    )
+                    cat_price = db_cat.price if (db_cat and hasattr(db_cat, 'price')) else 499
+                    item = {
+                        "website_id": f"gh_web_{tpl.id}_{uuid.uuid4().hex[:6]}",
+                        "option_index": index + 1,
+                        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "business_name": business_name,
+                        "business_description": business_description,
+                        "business_type": business_type_id,
+                        "category_name": category_name,
+                        "category_price": cat_price,
+                        "price": cat_price,
+                        "template_id": f"gh-{tpl.owner}-{tpl.repo_name}",
+                        "template_name": tpl.title or f"Option {index + 1}",
+                        "thumbnail_url": tpl.thumbnail_url or "",
+                        "logo_type": t_logo_type,
+                        "image_pool": image_pool,
+                        "images": images_by_role,
+                        "extracted_keywords": extracted_keywords,
+                        "github_source": {
+                            "repo_url": tpl.repo_url or "",
+                            "owner": tpl.owner or "github",
+                            "repo_name": tpl.repo_name or "template",
+                            "default_branch": tpl.default_branch or "main"
+                        },
+                        "source_code_html": t_edited_html or '',
+                        "source_code_css": t_edited_css or '',
+                        "source_code_js": tpl.source_code_js or '',
+                        "content": {
+                            "business_name": business_name,
+                            "business_description": business_description,
+                            "logo_url": logo_url,
+                            "logo_type": t_logo_type,
+                            "hero_image_url": hero_image_url,
+                            "images": images_by_role,
+                            "image_pool": image_pool,
+                            "tagline": final_tagline,
+                            "primary_color": final_color,
+                            "contact_email": final_email,
+                            "contact_phone": final_phone,
+                            "services": matched_preset['default_services'],
+                            "testimonials": matched_preset['default_testimonials']
+                        }
+                    }
+                    clean_previews.append(item)
+                except Exception:
+                    pass
+
+        if not clean_previews:
+            return Response({"success": False, "error": "No templates available in database. Please add GitHub templates in Admin panel."}, status=status.HTTP_400_BAD_REQUEST)
+
         primary_data = dict(clean_previews[0])
         primary_data["previews"] = clean_previews
+
 
 
         try:
