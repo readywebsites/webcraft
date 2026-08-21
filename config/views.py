@@ -822,8 +822,7 @@ def get_business_types(request):
             for cat in db_categories:
                 matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == cat.slug), None)
                 cat_tpl_count = cat.github_templates.count()
-                effective_count = cat_tpl_count if cat_tpl_count > 0 else (total_admin_templates if total_admin_templates > 0 else 6)
-                gh_tpl = cat.github_templates.first() or GitHubTemplate.objects.first()
+                gh_tpl = cat.github_templates.first()
                 template_title = gh_tpl.title if gh_tpl else (matched_preset['template_name'] if matched_preset else cat.name)
                 cat_price = getattr(cat, 'price', None) or (matched_preset['price'] if matched_preset else 499)
                 data_list.append({
@@ -831,7 +830,7 @@ def get_business_types(request):
                     "name": cat.name,
                     "description": cat.description or f"Templates for {cat.name}",
                     "price": cat_price,
-                    "template_count": effective_count,
+                    "template_count": cat_tpl_count,
                     "recommended_template": gh_tpl.repo_name if gh_tpl else f"{cat.slug}-default",
                     "template_name": template_title,
                     "default_tagline": matched_preset['default_tagline'] if matched_preset else f"Welcome to our {cat.name} business",
@@ -841,6 +840,7 @@ def get_business_types(request):
                     "default_services": matched_preset['default_services'] if matched_preset else [],
                     "default_testimonials": matched_preset['default_testimonials'] if matched_preset else []
                 })
+
             return Response({"success": True, "count": len(data_list), "data": data_list}, status=status.HTTP_200_OK)
     except Exception:
         pass
@@ -883,6 +883,8 @@ def generate_website(request):
         if business_type_id and business_type_id != 'general':
             db_cat = BusinessCategory.objects.filter(slug__iexact=business_type_id).first()
             if not db_cat:
+                db_cat = BusinessCategory.objects.filter(name__iexact=business_type_id).first()
+            if not db_cat:
                 db_cat = BusinessCategory.objects.filter(slug__icontains=business_type_id).first()
             if not db_cat:
                 db_cat = BusinessCategory.objects.filter(name__icontains=business_type_id).first()
@@ -891,20 +893,12 @@ def generate_website(request):
             category_name = db_cat.name
             candidate_templates = list(GitHubTemplate.objects.filter(category=db_cat)[:6])
 
+        if not candidate_templates:
+            return Response({
+                "success": False,
+                "error": f"No GitHub templates available for '{category_name}' category. Please add templates to this category in Django Admin."
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        # If selected category has fewer than 6 templates, supplement with other real GitHub templates from Admin (up to 6)
-        if len(candidate_templates) < 6:
-            needed = 6 - len(candidate_templates)
-            existing_ids = [t.id for t in candidate_templates]
-            more_tpls = list(GitHubTemplate.objects.filter(is_imported=True).exclude(id__in=existing_ids)[:needed])
-            candidate_templates.extend(more_tpls)
-            if len(candidate_templates) < 6:
-                needed = 6 - len(candidate_templates)
-                existing_ids = [t.id for t in candidate_templates]
-                more_tpls = list(GitHubTemplate.objects.exclude(id__in=existing_ids)[:needed])
-                candidate_templates.extend(more_tpls)
-
-        candidate_templates = candidate_templates[:6]
 
         # Default fallback preset for category content
         matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == business_type_id), BUSINESS_TYPES_DATA[0])
