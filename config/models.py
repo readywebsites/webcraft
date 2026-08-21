@@ -98,45 +98,84 @@ class GitHubTemplate(models.Model):
         verbose_name_plural = "GitHub Templates"
 
     def save(self, *args, **kwargs):
-        # Auto extract owner and repo_name from repo_url if not provided or clean them up
-        if self.repo_url:
-            from .github_importer import parse_github_repo_url
-            parsed_owner, parsed_repo, parsed_branch = parse_github_repo_url(self.repo_url)
-            if parsed_owner:
-                self.owner = parsed_owner
-            if parsed_repo:
-                self.repo_name = parsed_repo
-            if parsed_branch and (not self.default_branch or self.default_branch == 'main'):
-                self.default_branch = parsed_branch
+        # 1. Auto extract owner and repo_name from repo_url if not provided or clean them up
+        try:
+            if self.repo_url:
+                from .github_importer import parse_github_repo_url
+                parsed_owner, parsed_repo, parsed_branch = parse_github_repo_url(self.repo_url)
+                if parsed_owner and not self.owner:
+                    self.owner = parsed_owner
+                if parsed_repo and not self.repo_name:
+                    self.repo_name = parsed_repo
+                if parsed_branch and (not self.default_branch or self.default_branch == 'main'):
+                    self.default_branch = parsed_branch
+        except Exception:
+            pass
 
-        # Auto import source code from GitHub if not already imported or if source_code_html is missing
+        # 2. Auto import source code from GitHub if not already provided or if source_code_html is missing
         if not self.source_code_html or not self.is_imported:
-            from .github_importer import import_source_from_github
-            cat_slug = self.category.slug if self.category else ''
-            imported_res = import_source_from_github(
-                owner=self.owner or 'github-user',
-                repo_name=self.repo_name or 'template-repo',
-                branch=self.default_branch or '',
-                category_slug=cat_slug,
-                title=self.title or self.repo_name
-            )
-            if imported_res.get('html'):
-                self.source_code_html = imported_res.get('html', '')
-                self.source_code_css = imported_res.get('css', '')
-                self.source_code_js = imported_res.get('js', '')
-                self.editable_placeholders = imported_res.get('placeholders', {})
-                self.is_imported = True
+            try:
+                from .github_importer import import_source_from_github, get_default_category_template
+                cat_slug = self.category.slug if self.category else ''
+                imported_res = import_source_from_github(
+                    owner=self.owner or 'template-owner',
+                    repo_name=self.repo_name or 'template-repo',
+                    branch=self.default_branch or 'main',
+                    category_slug=cat_slug,
+                    title=self.title or self.repo_name or 'Modern Template'
+                )
+                if imported_res and imported_res.get('html'):
+                    self.source_code_html = imported_res.get('html', '')
+                    self.source_code_css = imported_res.get('css', '')
+                    self.source_code_js = imported_res.get('js', '')
+                    self.editable_placeholders = imported_res.get('placeholders', {})
+                    self.is_imported = True
+                else:
+                    # Fallback to category template if import returned empty
+                    def_html, def_css, def_js, def_ph = get_default_category_template(
+                        category_slug=cat_slug,
+                        title=self.title or self.repo_name or 'Modern Template',
+                        owner=self.owner or 'templates',
+                        repo_name=self.repo_name or 'starter'
+                    )
+                    self.source_code_html = def_html
+                    self.source_code_css = def_css
+                    self.source_code_js = def_js
+                    self.editable_placeholders = def_ph
+                    self.is_imported = True
+            except Exception as imp_err:
+                try:
+                    from .github_importer import get_default_category_template
+                    cat_slug = self.category.slug if self.category else ''
+                    def_html, def_css, def_js, def_ph = get_default_category_template(
+                        category_slug=cat_slug,
+                        title=self.title or self.repo_name or 'Modern Template',
+                        owner=self.owner or 'templates',
+                        repo_name=self.repo_name or 'starter'
+                    )
+                    self.source_code_html = def_html
+                    self.source_code_css = def_css
+                    self.source_code_js = def_js
+                    self.editable_placeholders = def_ph
+                    self.is_imported = True
+                except Exception:
+                    pass
 
-        # Run Template Analysis Engine to classify logo capabilities
-        if self.source_code_html:
-            from .template_analyzer import analyze_template_logo_type
-            self.logo_type = analyze_template_logo_type(
-                self.source_code_html,
-                self.source_code_css,
-                self.source_code_js
-            )
+        # 3. Run Template Analysis Engine to classify logo capabilities
+        try:
+            if self.source_code_html:
+                from .template_analyzer import analyze_template_logo_type
+                self.logo_type = analyze_template_logo_type(
+                    self.source_code_html,
+                    self.source_code_css,
+                    self.source_code_js
+                )
+        except Exception:
+            if not self.logo_type:
+                self.logo_type = 'both'
 
         super().save(*args, **kwargs)
+
 
 class PhonePeOrderTransaction(models.Model):
     """

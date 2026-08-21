@@ -20,11 +20,13 @@ def get_github_headers() -> Dict[str, str]:
 
 def fetch_raw_github_file(owner: str, repo_name: str, branch: str, file_path: str) -> str:
     """Helper to fetch a raw file from GitHub raw content API, jsDelivr CDN, or REST API fallback."""
+    if not owner or not repo_name or not file_path:
+        return ""
     clean_path = file_path.lstrip('./').lstrip('/')
     url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{branch}/{clean_path}"
     try:
         req = urllib.request.Request(url, headers=get_github_headers())
-        with urllib.request.urlopen(req, timeout=8) as response:
+        with urllib.request.urlopen(req, timeout=3.0) as response:
             if response.status == 200:
                 return response.read().decode('utf-8', errors='ignore')
     except Exception:
@@ -34,22 +36,9 @@ def fetch_raw_github_file(owner: str, repo_name: str, branch: str, file_path: st
     jsdelivr_url = f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{branch}/{clean_path}"
     try:
         req = urllib.request.Request(jsdelivr_url, headers=get_github_headers())
-        with urllib.request.urlopen(req, timeout=8) as response:
+        with urllib.request.urlopen(req, timeout=3.0) as response:
             if response.status == 200:
                 return response.read().decode('utf-8', errors='ignore')
-    except Exception:
-        pass
-
-    # REST API contents fallback
-    api_url = f"https://api.github.com/repos/{owner}/{repo_name}/contents/{urllib.parse.quote(clean_path)}?ref={branch}"
-    try:
-        req = urllib.request.Request(api_url, headers=get_github_headers())
-        with urllib.request.urlopen(req, timeout=8) as response:
-            if response.status == 200:
-                content_json = json.loads(response.read().decode('utf-8'))
-                if content_json.get('encoding') == 'base64':
-                    import base64
-                    return base64.b64decode(content_json.get('content', '')).decode('utf-8', errors='ignore')
     except Exception:
         pass
 
@@ -64,10 +53,13 @@ def discover_github_repo_files(owner: str, repo_name: str) -> Tuple[str, list]:
     default_branch = "main"
     file_list = []
 
+    if not owner or not repo_name:
+        return default_branch, file_list
+
     # 1. Get Repo Metadata for actual default branch name
     try:
         req = urllib.request.Request(f"https://api.github.com/repos/{owner}/{repo_name}", headers=get_github_headers())
-        with urllib.request.urlopen(req, timeout=8) as res:
+        with urllib.request.urlopen(req, timeout=3.0) as res:
             if res.status == 200:
                 info = json.loads(res.read().decode('utf-8'))
                 default_branch = info.get('default_branch', 'main')
@@ -78,7 +70,7 @@ def discover_github_repo_files(owner: str, repo_name: str) -> Tuple[str, list]:
     tree_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/trees/{default_branch}?recursive=1"
     try:
         req = urllib.request.Request(tree_url, headers=get_github_headers())
-        with urllib.request.urlopen(req, timeout=8) as res:
+        with urllib.request.urlopen(req, timeout=3.0) as res:
             if res.status == 200:
                 tree_data = json.loads(res.read().decode('utf-8'))
                 for item in tree_data.get('tree', []):
@@ -88,6 +80,7 @@ def discover_github_repo_files(owner: str, repo_name: str) -> Tuple[str, list]:
         pass
 
     return default_branch, file_list
+
 
 
 def fetch_repo_css_files(owner: str, repo_name: str, branch: str, html_code: str, repo_files: list = None) -> str:
@@ -633,17 +626,16 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
     # 3. Standard HTML discovery if Django/React did not match or produce HTML
     if not html_code:
         candidate_html_paths = [
-            'index.html', 'public/index.html', 'src/index.html', 'dist/index.html',
-            'docs/index.html', 'demo/index.html', 'app.html'
+            'index.html', 'public/index.html', 'src/index.html', 'dist/index.html'
         ]
-        for f in repo_files:
-            if f.endswith('.html') and f not in candidate_html_paths:
-                candidate_html_paths.append(f)
+        if repo_files:
+            for f in repo_files:
+                if f.endswith('.html') and f not in candidate_html_paths and len(candidate_html_paths) < 8:
+                    candidate_html_paths.append(f)
 
-        branches_to_try = [actual_branch]
-        for b in ['main', 'master', 'gh-pages', 'dev']:
-            if b not in branches_to_try:
-                branches_to_try.append(b)
+        branches_to_try = [actual_branch] if actual_branch else ['main']
+        if repo_files and 'master' not in branches_to_try:
+            branches_to_try.append('master')
 
         for b in branches_to_try:
             for path in candidate_html_paths:
@@ -654,6 +646,7 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
                     break
             if html_code:
                 break
+
 
     # Clean & Auto-tag HTML
     if html_code:
