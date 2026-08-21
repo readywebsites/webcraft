@@ -185,21 +185,21 @@ def fetch_repo_css_files(owner: str, repo_name: str, branch: str, html_code: str
 def auto_tag_github_html(html_code: str) -> str:
     """
     Intelligently injects data-editable, data-image, data-background-image, and data-logo attributes
-    into raw imported HTML from GitHub repositories for Logo, Title, Hero Banner, and Tagline.
+    into raw imported HTML from GitHub repositories for Logo, Title, Hero Banner, Tagline, Email, Phone,
+    and sequentially for Content Images (services, products, gallery, about).
     """
     if not html_code:
         return html_code
 
-    # 1. Tag Logo Elements
+    # 1. Tag Logo Elements (Image & Text)
     def tag_logo_img(match):
         attrs = match.group(1)
         if 'data-logo' in attrs.lower():
             return match.group(0)
         return f'<img {attrs} data-logo="business_logo" data-editable="logo"'
-    
     html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:logo|brand)[^"\']*["\'][^>]*)', tag_logo_img, html_code, flags=re.IGNORECASE)
 
-    # 2. Tag Main Title Elements (h1, site-title, brand-text) without erasing original inner HTML
+    # 2. Tag Main Title Elements (h1, span.business-name, site-title, brand-text, company-name)
     def tag_title_h1(match):
         full_tag = match.group(0)
         if 'data-editable' in full_tag.lower():
@@ -213,16 +213,14 @@ def auto_tag_github_html(html_code: str) -> str:
         else:
             new_open = tag_open[:-1] + ' data-editable="title">'
         return f'{new_open}{tag_content}{tag_close}'
-
     html_code = re.sub(r'(<h1[^>]*>)(.*?)(<\/h1>)', tag_title_h1, html_code, count=1, flags=re.IGNORECASE | re.DOTALL)
 
-    if 'data-editable="title"' not in html_code:
-        def tag_title_class(match):
-            attrs = match.group(2)
-            if 'data-editable' in attrs.lower():
-                return match.group(0)
-            return f'<{match.group(1)} {attrs} data-editable="title"'
-        html_code = re.sub(r'<(span|div|a|p)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:site-title|brand-text|logo-text|app-title|brand-name)[^"\']*["\'][^>]*)', tag_title_class, html_code, count=1, flags=re.IGNORECASE)
+    def tag_title_class(match):
+        attrs = match.group(2)
+        if 'data-editable' in attrs.lower():
+            return match.group(0)
+        return f'<{match.group(1)} {attrs} data-editable="title"'
+    html_code = re.sub(r'<(span|div|a|p)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:site-title|brand-text|logo-text|app-title|brand-name|business-name|company-name)[^"\']*["\'][^>]*)', tag_title_class, html_code, count=2, flags=re.IGNORECASE)
 
     # 3. Tag Hero Banner Images / Backgrounds
     def tag_hero_bg(match):
@@ -231,15 +229,15 @@ def auto_tag_github_html(html_code: str) -> str:
         if 'data-background-image' in attrs.lower() or 'data-editable' in attrs.lower():
             return match.group(0)
         return f'<{tag_name} {attrs} data-background-image="hero" data-editable="hero_image"'
-    html_code = re.sub(r'<(section|div|header|main)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:hero|banner|jumbotron|main-banner|header-bg)[^"\']*["\'][^>]*)', tag_hero_bg, html_code, count=1, flags=re.IGNORECASE)
+    html_code = re.sub(r'<(section|div|header|main)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:hero|banner|jumbotron|main-banner|header-bg|slider-area|welcome-area)[^"\']*["\'][^>]*)', tag_hero_bg, html_code, count=1, flags=re.IGNORECASE)
 
     # Tag explicitly styled Hero <img> elements with data-image="hero"
     def tag_hero_img(match):
         attrs = match.group(1)
-        if 'data-image' in attrs.lower():
+        if 'data-image' in attrs.lower() or 'data-logo' in attrs.lower():
             return match.group(0)
         return f'<img {attrs} data-image="hero" data-editable="hero_image"'
-    html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image)[^"\']*["\'][^>]*)', tag_hero_img, html_code, flags=re.IGNORECASE)
+    html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image|hero\.png|hero\.jpg|banner|slide-1)[^"\']*["\'][^>]*)', tag_hero_img, html_code, count=1, flags=re.IGNORECASE)
 
     # 4. Tag Hero Taglines / Subtitles
     def tag_tagline(match):
@@ -247,9 +245,52 @@ def auto_tag_github_html(html_code: str) -> str:
         if 'data-editable' in attrs.lower():
             return match.group(0)
         return f'<{match.group(1)} {attrs} data-editable="tagline"'
-    html_code = re.sub(r'<(p|h2|h3|span)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:tagline|subtitle|hero-sub|sub-title|lead|hero-text)[^"\']*["\'][^>]*)', tag_tagline, html_code, count=1, flags=re.IGNORECASE)
+    html_code = re.sub(r'<(p|h2|h3|span)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:tagline|subtitle|hero-sub|sub-title|lead|hero-text|business-tagline)[^"\']*["\'][^>]*)', tag_tagline, html_code, count=2, flags=re.IGNORECASE)
+
+    # 5. Tag Contact Email & Phone
+    def tag_email(match):
+        attrs = match.group(2)
+        if 'data-editable' in attrs.lower():
+            return match.group(0)
+        return f'<{match.group(1)} {attrs} data-editable="contact_email"'
+    html_code = re.sub(r'<(span|a|p|div)\s+([^>]*?(?:class|id|href)=["\'][^"\']*(?:email|contact-email|business-email|mailto:)[^"\']*["\'][^>]*)', tag_email, html_code, flags=re.IGNORECASE)
+
+    def tag_phone(match):
+        attrs = match.group(2)
+        if 'data-editable' in attrs.lower():
+            return match.group(0)
+        return f'<{match.group(1)} {attrs} data-editable="contact_phone"'
+    html_code = re.sub(r'<(span|a|p|div)\s+([^>]*?(?:class|id|href)=["\'][^"\']*(?:phone|contact-phone|business-phone|tel:)[^"\']*["\'][^>]*)', tag_phone, html_code, flags=re.IGNORECASE)
+
+    # 6. Tag Remaining Content Images for Pexels Pool (Services, Products, Gallery, About)
+    content_roles = [
+        'service_1', 'service_2', 'service_3',
+        'product_1', 'product_2', 'product_3',
+        'gallery_1', 'gallery_2', 'gallery_3',
+        'about', 'cta'
+    ]
+    role_idx = 0
+
+    def tag_content_img(match):
+        nonlocal role_idx
+        full_tag = match.group(0)
+        attrs = match.group(1)
+        # Skip if already tagged or is a logo/icon/avatar
+        if 'data-image' in attrs.lower() or 'data-logo' in attrs.lower() or 'data-editable' in attrs.lower():
+            return full_tag
+        if re.search(r'(?:logo|icon|avatar|favicon|cart|star|arrow|close|menu|search|badge)', attrs, re.I):
+            return full_tag
+        
+        if role_idx < len(content_roles):
+            role_name = content_roles[role_idx]
+            role_idx += 1
+            return f'<img {attrs} data-image="{role_name}" data-editable="{role_name}"'
+        return full_tag
+
+    html_code = re.sub(r'<img\s+([^>]+)>', tag_content_img, html_code, flags=re.IGNORECASE)
 
     return html_code
+
 
 
 

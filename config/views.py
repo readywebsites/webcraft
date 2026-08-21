@@ -77,59 +77,53 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(html, 'html.parser')
 
-        # A. Business Name: <span class="business-name"> / .business-name
+        # A. Page Title: <title>
         if b_name:
-            bname_els = soup.select('span.business-name, .business-name, [data-editable="title"], [data-editable="business-name"]')
+            if soup.title:
+                soup.title.string = f"{b_name} - {tagline}" if tagline else b_name
+            else:
+                new_title = soup.new_tag('title')
+                new_title.string = f"{b_name} - {tagline}" if tagline else b_name
+                if soup.head:
+                    soup.head.append(new_title)
+
+        # B. Business Name: <span class="business-name"> / .business-name / span.site-title / [data-editable="title"]
+        if b_name:
+            bname_els = soup.select('span.business-name, .business-name, span.site-title, .site-title, span.brand-name, .brand-name, span.company-name, .company-name, [data-editable="title"], [data-editable="business-name"]')
             for el in bname_els:
                 el.string = b_name
 
-        # B. User Logo Replacement (data-logo="business_logo" / span.logo / .logo / [data-editable="logo"])
-        # Kept strictly separate from Pexels stock images
+        # C. User Logo Replacement (data-logo="business_logo" / span.logo / span.business-logo / [data-editable="logo"])
         if logo_url:
-            logo_els = soup.select('span.logo, .logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]')
+            logo_els = soup.select('span.logo, span.business-logo, .business-logo, .logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]')
             for el in logo_els:
                 img = el if el.name == 'img' else el.find('img')
                 if img:
                     img['src'] = logo_url
+                    img['alt'] = b_name or 'Logo'
                     if img.has_attr('srcset'):
                         img['srcset'] = logo_url
                     img['style'] = f"{img.get('style', '')}; max-height: 60px !important; max-width: 280px !important; object-fit: contain !important; width: auto !important;".strip('; ')
                 else:
                     el.clear()
-                    new_img = soup.new_tag('img', src=logo_url, alt=b_name, style="max-height: 60px; max-width: 280px; object-fit: contain; width: auto;")
+                    new_img = soup.new_tag('img', src=logo_url, alt=b_name or 'Logo', style="max-height: 60px; max-width: 280px; object-fit: contain; width: auto;")
                     el.append(new_img)
         elif b_name:
-            text_logo_els = soup.select('span.logo, .logo, [data-logo="business_logo"]')
+            text_logo_els = soup.select('span.logo, span.business-logo, .logo, [data-logo="business_logo"]')
             for el in text_logo_els:
                 if el.name != 'img' and not el.find('img'):
                     el.string = b_name
 
-        # C. Pexels Business Images: <img data-image="role">
-        if images:
-            img_data_els = soup.select('img[data-image]')
-            for img in img_data_els:
-                role_val = img.get('data-image', '').strip().lower()
-                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
-                if target_img_url:
-                    img['src'] = target_img_url
-                    if img.has_attr('srcset'):
-                        img['srcset'] = target_img_url
 
-        # D. Pexels Background Images: [data-background-image="role"]
-        if images:
-            bg_data_els = soup.select('[data-background-image]')
-            for el in bg_data_els:
-                role_val = el.get('data-background-image', '').strip().lower()
-                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
-                if target_img_url:
-                    existing_style = el.get('style', '')
-                    cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
-                    new_style = f"{cleaned_style}; background-image: url('{target_img_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
-                    el['style'] = new_style
+        # C. Tagline: <span class="business-tagline"> / span.tagline / span.subtitle / [data-editable="tagline"]
+        if tagline:
+            tagline_els = soup.select('span.business-tagline, .business-tagline, span.tagline, .tagline, span.subtitle, .subtitle, span.hero-sub, [data-editable="tagline"]')
+            for el in tagline_els:
+                el.string = tagline
 
-        # E. Banner Image: <span class="banner-image"> / .banner-image / [data-editable="hero_image"]
+        # D. Hero Banner Image: <span class="banner-image"> / span.hero-image / span.hero-banner / [data-editable="hero_image"]
         if hero_url:
-            banner_els = soup.select('span.banner-image, .banner-image, [data-editable="hero_image"], [data-editable="banner-image"]')
+            banner_els = soup.select('span.banner-image, .banner-image, span.hero-banner, .hero-banner, span.hero-image, .hero-image, [data-editable="hero_image"], [data-editable="banner-image"]')
             for el in banner_els:
                 img = el if el.name == 'img' else el.find('img')
                 if img:
@@ -146,9 +140,53 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                         new_img = soup.new_tag('img', src=hero_url, alt="Banner", style="width: 100%; height: 100%; object-fit: cover;")
                         el.append(new_img)
 
-        # F. Contact Email: <span class="email"> / .email
+        # E. Pexels Business Images: <img data-image="role">
+        if images:
+            img_data_els = soup.select('img[data-image]')
+            for img in img_data_els:
+                role_val = img.get('data-image', '').strip().lower()
+                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
+                if target_img_url:
+                    img['src'] = target_img_url
+                    if img.has_attr('srcset'):
+                        img['srcset'] = target_img_url
+
+        # F. Pexels Background Images: [data-background-image="role"]
+        if images:
+            bg_data_els = soup.select('[data-background-image]')
+            for el in bg_data_els:
+                role_val = el.get('data-background-image', '').strip().lower()
+                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
+                if target_img_url:
+                    existing_style = el.get('style', '')
+                    cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
+                    new_style = f"{cleaned_style}; background-image: url('{target_img_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+                    el['style'] = new_style
+
+        # G. Remaining Content Images Replacement from Pexels Pool
+        # Replaces template placeholder images with high-resolution Pexels photos
+        if image_pool or images:
+            pool_urls = [p['url'] for p in image_pool if isinstance(p, dict) and p.get('url')] if image_pool else list(images.values())
+            content_imgs = soup.select('img')
+            pool_idx = 0
+            for c_img in content_imgs:
+                # Skip already replaced logo, hero, or tiny icons/badges
+                if c_img.get('data-logo') or c_img.get('data-image') or c_img.get('data-editable') == 'logo':
+                    continue
+                c_src = c_img.get('src', '').lower()
+                c_class = ' '.join(c_img.get('class', [])) if isinstance(c_img.get('class'), list) else str(c_img.get('class', '')).lower()
+                if re.search(r'(?:logo|icon|avatar|favicon|cart|star|arrow|close|menu|search|badge)', c_src + ' ' + c_class):
+                    continue
+                if pool_urls:
+                    replacement_url = pool_urls[pool_idx % len(pool_urls)]
+                    c_img['src'] = replacement_url
+                    if c_img.has_attr('srcset'):
+                        c_img['srcset'] = replacement_url
+                    pool_idx += 1
+
+        # H. Contact Email: <span class="business-email"> / span.email / .email / [data-editable="contact_email"]
         if email:
-            email_els = soup.select('span.email, .email, [data-editable="contact_email"], [data-editable="email"]')
+            email_els = soup.select('span.business-email, .business-email, span.email, .email, span.contact-email, .contact-email, [data-editable="contact_email"], [data-editable="email"]')
             for el in email_els:
                 el.string = email
                 if el.name == 'a':
@@ -156,10 +194,10 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                 elif el.parent and el.parent.name == 'a':
                     el.parent['href'] = f"mailto:{email}"
 
-        # G. Contact Phone: <span class="phone"> / .phone
+        # I. Contact Phone: <span class="business-phone"> / span.phone / .phone / [data-editable="contact_phone"]
         if phone:
             clean_digits = re.sub(r'[^\d+]', '', phone)
-            phone_els = soup.select('span.phone, .phone, [data-editable="contact_phone"], [data-editable="phone"]')
+            phone_els = soup.select('span.business-phone, .business-phone, span.phone, .phone, span.contact-phone, .contact-phone, [data-editable="contact_phone"], [data-editable="phone"]')
             for el in phone_els:
                 el.string = phone
                 if el.name == 'a':
@@ -170,6 +208,7 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         html = str(soup)
     except Exception:
         pass
+
 
     # Regex fallbacks for Pexels data-image and data-background-image
     if images:
