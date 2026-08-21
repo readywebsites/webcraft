@@ -121,75 +121,47 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             for el in tagline_els:
                 el.string = tagline
 
-        # Build distinct banner images list for multi-frame hero carousels/sliders
-        distinct_banner_images = []
-        if hero_url and hero_url.strip():
-            distinct_banner_images.append(hero_url.strip())
-        for h_key in ['hero', 'hero_1', 'hero_2', 'hero_3', 'hero_4', 'about', 'service_1', 'gallery_1']:
-            val = images.get(h_key)
-            if val and val not in distinct_banner_images:
-                distinct_banner_images.append(val)
-        if image_pool:
-            for p in image_pool:
-                if isinstance(p, dict) and p.get('url') and p['url'] not in distinct_banner_images:
-                    distinct_banner_images.append(p['url'])
-
-        # D. Hero Banner Images: <span class="banner-image"> / span.hero-image / span.hero-banner / [data-editable="hero_image"]
-        banner_els = soup.select('span.banner-image, .banner-image, span.hero-banner, .hero-banner, span.hero-image, .hero-image, [data-editable="hero_image"], [data-editable="banner-image"], .hero-slide, .banner-slide')
-        for b_idx, el in enumerate(banner_els):
-            frame_img = distinct_banner_images[b_idx % len(distinct_banner_images)] if distinct_banner_images else hero_url
-            if not frame_img:
-                continue
-            img = el if el.name == 'img' else el.find('img')
-            if img:
-                img['src'] = frame_img
-                if img.has_attr('srcset'):
-                    img['srcset'] = frame_img
-            else:
-                existing_style = el.get('style', '')
-                if 'background' in existing_style.lower() or el.name in ['section', 'header', 'div', 'main', 'li']:
-                    cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
-                    el['style'] = f"{cleaned_style}; background-image: url('{frame_img}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+        # D. Hero Banner Image: <span class="banner-image"> / span.hero-image / span.hero-banner / [data-editable="hero_image"]
+        if hero_url:
+            banner_els = soup.select('span.banner-image, .banner-image, span.hero-banner, .hero-banner, span.hero-image, .hero-image, [data-editable="hero_image"], [data-editable="banner-image"]')
+            for el in banner_els:
+                img = el if el.name == 'img' else el.find('img')
+                if img:
+                    img['src'] = hero_url
+                    if img.has_attr('srcset'):
+                        img['srcset'] = hero_url
                 else:
-                    el.clear()
-                    new_img = soup.new_tag('img', src=frame_img, alt=f"Banner Frame {b_idx + 1}", style="width: 100%; height: 100%; object-fit: cover;")
-                    el.append(new_img)
+                    existing_style = el.get('style', '')
+                    if 'background' in existing_style.lower() or el.name in ['section', 'header', 'div', 'main']:
+                        cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
+                        el['style'] = f"{cleaned_style}; background-image: url('{hero_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+                    else:
+                        el.clear()
+                        new_img = soup.new_tag('img', src=hero_url, alt="Banner", style="width: 100%; height: 100%; object-fit: cover;")
+                        el.append(new_img)
 
         # E. Pexels Business Images: <img data-image="role">
-        if images or distinct_banner_images:
+        if images:
             img_data_els = soup.select('img[data-image]')
             for img in img_data_els:
                 role_val = img.get('data-image', '').strip().lower()
-                target_img_url = images.get(role_val)
-                if not target_img_url:
-                    if role_val.startswith('hero_') and role_val[5:].isdigit():
-                        idx_num = int(role_val[5:]) - 1
-                        target_img_url = distinct_banner_images[idx_num % len(distinct_banner_images)] if distinct_banner_images else hero_url
-                    elif role_val == 'hero':
-                        target_img_url = hero_url or (distinct_banner_images[0] if distinct_banner_images else '')
+                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
                 if target_img_url:
                     img['src'] = target_img_url
                     if img.has_attr('srcset'):
                         img['srcset'] = target_img_url
 
         # F. Pexels Background Images: [data-background-image="role"]
-        if images or distinct_banner_images:
+        if images:
             bg_data_els = soup.select('[data-background-image]')
             for el in bg_data_els:
                 role_val = el.get('data-background-image', '').strip().lower()
-                target_img_url = images.get(role_val)
-                if not target_img_url:
-                    if role_val.startswith('hero_') and role_val[5:].isdigit():
-                        idx_num = int(role_val[5:]) - 1
-                        target_img_url = distinct_banner_images[idx_num % len(distinct_banner_images)] if distinct_banner_images else hero_url
-                    elif role_val == 'hero':
-                        target_img_url = hero_url or (distinct_banner_images[0] if distinct_banner_images else '')
+                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
                 if target_img_url:
                     existing_style = el.get('style', '')
                     cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
                     new_style = f"{cleaned_style}; background-image: url('{target_img_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
                     el['style'] = new_style
-
 
         # G. Remaining Content Images Replacement from Pexels Pool
         # Replaces template placeholder images with high-resolution Pexels photos
@@ -293,20 +265,15 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bemail\b[^"\']*["\'][^>]*>)(.*?)(</span>)', rf'\g<1>{email}\g<3>', html, flags=re.I | re.S)
     if phone:
         html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bphone\b[^"\']*["\'][^>]*>)(.*?)(</span>)', rf'\g<1>{phone}\g<3>', html, flags=re.I | re.S)
-    if distinct_banner_images or hero_url:
-        span_banner_idx = 0
+    if hero_url:
         def repl_span_banner(m):
-            nonlocal span_banner_idx
-            frame_img = distinct_banner_images[span_banner_idx % len(distinct_banner_images)] if distinct_banner_images else hero_url
-            span_banner_idx += 1
             open_tag, inner, close_tag = m.group(1), m.group(2), m.group(3)
             if '<img' in inner:
-                inner = re.sub(r'src=["\'][^"\']+["\']', f'src="{frame_img}"', inner, flags=re.I)
-                inner = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{frame_img}"', inner, flags=re.I)
+                inner = re.sub(r'src=["\'][^"\']+["\']', f'src="{hero_url}"', inner, flags=re.I)
+                inner = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{hero_url}"', inner, flags=re.I)
                 return f"{open_tag}{inner}{close_tag}"
-            return f'{open_tag}<img src="{frame_img}" style="width:100%;height:100%;object-fit:cover;" />{close_tag}'
+            return f'{open_tag}<img src="{hero_url}" style="width:100%;height:100%;object-fit:cover;" />{close_tag}'
         html = re.sub(r'(<span\s+[^>]*?class=["\'][^"\']*\bbanner-image\b[^"\']*["\'][^>]*>)(.*?)(</span>)', repl_span_banner, html, flags=re.I | re.S)
-
     if logo_url:
         def repl_span_logo(m):
             open_tag, inner, close_tag = m.group(1), m.group(2), m.group(3)
@@ -816,12 +783,11 @@ def get_business_types(request):
     """
     try:
         db_categories = BusinessCategory.objects.all()
-        total_admin_templates = GitHubTemplate.objects.count()
         if db_categories.exists():
             data_list = []
             for cat in db_categories:
                 matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == cat.slug), None)
-                cat_tpl_count = cat.github_templates.count()
+                tpl_count = cat.github_templates.count()
                 gh_tpl = cat.github_templates.first()
                 template_title = gh_tpl.title if gh_tpl else (matched_preset['template_name'] if matched_preset else cat.name)
                 cat_price = getattr(cat, 'price', None) or (matched_preset['price'] if matched_preset else 499)
@@ -830,7 +796,7 @@ def get_business_types(request):
                     "name": cat.name,
                     "description": cat.description or f"Templates for {cat.name}",
                     "price": cat_price,
-                    "template_count": cat_tpl_count,
+                    "template_count": tpl_count,
                     "recommended_template": gh_tpl.repo_name if gh_tpl else f"{cat.slug}-default",
                     "template_name": template_title,
                     "default_tagline": matched_preset['default_tagline'] if matched_preset else f"Welcome to our {cat.name} business",
@@ -840,11 +806,9 @@ def get_business_types(request):
                     "default_services": matched_preset['default_services'] if matched_preset else [],
                     "default_testimonials": matched_preset['default_testimonials'] if matched_preset else []
                 })
-
             return Response({"success": True, "count": len(data_list), "data": data_list}, status=status.HTTP_200_OK)
     except Exception:
         pass
-
 
     return Response({
         "success": True,
@@ -883,22 +847,23 @@ def generate_website(request):
         if business_type_id and business_type_id != 'general':
             db_cat = BusinessCategory.objects.filter(slug__iexact=business_type_id).first()
             if not db_cat:
-                db_cat = BusinessCategory.objects.filter(name__iexact=business_type_id).first()
-            if not db_cat:
                 db_cat = BusinessCategory.objects.filter(slug__icontains=business_type_id).first()
             if not db_cat:
                 db_cat = BusinessCategory.objects.filter(name__icontains=business_type_id).first()
 
         if db_cat:
             category_name = db_cat.name
+            # Strictly select templates belonging ONLY to the selected category
             candidate_templates = list(GitHubTemplate.objects.filter(category=db_cat)[:6])
 
+        # Enforce strict category template isolation:
+        # If a category is selected and has NO templates added, return an error message rather than falling back to other templates or static defaults.
         if not candidate_templates:
             return Response({
                 "success": False,
-                "error": f"No GitHub templates available for '{category_name}' category. Please add templates to this category in Django Admin."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
+                "no_templates": True,
+                "error": f"No templates are available for the '{category_name}' category yet. Please add a template for this category in the Admin panel or select another category."
+            }, status=status.HTTP_404_NOT_FOUND)
 
         # Default fallback preset for category content
         matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == business_type_id), BUSINESS_TYPES_DATA[0])
@@ -921,6 +886,9 @@ def generate_website(request):
                 logo_url = ""
         elif isinstance(logo_file, str) and logo_file.startswith('http'):
             logo_url = logo_file
+        elif logo_mode == 'image':
+            logo_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&q=80"
+
 
 
         # Handle Uploaded Hero Banner (Only set hero_image_url if user explicitly uploaded a hero image)
@@ -968,7 +936,14 @@ def generate_website(request):
                     if r: tpl.repo_name = r
                     if b and not tpl.default_branch: tpl.default_branch = b
 
-                if not tpl.source_code_html or len(tpl.source_code_html) < 100:
+                is_fallback_stock = (
+                    not tpl.source_code_html
+                    or len(tpl.source_code_html) < 100
+                    or 'saas-template-root' in tpl.source_code_html
+                    or 'fit-template-root' in tpl.source_code_html
+                    or 'bistro-template-root' in tpl.source_code_html
+                )
+                if is_fallback_stock or not tpl.is_imported:
                     from .github_importer import import_source_from_github
                     imp_data = import_source_from_github(tpl.owner or '', tpl.repo_name or '', tpl.default_branch or 'main', category_slug=db_cat.slug if db_cat else '', title=business_name)
                     if imp_data.get('html'):
@@ -978,7 +953,6 @@ def generate_website(request):
                         tpl.editable_placeholders = imp_data.get('placeholders', {})
                         tpl.is_imported = True
                         tpl.save()
-
 
 
                 t_logo_type = getattr(tpl, 'logo_type', 'both')
@@ -1053,83 +1027,15 @@ def generate_website(request):
             except Exception as exc:
                 print(f"Error compiling template {tpl.id}: {exc}")
 
+        if not previews_list:
+
+            return Response({
+                "success": False,
+                "error": f"Failed to generate website options for category '{category_name}'. Please check the template source code in Admin."
+            }, status=status.HTTP_400_BAD_REQUEST)
         clean_previews = [dict(item) for item in previews_list]
-        if not clean_previews:
-            for index, tpl in enumerate(GitHubTemplate.objects.all()[:6]):
-                try:
-                    t_logo_type = getattr(tpl, 'logo_type', 'both')
-                    t_logo_url = "" if (t_logo_type == 'text' or logo_mode == 'text') else logo_url
-                    t_edited_html, t_edited_css = apply_user_details_to_template(
-                        tpl.source_code_html or '',
-                        tpl.source_code_css or '',
-                        {
-                            'business_name': business_name,
-                            'business_description': business_description,
-                            'logo_url': t_logo_url,
-                            'logo_type': t_logo_type,
-                            'hero_image_url': hero_image_url,
-                            'images': images_by_role,
-                            'image_pool': image_pool,
-                            'contact_email': final_email,
-                            'contact_phone': final_phone,
-                            'tagline': final_tagline,
-                            'primary_color': final_color,
-                        }
-                    )
-                    cat_price = db_cat.price if (db_cat and hasattr(db_cat, 'price')) else 499
-                    item = {
-                        "website_id": f"gh_web_{tpl.id}_{uuid.uuid4().hex[:6]}",
-                        "option_index": index + 1,
-                        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "business_name": business_name,
-                        "business_description": business_description,
-                        "business_type": business_type_id,
-                        "category_name": category_name,
-                        "category_price": cat_price,
-                        "price": cat_price,
-                        "template_id": f"gh-{tpl.owner}-{tpl.repo_name}",
-                        "template_name": tpl.title or f"Option {index + 1}",
-                        "thumbnail_url": tpl.thumbnail_url or "",
-                        "logo_type": t_logo_type,
-                        "image_pool": image_pool,
-                        "images": images_by_role,
-                        "extracted_keywords": extracted_keywords,
-                        "github_source": {
-                            "repo_url": tpl.repo_url or "",
-                            "owner": tpl.owner or "github",
-                            "repo_name": tpl.repo_name or "template",
-                            "default_branch": tpl.default_branch or "main"
-                        },
-                        "source_code_html": t_edited_html or '',
-                        "source_code_css": t_edited_css or '',
-                        "source_code_js": tpl.source_code_js or '',
-                        "content": {
-                            "business_name": business_name,
-                            "business_description": business_description,
-                            "logo_url": logo_url,
-                            "logo_type": t_logo_type,
-                            "hero_image_url": hero_image_url,
-                            "images": images_by_role,
-                            "image_pool": image_pool,
-                            "tagline": final_tagline,
-                            "primary_color": final_color,
-                            "contact_email": final_email,
-                            "contact_phone": final_phone,
-                            "services": matched_preset['default_services'],
-                            "testimonials": matched_preset['default_testimonials']
-                        }
-                    }
-                    clean_previews.append(item)
-                except Exception:
-                    pass
-
-        if not clean_previews:
-            return Response({"success": False, "error": "No templates available in database. Please add GitHub templates in Admin panel."}, status=status.HTTP_400_BAD_REQUEST)
-
         primary_data = dict(clean_previews[0])
-        primary_data["previews"] = clean_previews
-
-
+        primary_data["previews"] = clean_previewsimary_data["previews"] = clean_previews
 
         try:
             GeneratedWebsite.objects.create(
@@ -1624,10 +1530,9 @@ def get_github_template_source(request):
     if not db_tpl and cat_slug:
         db_tpl = GitHubTemplate.objects.filter(category__slug__iexact=cat_slug).first()
 
-    # 4. Universal Fallback to any available GitHub template from Admin
-    if not db_tpl:
-        db_tpl = GitHubTemplate.objects.filter(is_imported=True).first() or GitHubTemplate.objects.first()
-
+    # 4. Unconditional fallback ONLY if no ID, repo_url, or category requested
+    if not db_tpl and not (template_id or repo_url or cat_slug):
+        db_tpl = GitHubTemplate.objects.first()
 
     if db_tpl:
         is_fallback_stock = (

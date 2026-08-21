@@ -286,31 +286,22 @@ def auto_tag_github_html(html_code: str) -> str:
         return f'<{match.group(1)} {attrs} data-editable="title"'
     html_code = re.sub(r'<(span|div|a|p)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:site-title|brand-text|logo-text|app-title|brand-name|business-name|company-name)[^"\']*["\'][^>]*)', tag_title_class, html_code, count=2, flags=re.IGNORECASE)
 
-    # 3. Tag Hero Banner Images / Backgrounds (Supporting multi-frame sliders/carousels)
-    hero_bg_idx = 1
+    # 3. Tag Hero Banner Images / Backgrounds
     def tag_hero_bg(match):
-        nonlocal hero_bg_idx
         tag_name = match.group(1)
         attrs = match.group(2)
         if 'data-background-image' in attrs.lower() or 'data-editable' in attrs.lower():
             return match.group(0)
-        role = 'hero' if hero_bg_idx == 1 else f'hero_{hero_bg_idx}'
-        hero_bg_idx += 1
-        return f'<{tag_name} {attrs} data-background-image="{role}" data-editable="{role}"'
-    html_code = re.sub(r'<(section|div|header|main|li)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:hero|banner|slider-item|carousel-item|swiper-slide|main-banner|header-bg|slider-area|welcome-area|slide-\d|slide)[^"\']*["\'][^>]*)', tag_hero_bg, html_code, count=4, flags=re.IGNORECASE)
+        return f'<{tag_name} {attrs} data-background-image="hero" data-editable="hero_image"'
+    html_code = re.sub(r'<(section|div|header|main)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:hero|banner|jumbotron|main-banner|header-bg|slider-area|welcome-area)[^"\']*["\'][^>]*)', tag_hero_bg, html_code, count=1, flags=re.IGNORECASE)
 
-    # Tag explicitly styled Hero <img> elements with sequential data-image="hero", "hero_2", etc.
-    hero_img_idx = 1
+    # Tag explicitly styled Hero <img> elements with data-image="hero"
     def tag_hero_img(match):
-        nonlocal hero_img_idx
         attrs = match.group(1)
         if 'data-image' in attrs.lower() or 'data-logo' in attrs.lower():
             return match.group(0)
-        role = 'hero' if hero_img_idx == 1 else f'hero_{hero_img_idx}'
-        hero_img_idx += 1
-        return f'<img {attrs} data-image="{role}" data-editable="{role}"'
-    html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image|hero\.png|hero\.jpg|banner|slide-\d|slide|carousel)[^"\']*["\'][^>]*)', tag_hero_img, html_code, count=4, flags=re.IGNORECASE)
-
+        return f'<img {attrs} data-image="hero" data-editable="hero_image"'
+    html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image|hero\.png|hero\.jpg|banner|slide-1)[^"\']*["\'][^>]*)', tag_hero_img, html_code, count=1, flags=re.IGNORECASE)
 
     # 4. Tag Hero Taglines / Subtitles
     def tag_tagline(match):
