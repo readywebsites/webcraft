@@ -886,13 +886,22 @@ def generate_website(request):
 
         if db_cat:
             category_name = db_cat.name
-            candidate_templates = list(GitHubTemplate.objects.filter(category=db_cat))
+            candidate_templates = list(GitHubTemplate.objects.filter(category=db_cat)[:6])
 
-        # If selected category has no templates yet in Admin, fallback to all imported GitHub templates
-        if not candidate_templates:
-            candidate_templates = list(GitHubTemplate.objects.filter(is_imported=True).exclude(source_code_html=''))
-            if not candidate_templates:
-                candidate_templates = list(GitHubTemplate.objects.all())
+
+        # If selected category has fewer than 6 templates, supplement with other real GitHub templates from Admin (up to 6)
+        if len(candidate_templates) < 6:
+            needed = 6 - len(candidate_templates)
+            existing_ids = [t.id for t in candidate_templates]
+            more_tpls = list(GitHubTemplate.objects.filter(is_imported=True).exclude(id__in=existing_ids)[:needed])
+            candidate_templates.extend(more_tpls)
+            if len(candidate_templates) < 6:
+                needed = 6 - len(candidate_templates)
+                existing_ids = [t.id for t in candidate_templates]
+                more_tpls = list(GitHubTemplate.objects.exclude(id__in=existing_ids)[:needed])
+                candidate_templates.extend(more_tpls)
+
+        candidate_templates = candidate_templates[:6]
 
         # Default fallback preset for category content
         matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == business_type_id), BUSINESS_TYPES_DATA[0])
@@ -1047,125 +1056,10 @@ def generate_website(request):
             except Exception as exc:
                 print(f"Error compiling template {tpl.id}: {exc}")
 
-        if not previews_list:
-            sample_html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{business_name} - {final_tagline}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 text-gray-800 font-sans">
-    <header class="bg-white border-b shadow-sm sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <span class="business-name text-2xl font-bold tracking-tight text-blue-600">{business_name}</span>
-            <nav class="hidden md:flex space-x-6 text-sm font-medium">
-                <a href="#services" class="hover:text-blue-600">Services</a>
-                <a href="#about" class="hover:text-blue-600">About</a>
-                <a href="#contact" class="hover:text-blue-600">Contact</a>
-            </nav>
-            <a href="tel:{final_phone}" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-700">Call Us</a>
-        </div>
-    </header>
-    <section class="relative bg-gray-900 text-white py-24 px-4 overflow-hidden">
-        <div class="absolute inset-0 opacity-40">
-            <span class="banner-image"><img src="{hero_image_url}" alt="Hero Banner" class="w-full h-full object-cover"></span>
-        </div>
-        <div class="relative max-w-4xl mx-auto text-center">
-            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">{business_name}</h1>
-            <p class="text-xl text-gray-200 mb-8">{final_tagline}</p>
-            <a href="#contact" class="bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-blue-700 shadow-lg inline-block">Get Started</a>
-        </div>
-    </section>
-    <section id="services" class="py-16 max-w-6xl mx-auto px-4">
-        <h2 class="text-3xl font-bold text-center mb-12">Our Services &amp; Products</h2>
-        <div class="grid md:grid-cols-3 gap-8">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border">
-                <img data-image="service_1" src="{images_by_role.get('service_1', '')}" alt="Service 1" class="w-full h-48 object-cover rounded-xl mb-4">
-                <h3 class="text-xl font-bold mb-2">Premium Quality</h3>
-                <p class="text-gray-600 text-sm">Crafted with care, providing the finest experience for all our customers.</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border">
-                <img data-image="service_2" src="{images_by_role.get('service_2', '')}" alt="Service 2" class="w-full h-48 object-cover rounded-xl mb-4">
-                <h3 class="text-xl font-bold mb-2">Expert Team</h3>
-                <p class="text-gray-600 text-sm">Experienced professionals dedicated to your complete satisfaction.</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border">
-                <img data-image="service_3" src="{images_by_role.get('service_3', '')}" alt="Service 3" class="w-full h-48 object-cover rounded-xl mb-4">
-                <h3 class="text-xl font-bold mb-2">Customized Solutions</h3>
-                <p class="text-gray-600 text-sm">Tailored services designed specifically around your requirements.</p>
-            </div>
-        </div>
-    </section>
-    <footer id="contact" class="bg-gray-900 text-white py-12 border-t border-gray-800">
-        <div class="max-w-6xl mx-auto px-4 grid md:grid-cols-3 gap-8">
-            <div>
-                <span class="business-name text-xl font-bold block mb-2">{business_name}</span>
-                <p class="text-gray-400 text-sm">{final_tagline}</p>
-            </div>
-            <div>
-                <h4 class="font-bold mb-2 text-gray-200">Contact</h4>
-                <p class="text-gray-400 text-sm">Email: <span class="business-email">{final_email}</span></p>
-                <p class="text-gray-400 text-sm">Phone: <span class="business-phone">{final_phone}</span></p>
-            </div>
-            <div>
-                <h4 class="font-bold mb-2 text-gray-200">Hours</h4>
-                <p class="text-gray-400 text-sm">Mon - Sat: 9:00 AM - 7:00 PM</p>
-                <p class="text-gray-400 text-sm">Sunday: Closed</p>
-            </div>
-        </div>
-    </footer>
-</body>
-</html>"""
-            fb_item = {
-                "website_id": f"gh_web_fb_{uuid.uuid4().hex[:6]}",
-                "option_index": 1,
-                "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "business_name": business_name,
-                "business_description": business_description,
-                "business_type": business_type_id,
-                "category_name": category_name,
-                "category_price": 499,
-                "price": 499,
-                "template_id": "gh-custom-starter",
-                "template_name": f"{category_name} Template",
-                "thumbnail_url": "",
-                "logo_type": "text",
-                "image_pool": image_pool,
-                "images": images_by_role,
-                "extracted_keywords": extracted_keywords,
-                "github_source": {
-                    "repo_url": "",
-                    "owner": "starter",
-                    "repo_name": "starter-template",
-                    "default_branch": "main"
-                },
-                "source_code_html": sample_html,
-                "source_code_css": "",
-                "source_code_js": "",
-                "content": {
-                    "business_name": business_name,
-                    "business_description": business_description,
-                    "logo_url": logo_url,
-                    "logo_type": "text",
-                    "hero_image_url": hero_image_url,
-                    "images": images_by_role,
-                    "image_pool": image_pool,
-                    "tagline": final_tagline,
-                    "primary_color": final_color,
-                    "contact_email": final_email,
-                    "contact_phone": final_phone,
-                    "services": matched_preset['default_services'],
-                    "testimonials": matched_preset['default_testimonials']
-                }
-            }
-            previews_list.append(fb_item)
-
-
         clean_previews = [dict(item) for item in previews_list]
         primary_data = dict(clean_previews[0])
         primary_data["previews"] = clean_previews
+
 
         try:
             GeneratedWebsite.objects.create(
