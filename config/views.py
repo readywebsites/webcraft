@@ -934,7 +934,14 @@ def generate_website(request):
                     if r: tpl.repo_name = r
                     if b and not tpl.default_branch: tpl.default_branch = b
 
-                if not tpl.source_code_html or len(tpl.source_code_html) < 100:
+                is_fallback_stock = (
+                    not tpl.source_code_html
+                    or len(tpl.source_code_html) < 100
+                    or 'saas-template-root' in tpl.source_code_html
+                    or 'fit-template-root' in tpl.source_code_html
+                    or 'bistro-template-root' in tpl.source_code_html
+                )
+                if is_fallback_stock or not tpl.is_imported:
                     from .github_importer import import_source_from_github
                     imp_data = import_source_from_github(tpl.owner or '', tpl.repo_name or '', tpl.default_branch or 'main', category_slug=db_cat.slug if db_cat else '', title=business_name)
                     if imp_data.get('html'):
@@ -944,6 +951,7 @@ def generate_website(request):
                         tpl.editable_placeholders = imp_data.get('placeholders', {})
                         tpl.is_imported = True
                         tpl.save()
+
 
                 t_logo_type = getattr(tpl, 'logo_type', 'both')
 
@@ -1213,6 +1221,15 @@ def import_github_template(request):
 
     saved_obj = None
     try:
+        from .github_importer import import_source_from_github, parse_github_repo_url
+        if not owner or not repo_name:
+            po, pr, pb = parse_github_repo_url(repo_url)
+            owner = owner or po
+            repo_name = repo_name or pr
+
+        branch = data.get('default_branch', 'main')
+        imp_data = import_source_from_github(owner, repo_name, branch, category_slug or (cat_obj.slug if cat_obj else ''), title)
+        
         obj, created = GitHubTemplate.objects.update_or_create(
             repo_url=repo_url,
             defaults={
@@ -1223,8 +1240,13 @@ def import_github_template(request):
                 "description": data.get('description', ''),
                 "stars_count": data.get('stars_count', 0),
                 "forks_count": data.get('forks_count', 0),
-                "default_branch": data.get('default_branch', 'main'),
-                "is_popular": data.get('is_popular', True)
+                "default_branch": imp_data.get('default_branch') or branch,
+                "is_popular": data.get('is_popular', True),
+                "source_code_html": imp_data.get('html', ''),
+                "source_code_css": imp_data.get('css', ''),
+                "source_code_js": imp_data.get('js', ''),
+                "editable_placeholders": imp_data.get('placeholders', {}),
+                "is_imported": True
             }
         )
         saved_obj = {
@@ -1235,8 +1257,9 @@ def import_github_template(request):
             "repo_name": obj.repo_name,
             "title": obj.title
         }
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error in import_github_template: {e}")
+
 
     return Response({
         "success": True,
@@ -1309,8 +1332,21 @@ def generate_from_github_template(request):
         db_tpl = GitHubTemplate.objects.filter(owner__iexact=owner, repo_name__iexact=repo_name).first()
 
     if db_tpl:
-        if not db_tpl.source_code_html or not db_tpl.is_imported:
-            db_tpl.save()
+        is_fallback_stock = (
+            not db_tpl.source_code_html
+            or len(db_tpl.source_code_html) < 100
+            or 'saas-template-root' in db_tpl.source_code_html
+            or 'fit-template-root' in db_tpl.source_code_html
+            or 'bistro-template-root' in db_tpl.source_code_html
+        )
+        if is_fallback_stock or not db_tpl.is_imported:
+            imp = import_source_from_github(owner, repo_name, db_tpl.default_branch or data.get('default_branch', 'main'), '', business_name)
+            if imp.get('html'):
+                db_tpl.source_code_html = imp['html']
+                db_tpl.source_code_css = imp['css']
+                db_tpl.source_code_js = imp['js']
+                db_tpl.is_imported = True
+                db_tpl.save()
         html_src = db_tpl.source_code_html
         css_src = db_tpl.source_code_css
         js_src = db_tpl.source_code_js
@@ -1319,6 +1355,7 @@ def generate_from_github_template(request):
         html_src = imp['html']
         css_src = imp['css']
         js_src = imp['js']
+
 
     # Backend editing of imported GitHub template with user details
     edited_html, edited_css = apply_user_details_to_template(
@@ -1465,8 +1502,24 @@ def get_github_template_source(request):
         db_tpl = GitHubTemplate.objects.first()
 
     if db_tpl:
-        if not db_tpl.source_code_html or not db_tpl.is_imported:
-            db_tpl.save()
+        is_fallback_stock = (
+            not db_tpl.source_code_html
+            or len(db_tpl.source_code_html) < 100
+            or 'saas-template-root' in db_tpl.source_code_html
+            or 'fit-template-root' in db_tpl.source_code_html
+            or 'bistro-template-root' in db_tpl.source_code_html
+        )
+        if is_fallback_stock or not db_tpl.is_imported:
+            from .github_importer import import_source_from_github
+            imp = import_source_from_github(db_tpl.owner or '', db_tpl.repo_name or '', db_tpl.default_branch or 'main', db_tpl.category.slug if db_tpl.category else '', db_tpl.title)
+            if imp.get('html'):
+                db_tpl.source_code_html = imp['html']
+                db_tpl.source_code_css = imp['css']
+                db_tpl.source_code_js = imp['js']
+                db_tpl.editable_placeholders = imp.get('placeholders', {})
+                db_tpl.is_imported = True
+                db_tpl.save()
+
         return Response({
             "success": True,
             "data": {

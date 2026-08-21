@@ -45,9 +45,61 @@ def fetch_raw_github_file(owner: str, repo_name: str, branch: str, file_path: st
     return ""
 
 
+def download_github_repo_files(owner: str, repo_name: str, branch: str = '') -> Tuple[str, Dict[str, str], list]:
+    """
+    Downloads repository files in-memory via GitHub Codeload ZIP archive (rate-limit free)
+    or falls back to GitHub REST API / raw URLs.
+    Returns (actual_branch, dict_of_filepath_to_content, file_list).
+    """
+    owner = owner.strip()
+    repo_name = re.sub(r'\.git$', '', repo_name.strip(), flags=re.I).strip('/')
+
+    branches_to_try = [b for b in [branch, 'main', 'master', 'gh-pages', 'dev'] if b]
+    seen_branches = []
+    unique_branches = []
+    for b in branches_to_try:
+        if b not in seen_branches:
+            seen_branches.append(b)
+            unique_branches.append(b)
+
+    files_map: Dict[str, str] = {}
+    file_list: list = []
+    actual_branch = branch or 'main'
+
+    # 1. Try Codeload ZIP Archive (fast, entire repo in 1 request, never hits GitHub REST API rate limits)
+    for b in unique_branches:
+        zip_url = f"https://codeload.github.com/{owner}/{repo_name}/zip/refs/heads/{b}"
+        try:
+            req = urllib.request.Request(zip_url, headers=get_github_headers())
+            with urllib.request.urlopen(req, timeout=6.0) as res:
+                if res.status == 200:
+                    zip_data = res.read()
+                    with zipfile.ZipFile(io.BytesIO(zip_data)) as z:
+                        prefix = z.namelist()[0].split('/')[0] + '/' if z.namelist() else ''
+                        for file_info in z.infolist():
+                            if file_info.is_dir():
+                                continue
+                            fname = file_info.filename
+                            clean_name = fname[len(prefix):] if fname.startswith(prefix) else fname
+                            file_list.append(clean_name)
+                            # Store text/code/markup files in-memory
+                            if any(clean_name.lower().endswith(ext) for ext in ['.html', '.htm', '.css', '.js', '.jsx', '.tsx', '.json', '.svg', '.txt', '.md', '.py']):
+                                try:
+                                    content = z.read(fname).decode('utf-8', errors='ignore')
+                                    files_map[clean_name] = content
+                                except Exception:
+                                    pass
+                    actual_branch = b
+                    return actual_branch, files_map, file_list
+        except Exception:
+            pass
+
+    return actual_branch, files_map, file_list
+
+
 def discover_github_repo_files(owner: str, repo_name: str) -> Tuple[str, list]:
     """
-    Queries GitHub REST API to discover default branch and list of all repository files.
+    Queries GitHub REST API / Codeload Archive to discover default branch and list of all repository files.
     Returns (default_branch, file_list).
     """
     default_branch = "main"
@@ -56,7 +108,12 @@ def discover_github_repo_files(owner: str, repo_name: str) -> Tuple[str, list]:
     if not owner or not repo_name:
         return default_branch, file_list
 
-    # 1. Get Repo Metadata for actual default branch name
+    # 1. First try codeload archive discovery
+    b_found, files_map, f_list = download_github_repo_files(owner, repo_name)
+    if f_list:
+        return b_found, f_list
+
+    # 2. Get Repo Metadata for actual default branch name via API fallback
     try:
         req = urllib.request.Request(f"https://api.github.com/repos/{owner}/{repo_name}", headers=get_github_headers())
         with urllib.request.urlopen(req, timeout=3.0) as res:
@@ -66,7 +123,7 @@ def discover_github_repo_files(owner: str, repo_name: str) -> Tuple[str, list]:
     except Exception:
         pass
 
-    # 2. Get Recursive Git Tree for repo files
+    # 3. Get Recursive Git Tree for repo files
     tree_url = f"https://api.github.com/repos/{owner}/{repo_name}/git/trees/{default_branch}?recursive=1"
     try:
         req = urllib.request.Request(tree_url, headers=get_github_headers())
@@ -83,12 +140,15 @@ def discover_github_repo_files(owner: str, repo_name: str) -> Tuple[str, list]:
 
 
 
-def fetch_repo_css_files(owner: str, repo_name: str, branch: str, html_code: str, repo_files: list = None) -> str:
-    """Extracts and fetches all CSS stylesheets referenced in HTML or discovered in repo tree."""
+
+def fetch_repo_css_files(owner: str, repo_name: str, branch: str, html_code: str, repo_files: list = None, files_map: Dict[str, str] = None) -> str:
+    """Extracts and fetches all CSS stylesheets referenced in HTML or discovered in repo tree/files_map."""
     external_imports = []
     css_snippets = []
     repo_files = repo_files or []
+    files_map = files_map or {}
     raw_base = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{branch}/"
+    jsdelivr_base = f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{branch}/"
     
     # 1. Parse <link> tags for CSS stylesheets from HTML
     link_matches = []
@@ -110,19 +170,19 @@ def fetch_repo_css_files(owner: str, repo_name: str, branch: str, html_code: str
                 external_imports.append(f'@import url("{url}");')
             continue
         clean_href = href.lstrip('./').lstrip('/')
-        fetched_css = fetch_raw_github_file(owner, repo_name, branch, clean_href)
+        fetched_css = files_map.get(clean_href) or fetch_raw_github_file(owner, repo_name, branch, clean_href)
         if fetched_css:
             # Resolve relative url(...) inside fetched CSS file relative to its subfolder
             parent_dir = os.path.dirname(clean_href).replace('\\', '/').rstrip('/')
             folder_base = f"{raw_base}{parent_dir}/" if parent_dir else raw_base
-            jsdelivr_base = f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{branch}/{parent_dir}/" if parent_dir else f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{branch}/"
+            jsdelivr_folder = f"{jsdelivr_base}{parent_dir}/" if parent_dir else jsdelivr_base
 
             def fix_css_url(m):
                 u = m.group(1).strip("'\"")
                 if u.startswith('http://') or u.startswith('https://') or u.startswith('//') or u.startswith('data:') or u.startswith('{{'):
                     return m.group(0)
                 is_font = any(ext in u.lower() for ext in ['.woff', '.woff2', '.ttf', '.eot', '.otf', 'linearicons', 'fontawesome'])
-                target_base = jsdelivr_base if is_font else folder_base
+                target_base = jsdelivr_folder if is_font else folder_base
                 resolved_url = urllib.parse.urljoin(target_base, u)
                 return f"url('{resolved_url}')"
 
@@ -137,18 +197,22 @@ def fetch_repo_css_files(owner: str, repo_name: str, branch: str, html_code: str
         'src/App.css', 'src/styles/globals.css', 'public/style.css', 'css/framework7.min.css'
     ]
     
-    # Merge common_paths with any .css files discovered in tree
+    # Merge common_paths with any .css files discovered in tree / files_map
     for f in repo_files:
+        if f.endswith('.css') and f not in common_paths:
+            common_paths.append(f)
+    for f in files_map.keys():
         if f.endswith('.css') and f not in common_paths:
             common_paths.append(f)
 
     for common_css in common_paths:
         if not any(common_css in snippet for snippet in css_snippets):
-            fetched_css = fetch_raw_github_file(owner, repo_name, branch, common_css)
+            fetched_css = files_map.get(common_css) or fetch_raw_github_file(owner, repo_name, branch, common_css)
             if fetched_css:
                 parent_dir = os.path.dirname(common_css).replace('\\', '/').rstrip('/')
                 folder_base = f"{raw_base}{parent_dir}/" if parent_dir else raw_base
-                jsdelivr_base = f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{branch}/{parent_dir}/" if parent_dir else f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{branch}/"
+                jsdelivr_folder = f"{jsdelivr_base}{parent_dir}/" if parent_dir else jsdelivr_base
+
 
                 def fix_css_url(m):
                     u = m.group(1).strip("'\"")
@@ -393,11 +457,12 @@ def clean_django_tags(content: str, owner: str, repo_name: str, branch: str, rep
     return content
 
 
-def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_files: list) -> Tuple[str, str, str]:
+def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_files: list, files_map: Dict[str, str] = None) -> Tuple[str, str, str]:
     """
     Parses Django templates, resolves {% extends %}, {% include %}, {% static %},
-    merges block structures, and cleans Django template syntax.
+    merges block structures, and cleans Django template syntax from in-memory files_map or raw GitHub.
     """
+    files_map = files_map or {}
     django_html_files = [f for f in repo_files if f.endswith('.html')]
     if not django_html_files:
         return "", "", ""
@@ -412,7 +477,7 @@ def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_
     if not target_page:
         target_page = next((f for f in django_html_files if 'base' not in f.lower() and 'layout' not in f.lower()), django_html_files[0])
 
-    page_html = fetch_raw_github_file(owner, repo_name, branch, target_page)
+    page_html = files_map.get(target_page) or fetch_raw_github_file(owner, repo_name, branch, target_page)
     if not page_html or len(page_html.strip()) < 10:
         return "", "", ""
 
@@ -430,7 +495,7 @@ def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_
         if not parent_file:
             break
 
-        parent_html = fetch_raw_github_file(owner, repo_name, branch, parent_file)
+        parent_html = files_map.get(parent_file) or fetch_raw_github_file(owner, repo_name, branch, parent_file)
         if not parent_html:
             break
 
@@ -467,15 +532,16 @@ def parse_and_process_django_repo(owner: str, repo_name: str, branch: str, repo_
         inc_file = find_matching_file(inc_ref, django_html_files)
         inc_content = ""
         if inc_file:
-            inc_content = fetch_raw_github_file(owner, repo_name, branch, inc_file) or ""
+            inc_content = files_map.get(inc_file) or fetch_raw_github_file(owner, repo_name, branch, inc_file) or ""
 
         merged_html = merged_html.replace(include_match.group(0), inc_content)
         inc_count += 1
 
     cleaned_html = clean_django_tags(merged_html, owner, repo_name, branch, repo_files)
-    css_code = fetch_repo_css_files(owner, repo_name, branch, cleaned_html, repo_files)
+    css_code = fetch_repo_css_files(owner, repo_name, branch, cleaned_html, repo_files, files_map)
 
     return cleaned_html, css_code, ""
+
 
 
 def clean_react_component_code(code: str) -> str:
@@ -634,7 +700,7 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
 
     repo_name = re.sub(r'\.git$', '', repo_name, flags=re.I).strip('/')
 
-    detected_branch, repo_files = discover_github_repo_files(owner, repo_name)
+    detected_branch, files_map, repo_files = download_github_repo_files(owner, repo_name, branch)
     actual_branch = branch if branch and branch not in ['main', 'master'] else (detected_branch or 'main')
 
     html_code = ""
@@ -664,29 +730,73 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
             css_code = r_css
             js_code = r_js
 
-    # 3. Standard HTML discovery if Django/React did not match or produce HTML
+    # 3. HTML discovery from in-memory files_map or raw content
     if not html_code:
-        candidate_html_paths = [
-            'index.html', 'public/index.html', 'src/index.html', 'dist/index.html'
+        priority_html_names = [
+            'index.html', 'dist/index.html', 'public/index.html', 'src/index.html',
+            'home.html', 'Home.html', 'index.htm', 'default.html', 'main.html', 'app.html',
+            'theme/index.html', 'html/index.html', 'html/home.html', 'templates/index.html', 'templates/home.html'
         ]
-        if repo_files:
-            for f in repo_files:
-                if f.endswith('.html') and f not in candidate_html_paths and len(candidate_html_paths) < 8:
-                    candidate_html_paths.append(f)
-
-        branches_to_try = [actual_branch] if actual_branch else ['main']
-        if repo_files and 'master' not in branches_to_try:
-            branches_to_try.append('master')
-
-        for b in branches_to_try:
-            for path in candidate_html_paths:
-                fetched = fetch_raw_github_file(owner, repo_name, b, path)
-                if fetched and len(fetched.strip()) > 50:
-                    html_code = fetched
-                    actual_branch = b
-                    break
-            if html_code:
+        
+        # Check files_map first
+        for name in priority_html_names:
+            if name in files_map and files_map[name] and len(files_map[name].strip()) > 50:
+                html_code = files_map[name]
                 break
+
+        # If not found by exact path, look for any html file in files_map
+        if not html_code:
+            for f_path, f_content in files_map.items():
+                if (f_path.endswith('.html') or f_path.endswith('.htm')) and f_content and len(f_content.strip()) > 50:
+                    html_code = f_content
+                    break
+
+        # Fallback to direct raw GitHub URLs
+        if not html_code:
+            branches_to_try = [actual_branch] if actual_branch else ['main', 'master']
+            if 'master' not in branches_to_try:
+                branches_to_try.append('master')
+
+            for b in branches_to_try:
+                for path in priority_html_names:
+                    fetched = fetch_raw_github_file(owner, repo_name, b, path)
+                    if fetched and len(fetched.strip()) > 50:
+                        html_code = fetched
+                        actual_branch = b
+                        break
+                if html_code:
+                    break
+
+    # 4. Extract and bundle all CSS files from repository
+    if html_code and not css_code:
+        raw_base = f"https://raw.githubusercontent.com/{owner}/{repo_name}/{actual_branch}/"
+        jsdelivr_base = f"https://cdn.jsdelivr.net/gh/{owner}/{repo_name}@{actual_branch}/"
+        css_snippets = []
+
+        # Find all CSS files in files_map
+        for f_path, f_css in files_map.items():
+            if f_path.endswith('.css') and f_css and len(f_css.strip()) > 10:
+                parent_dir = os.path.dirname(f_path).replace('\\', '/').rstrip('/')
+                folder_base = f"{raw_base}{parent_dir}/" if parent_dir else raw_base
+                jsdelivr_folder = f"{jsdelivr_base}{parent_dir}/" if parent_dir else jsdelivr_base
+
+                def fix_css_urls(m):
+                    u = m.group(1).strip("'\"")
+                    if u.startswith('http://') or u.startswith('https://') or u.startswith('//') or u.startswith('data:') or u.startswith('{{'):
+                        return m.group(0)
+                    is_font = any(ext in u.lower() for ext in ['.woff', '.woff2', '.ttf', '.eot', '.otf', 'linearicons', 'fontawesome'])
+                    target_base = jsdelivr_folder if is_font else folder_base
+                    resolved_url = urllib.parse.urljoin(target_base, u)
+                    return f"url('{resolved_url}')"
+
+                fixed_css = re.sub(r'url\((?!["\']?(?:https?:|\/\/|data:|\{\{))["\']?([^"\'\)]+)["\']?\)', fix_css_urls, f_css, flags=re.IGNORECASE)
+                css_snippets.append(f"/* Imported from GitHub: {f_path} */\n" + fixed_css)
+
+        if css_snippets:
+            css_code = "\n\n".join(css_snippets)
+        else:
+            css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files)
+
 
 
     # Clean & Auto-tag HTML
@@ -762,13 +872,13 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
 
     if 'fit' in slug or 'gym' in slug or 'workout' in slug:
         # Dynamic High-Energy Fitness & Gym Template
-        html = f"""
+        html = """
         <div class="fit-template-root">
           <header class="fit-header">
             <div class="fit-container fit-nav-bar">
               <div class="fit-brand">
-                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="fit-logo-img" data-logo="business_logo" data-editable="logo" />
-                <span class="fit-brand-text" data-editable="title">{{{{SITE_TITLE}}}}</span>
+                <img src="{{LOGO_URL}}" alt="Logo" class="fit-logo-img" data-logo="business_logo" data-editable="logo" />
+                <span class="fit-brand-text" data-editable="title">{{SITE_TITLE}}</span>
               </div>
               <nav class="fit-nav-links">
                 <a href="#hero">Home</a>
@@ -781,10 +891,10 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
             </div>
           </header>
 
-          <section id="hero" class="fit-hero" data-background-image="hero" data-editable="hero_image" style="background-image: linear-gradient(180deg, rgba(10,10,15,0.7) 0%, rgba(10,10,15,0.95) 100%), url('{{{{HERO_IMAGE_URL}}}}');">
+          <section id="hero" class="fit-hero" data-background-image="hero" data-editable="hero_image" style="background-image: linear-gradient(180deg, rgba(10,10,15,0.7) 0%, rgba(10,10,15,0.95) 100%), url('{{HERO_IMAGE_URL}}');">
             <div class="fit-container fit-hero-content">
-              <div class="fit-badge">🔥 HIGH PERFORMANCE ATHLETICS — GITHUB: {owner}/{repo_name}</div>
-              <h1 class="fit-hero-title" data-editable="tagline">{{{{TAGLINE}}}}</h1>
+              <div class="fit-badge">HIGH PERFORMANCE ATHLETICS - GITHUB: {owner}/{repo_name}</div>
+              <h1 class="fit-hero-title" data-editable="tagline">{{TAGLINE}}</h1>
               <p class="fit-hero-sub">State of the art training facilities, personalized metabolic programming, and elite certified coaches to elevate your potential.</p>
               <div class="fit-hero-actions">
                 <button class="fit-btn-primary">START 7-DAY FREE TRIAL</button>
@@ -831,18 +941,18 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
           <footer class="fit-footer">
             <div class="fit-container fit-footer-content">
               <div>
-                <h3 data-editable="title">{{{{SITE_TITLE}}}}</h3>
-                <p data-editable="tagline">{{{{TAGLINE}}}}</p>
+                <h3 data-editable="title">{{SITE_TITLE}}</h3>
+                <p data-editable="tagline">{{TAGLINE}}</p>
                 <div class="fit-repo-badge">GitHub Source: https://github.com/{owner}/{repo_name}</div>
               </div>
               <div class="fit-contact-info">
-                <div>📧 <span data-editable="contact_email">{{{{CONTACT_EMAIL}}}}</span></div>
-                <div>📞 <span data-editable="contact_phone">{{{{CONTACT_PHONE}}}}</span></div>
+                <div>Email: <span data-editable="contact_email">{{CONTACT_EMAIL}}</span></div>
+                <div>Phone: <span data-editable="contact_phone">{{CONTACT_PHONE}}</span></div>
               </div>
             </div>
           </footer>
         </div>
-        """
+        """.replace('{owner}', str(owner)).replace('{repo_name}', str(repo_name))
 
         css = """
         .fit-template-root { font-family: 'Inter', sans-serif; background: #0a0a0f; color: #ffffff; width: 100%; margin: 0; padding: 0; box-sizing: border-box; }
@@ -887,13 +997,13 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
 
     elif 'rest' in slug or 'cafe' in slug or 'bistro' in slug or 'food' in slug:
         # Elegant Bistro & Gourmet Restaurant Template
-        html = f"""
+        html = """
         <div class="bistro-template-root">
           <nav class="bistro-navbar">
             <div class="bistro-container bistro-nav-flex">
               <div class="bistro-brand">
-                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="bistro-logo" data-logo="business_logo" data-editable="logo" />
-                <span class="bistro-title" data-editable="title">{{{{SITE_TITLE}}}}</span>
+                <img src="{{LOGO_URL}}" alt="Logo" class="bistro-logo" data-logo="business_logo" data-editable="logo" />
+                <span class="bistro-title" data-editable="title">{{SITE_TITLE}}</span>
               </div>
               <div class="bistro-menu-items">
                 <a href="#about">Story</a>
@@ -905,10 +1015,10 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
             </div>
           </nav>
 
-          <section class="bistro-hero" data-background-image="hero" data-editable="hero_image" style="background-image: linear-gradient(rgba(20, 14, 10, 0.75), rgba(20, 14, 10, 0.9)), url('{{{{HERO_IMAGE_URL}}}}');">
+          <section class="bistro-hero" data-background-image="hero" data-editable="hero_image" style="background-image: linear-gradient(rgba(20, 14, 10, 0.75), rgba(20, 14, 10, 0.9)), url('{{HERO_IMAGE_URL}}');">
             <div class="bistro-container bistro-hero-box">
-              <span class="bistro-sub-tag">MICHELIN INSPIRED DINING — GITHUB: {owner}/{repo_name}</span>
-              <h1 class="bistro-hero-heading" data-editable="tagline">{{{{TAGLINE}}}}</h1>
+              <span class="bistro-sub-tag">MICHELIN INSPIRED DINING - GITHUB: {owner}/{repo_name}</span>
+              <h1 class="bistro-hero-heading" data-editable="tagline">{{TAGLINE}}</h1>
               <p class="bistro-hero-text">Experience hand-crafted organic pasta, rare oak-aged vintage wines, and artisanal dining prepared daily by our master culinary team.</p>
               <button class="bistro-btn-outline">EXPLORE DINING MENU</button>
             </div>
@@ -933,14 +1043,14 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
                   <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&q=80" alt="Special 2" class="bistro-card-img" data-image="service_2" />
                   <div class="bistro-card-content">
                     <h3 data-editable="service_2_title">Wood-Fired Neapolitan Pizza</h3>
-                    <p data-editable="service_2_desc">Baked at 900° in authentic volcanic brick oven with San Marzano DOP tomatoes and fresh fior di latte.</p>
+                    <p data-editable="service_2_desc">Baked at 900 in authentic volcanic brick oven with San Marzano DOP tomatoes and fresh fior di latte.</p>
                     <span class="bistro-price">$32</span>
                   </div>
                 </div>
                 <div class="bistro-menu-card">
                   <img src="https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&q=80" alt="Special 3" class="bistro-card-img" data-image="service_3" />
                   <div class="bistro-card-content">
-                    <h3 data-editable="service_3_title">Sommelier Reserve Wine Pairings</h3>
+                    <h3 data-editable="service_2_title">Sommelier Reserve Wine Pairings</h3>
                     <p data-editable="service_3_desc">Curated flights of rare estate vintages from Piedmont, Tuscany, and Bordeaux cellars.</p>
                     <span class="bistro-price">$65</span>
                   </div>
@@ -952,19 +1062,19 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
           <footer class="bistro-footer">
             <div class="bistro-container bistro-footer-grid">
               <div>
-                <h3 data-editable="title" class="bistro-gold-text">{{{{SITE_TITLE}}}}</h3>
-                <p data-editable="tagline">{{{{TAGLINE}}}}</p>
+                <h3 data-editable="title" class="bistro-gold-text">{{SITE_TITLE}}</h3>
+                <p data-editable="tagline">{{TAGLINE}}</p>
                 <div style="font-size: 0.85rem; color: #d4af37; margin-top: 0.5rem;">Repository Source: https://github.com/{owner}/{repo_name}</div>
               </div>
               <div>
                 <h4 style="color: #ffffff;">Table Reservations</h4>
-                <div data-editable="contact_email">📧 {{{{CONTACT_EMAIL}}}}</div>
-                <div data-editable="contact_phone">📞 {{{{CONTACT_PHONE}}}}</div>
+                <div data-editable="contact_email">Email: {{CONTACT_EMAIL}}</div>
+                <div data-editable="contact_phone">Phone: {{CONTACT_PHONE}}</div>
               </div>
             </div>
           </footer>
         </div>
-        """
+        """.replace('{owner}', str(owner)).replace('{repo_name}', str(repo_name))
 
         css = """
         .bistro-template-root { font-family: 'Playfair Display', Georgia, serif; background: #120e0b; color: #f4e8d3; width: 100%; margin: 0; padding: 0; }
@@ -1006,13 +1116,13 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
 
     else:
         # Sleek Tech & SaaS Platform Template
-        html = f"""
+        html = """
         <div class="saas-template-root">
           <header class="saas-header">
             <div class="saas-container saas-nav">
               <div class="saas-brand">
-                <img src="{{{{LOGO_URL}}}}" alt="Logo" class="saas-logo" data-logo="business_logo" data-editable="logo" />
-                <span class="saas-title" data-editable="title">{{{{SITE_TITLE}}}}</span>
+                <img src="{{LOGO_URL}}" alt="Logo" class="saas-logo" data-logo="business_logo" data-editable="logo" />
+                <span class="saas-title" data-editable="title">{{SITE_TITLE}}</span>
               </div>
               <div class="saas-links">
                 <a href="#features">Features</a>
@@ -1027,10 +1137,10 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
             </div>
           </header>
 
-          <section class="saas-hero" data-background-image="hero" data-editable="hero_image" style="background-image: radial-gradient(circle at 50% 0%, rgba(59,130,246,0.18) 0%, transparent 70%), url('{{{{HERO_IMAGE_URL}}}}');">
+          <section class="saas-hero" data-background-image="hero" data-editable="hero_image" style="background-image: radial-gradient(circle at 50% 0%, rgba(59,130,246,0.18) 0%, transparent 70%), url('{{HERO_IMAGE_URL}}');">
             <div class="saas-container saas-hero-content">
-              <div class="saas-pill">✨ POWERED BY GITHUB REPO: {owner}/{repo_name}</div>
-              <h1 class="saas-hero-title" data-editable="tagline">{{{{TAGLINE}}}}</h1>
+              <div class="saas-pill">POWERED BY GITHUB REPO: {owner}/{repo_name}</div>
+              <h1 class="saas-hero-title" data-editable="tagline">{{TAGLINE}}</h1>
               <p class="saas-hero-desc">Accelerate developer productivity with automated pipeline orchestration, real-time observability telemetry, and enterprise-grade vector data stores.</p>
               <div class="saas-btn-group">
                 <button class="saas-btn-glow">DEPLOY IN 5 MINUTES</button>
@@ -1038,7 +1148,6 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
               </div>
             </div>
           </section>
-
 
           <section id="features" class="saas-section">
             <div class="saas-container">
@@ -1048,17 +1157,17 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
               </div>
               <div class="saas-grid-3">
                 <div class="saas-feature-card">
-                  <div class="saas-icon-box">⚡</div>
+                  <div class="saas-icon-box">[ETL]</div>
                   <h3 data-editable="service_1_title">Streaming ETL Pipelines</h3>
                   <p data-editable="service_1_desc">Zero-copy data ingestion connecting Kafka, Snowflake, ClickHouse, and AI vector databases seamlessly.</p>
                 </div>
                 <div class="saas-feature-card">
-                  <div class="saas-icon-box">📊</div>
+                  <div class="saas-icon-box">[AI]</div>
                   <h3 data-editable="service_2_title">Real-Time Telemetry</h3>
                   <p data-editable="service_2_desc">Unified observability dashboard with sub-second distributed query indexing and AI anomaly detection.</p>
                 </div>
                 <div class="saas-feature-card">
-                  <div class="saas-icon-box">🛡️</div>
+                  <div class="saas-icon-box">[SEC]</div>
                   <h3 data-editable="service_3_title">Enterprise Governance</h3>
                   <p data-editable="service_3_desc">Role-based access control (RBAC), end-to-end encryption at rest, and automated SOC2 compliance logging.</p>
                 </div>
@@ -1069,18 +1178,18 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
           <footer class="saas-footer">
             <div class="saas-container saas-footer-flex">
               <div>
-                <h3 data-editable="title">{{{{SITE_TITLE}}}}</h3>
-                <p data-editable="tagline" style="color: #94a3b8; font-size: 0.9rem;">{{{{TAGLINE}}}}</p>
+                <h3 data-editable="title">{{SITE_TITLE}}</h3>
+                <p data-editable="tagline" style="color: #94a3b8; font-size: 0.9rem;">{{TAGLINE}}</p>
                 <span style="color: #3b82f6; font-size: 0.8rem;">Repository Source: https://github.com/{owner}/{repo_name}</span>
               </div>
               <div style="color: #94a3b8; font-size: 0.9rem;">
-                <div data-editable="contact_email">📧 {{{{CONTACT_EMAIL}}}}</div>
-                <div data-editable="contact_phone">📞 {{{{CONTACT_PHONE}}}}</div>
+                <div data-editable="contact_email">Email: {{CONTACT_EMAIL}}</div>
+                <div data-editable="contact_phone">Phone: {{CONTACT_PHONE}}</div>
               </div>
             </div>
           </footer>
         </div>
-        """
+        """.replace('{owner}', str(owner)).replace('{repo_name}', str(repo_name))
 
         css = """
         .saas-template-root { font-family: 'Inter', system-ui, sans-serif; background: #090d16; color: #f8fafc; width: 100%; margin: 0; padding: 0; }
@@ -1117,6 +1226,8 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
         .saas-footer { background: #070a10; padding: 3.5rem 0; border-top: 1px solid #1e293b; }
         .saas-footer-flex { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem; }
         """
+
+
 
         js = """
         console.log('SaaS template initialized');
