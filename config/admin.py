@@ -45,7 +45,22 @@ class GitHubTemplateAdmin(admin.ModelAdmin):
             super().save_model(request, obj, form, change)
         except Exception as e:
             from django.contrib import messages
-            messages.warning(request, f"Template saved with default fallback due to GitHub notice: {str(e)}")
+            # Handle unique constraint if repo_url already exists in database
+            existing = GitHubTemplate.objects.filter(repo_url=obj.repo_url).first()
+            if existing and existing.id != obj.id:
+                existing.category = obj.category
+                existing.title = obj.title or existing.title
+                existing.description = obj.description or existing.description
+                existing.is_popular = obj.is_popular
+                if obj.source_code_html:
+                    existing.source_code_html = obj.source_code_html
+                    existing.source_code_css = obj.source_code_css
+                    existing.source_code_js = obj.source_code_js
+                existing.save()
+                messages.info(request, f"Updated existing template '{existing.title}' for repository URL: {obj.repo_url}")
+            else:
+                messages.warning(request, f"Notice while saving template: {str(e)}")
+
 
 
 @admin.register(PhonePeOrderTransaction)

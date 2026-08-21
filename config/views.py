@@ -1202,14 +1202,30 @@ def import_github_template(request):
     Saves a GitHub repository into the system template database with category dropdown mapping.
     """
     data = request.data
-    repo_url = data.get('repo_url')
-    owner = data.get('owner', '')
-    repo_name = data.get('repo_name', '')
-    title = data.get('title', f"{owner}/{repo_name}")
-    category_slug = data.get('category_slug') or data.get('category')
-
+    repo_url = (data.get('repo_url') or '').strip()
     if not repo_url:
         return Response({"success": False, "error": "Please provide a valid repo_url."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Normalize repo_url
+    clean_url = repo_url.rstrip('/')
+    clean_url = re.sub(r'\.git$', '', clean_url, flags=re.IGNORECASE)
+    if not clean_url.startswith('http://') and not clean_url.startswith('https://'):
+        clean_url = f"https://github.com/{clean_url.lstrip('/')}"
+    repo_url = clean_url
+
+    owner = data.get('owner', '').strip()
+    repo_name = data.get('repo_name', '').strip()
+    category_slug = data.get('category_slug') or data.get('category')
+
+    from .github_importer import import_source_from_github, parse_github_repo_url
+    if not owner or not repo_name:
+        po, pr, pb = parse_github_repo_url(repo_url)
+        owner = owner or po
+        repo_name = repo_name or pr
+
+    title = data.get('title') or f"{owner}/{repo_name}".strip('/')
+    if not title:
+        title = repo_name or "Custom GitHub Template"
 
     # Category FK resolution
     cat_obj = None
@@ -1221,12 +1237,6 @@ def import_github_template(request):
 
     saved_obj = None
     try:
-        from .github_importer import import_source_from_github, parse_github_repo_url
-        if not owner or not repo_name:
-            po, pr, pb = parse_github_repo_url(repo_url)
-            owner = owner or po
-            repo_name = repo_name or pr
-
         branch = data.get('default_branch', 'main')
         imp_data = import_source_from_github(owner, repo_name, branch, category_slug or (cat_obj.slug if cat_obj else ''), title)
         
@@ -1259,13 +1269,35 @@ def import_github_template(request):
         }
     except Exception as e:
         print(f"Error in import_github_template: {e}")
-
+        # Graceful fallback: attempt minimal model save
+        try:
+            obj, created = GitHubTemplate.objects.update_or_create(
+                repo_url=repo_url,
+                defaults={
+                    "category": cat_obj,
+                    "owner": owner,
+                    "repo_name": repo_name,
+                    "title": title,
+                    "is_popular": True
+                }
+            )
+            saved_obj = {
+                "id": obj.id,
+                "category": obj.category.name if obj.category else "Uncategorized",
+                "repo_url": obj.repo_url,
+                "owner": obj.owner,
+                "repo_name": obj.repo_name,
+                "title": obj.title
+            }
+        except Exception:
+            pass
 
     return Response({
         "success": True,
         "message": f"GitHub template '{title}' imported successfully!",
         "data": saved_obj or {"repo_url": repo_url, "title": title}
     }, status=status.HTTP_201_CREATED)
+
 
 
 

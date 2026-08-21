@@ -98,6 +98,14 @@ class GitHubTemplate(models.Model):
         verbose_name_plural = "GitHub Templates"
 
     def save(self, *args, **kwargs):
+        import re
+        if self.repo_url:
+            clean_url = self.repo_url.strip().rstrip('/')
+            clean_url = re.sub(r'\.git$', '', clean_url, flags=re.IGNORECASE)
+            if not clean_url.startswith('http://') and not clean_url.startswith('https://'):
+                clean_url = f"https://github.com/{clean_url.lstrip('/')}"
+            self.repo_url = clean_url
+
         # 1. Auto extract owner and repo_name from repo_url if not provided or clean them up
         try:
             if self.repo_url:
@@ -112,8 +120,8 @@ class GitHubTemplate(models.Model):
         except Exception:
             pass
 
-        # 2. Auto import source code from GitHub if not already provided or if source_code_html is missing
-        if not self.source_code_html or not self.is_imported:
+        # 2. Auto import source code from GitHub if not already provided
+        if not self.source_code_html:
             try:
                 from .github_importer import import_source_from_github, get_default_category_template
                 cat_slug = self.category.slug if self.category else ''
@@ -131,7 +139,6 @@ class GitHubTemplate(models.Model):
                     self.editable_placeholders = imported_res.get('placeholders', {})
                     self.is_imported = True
                 else:
-                    # Fallback to category template if import returned empty
                     def_html, def_css, def_js, def_ph = get_default_category_template(
                         category_slug=cat_slug,
                         title=self.title or self.repo_name or 'Modern Template',
@@ -143,7 +150,7 @@ class GitHubTemplate(models.Model):
                     self.source_code_js = def_js
                     self.editable_placeholders = def_ph
                     self.is_imported = True
-            except Exception as imp_err:
+            except Exception:
                 try:
                     from .github_importer import get_default_category_template
                     cat_slug = self.category.slug if self.category else ''
@@ -175,6 +182,7 @@ class GitHubTemplate(models.Model):
                 self.logo_type = 'both'
 
         super().save(*args, **kwargs)
+
 
 
 class PhonePeOrderTransaction(models.Model):

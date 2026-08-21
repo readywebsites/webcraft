@@ -751,14 +751,12 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
                     html_code = f_content
                     break
 
-        # Fallback to direct raw GitHub URLs
+        # Fast fallback to top direct raw GitHub URLs if needed
         if not html_code:
-            branches_to_try = [actual_branch] if actual_branch else ['main', 'master']
-            if 'master' not in branches_to_try:
-                branches_to_try.append('master')
-
+            fast_priority = ['index.html', 'dist/index.html', 'public/index.html']
+            branches_to_try = [actual_branch] if actual_branch else ['main']
             for b in branches_to_try:
-                for path in priority_html_names:
+                for path in fast_priority:
                     fetched = fetch_raw_github_file(owner, repo_name, b, path)
                     if fetched and len(fetched.strip()) > 50:
                         html_code = fetched
@@ -766,6 +764,7 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
                         break
                 if html_code:
                     break
+
 
     # 4. Extract and bundle all CSS files from repository
     if html_code and not css_code:
