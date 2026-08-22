@@ -1035,7 +1035,7 @@ def generate_website(request):
             }, status=status.HTTP_400_BAD_REQUEST)
         clean_previews = [dict(item) for item in previews_list]
         primary_data = dict(clean_previews[0])
-        primary_data["previews"] = clean_previewsimary_data["previews"] = clean_previews
+        primary_data["previews"] = clean_previews
 
         try:
             GeneratedWebsite.objects.create(
