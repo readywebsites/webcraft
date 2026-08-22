@@ -23,9 +23,9 @@ from .models import BusinessCategory, GeneratedWebsite, GitHubTemplate, PhonePeO
 def apply_user_details_to_template(raw_html, raw_css, details):
     """
     Generic Content Replacement Engine:
-    Safely replaces Logos, Hero Banner Images (img, background-image, picture, source),
-    Pexels Business Images (data-image, data-background-image), Contact Email, and Phone Number
-    without corrupting URLs or CSS.
+    Safely injects AI copywriting (Hero, Cards, About, Testimonials, CTA, Stats),
+    Replaces Logos, Hero Banner Images (img, background-image, picture, source),
+    Contact Email, and Phone Number without corrupting URLs or CSS.
     """
     if not raw_html:
         return raw_html, raw_css or ''
@@ -39,6 +39,7 @@ def apply_user_details_to_template(raw_html, raw_css, details):
     color = details.get('primary_color', '').strip()
     images = dict(details.get('images') or {})
     image_pool = details.get('image_pool') or []
+    ai_content = details.get('ai_content')
 
     # If hero_url is not set but hero is present in images pool, use it
     if not hero_url and images.get('hero'):
@@ -46,10 +47,24 @@ def apply_user_details_to_template(raw_html, raw_css, details):
     elif hero_url:
         images['hero'] = hero_url
 
+    # 1. RUN SEMANTIC AI COPYWRITING INJECTION FIRST
     html = raw_html
+    if not ai_content and details.get('business_description'):
+        from .ai_service import generate_business_content
+        ai_content = generate_business_content(
+            business_name=b_name,
+            business_description=details.get('business_description', ''),
+            category=details.get('category_name', ''),
+            tagline=tagline
+        )
+
+    if ai_content and isinstance(ai_content, dict):
+        from .content_injector import inject_business_content_into_html
+        html = inject_business_content_into_html(html, ai_content)
+
     css = raw_css or ''
 
-    # 1. SUBSTITUTE EXPLICIT PLACEHOLDER TOKENS FIRST
+    # 2. SUBSTITUTE EXPLICIT PLACEHOLDER TOKENS
     if b_name:
         html = html.replace('{{SITE_TITLE}}', b_name).replace('{{SITE_NAME}}', b_name).replace('{{BUSINESS_NAME}}', b_name).replace('{{business_name}}', b_name)
     if logo_url:
@@ -928,6 +943,15 @@ def generate_website(request):
         if not hero_image_url and images_by_role.get('hero'):
             hero_image_url = images_by_role.get('hero', '')
 
+        # Generate AI Copywriting Context (Gemini AI or Smart Domain Engine)
+        from .ai_service import generate_business_content
+        ai_content = generate_business_content(
+            business_name=business_name,
+            business_description=business_description,
+            category=category_name or business_type_id,
+            tagline=final_tagline
+        )
+
         # 2. Build Customized Website Previews for each template using the shared image pool
         previews_list = []
         for index, tpl in enumerate(candidate_templates):
@@ -982,6 +1006,7 @@ def generate_website(request):
                     {
                         'business_name': business_name,
                         'business_description': business_description,
+                        'category_name': category_name or business_type_id,
                         'logo_url': t_logo_url,
                         'logo_type': t_logo_type,
                         'hero_image_url': hero_image_url,
@@ -991,6 +1016,7 @@ def generate_website(request):
                         'contact_phone': final_phone,
                         'tagline': final_tagline,
                         'primary_color': final_color,
+                        'ai_content': ai_content,
                     }
                 )
 
@@ -1033,8 +1059,14 @@ def generate_website(request):
                         "primary_color": final_color,
                         "contact_email": final_email,
                         "contact_phone": final_phone,
-                        "services": matched_preset['default_services'],
-                        "testimonials": matched_preset['default_testimonials']
+                        "ai_content": ai_content,
+                        "hero": ai_content.get('hero', {}),
+                        "about": ai_content.get('about', {}),
+                        "services": ai_content.get('services_or_products', matched_preset['default_services']),
+                        "features": ai_content.get('features', []),
+                        "testimonials": ai_content.get('testimonials', matched_preset['default_testimonials']),
+                        "stats": ai_content.get('stats', []),
+                        "cta_banner": ai_content.get('cta_banner', {})
                     }
                 }
                 previews_list.append(item)
@@ -1413,13 +1445,23 @@ def generate_from_github_template(request):
         js_src = imp['js']
 
 
-    # Backend editing of imported GitHub template with user details
+    # Generate AI Copywriting Context
+    from .ai_service import generate_business_content
+    ai_content = generate_business_content(
+        business_name=business_name,
+        business_description=business_description,
+        category=f"{owner} {repo_name}",
+        tagline=tagline
+    )
+
+    # Backend editing of imported GitHub template with user details & AI copy
     edited_html, edited_css = apply_user_details_to_template(
         html_src,
         css_src,
         {
             'business_name': business_name,
             'business_description': business_description,
+            'category_name': f"{owner} {repo_name}",
             'logo_url': logo_url,
             'hero_image_url': hero_image_url,
             'images': images_by_role,
@@ -1428,6 +1470,7 @@ def generate_from_github_template(request):
             'contact_phone': contact_phone,
             'tagline': tagline,
             'primary_color': primary_color,
+            'ai_content': ai_content,
         }
     )
 
@@ -1463,34 +1506,14 @@ def generate_from_github_template(request):
             "primary_color": primary_color,
             "contact_email": contact_email,
             "contact_phone": contact_phone,
-            "services": [
-                {
-                    "title": "GitHub Template Engine",
-                    "desc": f"Automated dynamic token replacement from repository {owner}/{repo_name}.",
-                    "img": images_by_role.get('service_1', "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&q=80"),
-                    "tag": "GitHub Core"
-                },
-                {
-                    "title": "Custom Code Generation",
-                    "desc": "Transpiled components, variables & layout structure compiled ready for export.",
-                    "img": images_by_role.get('service_2', "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&q=80"),
-                    "tag": "Vite/Next.js"
-                },
-                {
-                    "title": "Instant Deployment Ready",
-                    "desc": "Includes Vercel / Netlify configuration & Docker environment files.",
-                    "img": images_by_role.get('service_3', "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&q=80"),
-                    "tag": "Production"
-                }
-            ],
-            "testimonials": [
-                {
-                    "quote": f"Importing our GitHub repo {owner}/{repo_name} saved us days of setup time. Highly recommended!",
-                    "author": f"Dev Team @ {business_name}",
-                    "role": "Lead Architect",
-                    "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&q=80"
-                }
-            ]
+            "ai_content": ai_content,
+            "hero": ai_content.get('hero', {}),
+            "about": ai_content.get('about', {}),
+            "services": ai_content.get('services_or_products', []),
+            "features": ai_content.get('features', []),
+            "testimonials": ai_content.get('testimonials', []),
+            "stats": ai_content.get('stats', []),
+            "cta_banner": ai_content.get('cta_banner', {})
         }
     }
 
@@ -1993,6 +2016,31 @@ def phonepe_webhook_handler(request):
             "status": new_status,
             "is_paid": is_paid
         }
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def generate_ai_copy(request):
+    """
+    Generates rich, contextual website copywriting using Google Gemini AI (or smart domain engine).
+    """
+    data = request.data
+    business_name = (data.get('business_name') or 'Modern Brand').strip()
+    business_description = (data.get('business_description') or '').strip()
+    category = (data.get('category') or '').strip()
+    tagline = (data.get('tagline') or '').strip()
+
+    from .ai_service import generate_business_content
+    copy_data = generate_business_content(
+        business_name=business_name,
+        business_description=business_description,
+        category=category,
+        tagline=tagline
+    )
+
+    return Response({
+        "success": True,
+        "data": copy_data
     }, status=status.HTTP_200_OK)
 
 

@@ -11,7 +11,8 @@ from .views import (
     export_github_repo_api,
     initiate_phonepe_payment,
     verify_phonepe_payment,
-    phonepe_webhook_handler
+    phonepe_webhook_handler,
+    generate_ai_copy
 )
 
 urlpatterns = [
@@ -32,6 +33,9 @@ urlpatterns = [
     path('payment/phonepe/verify/', verify_phonepe_payment, name='verify_phonepe_payment'),
     path('payment/phonepe/webhook/', phonepe_webhook_handler, name='phonepe_webhook_handler'),
     path('payment/phonepe/webhook', phonepe_webhook_handler, name='phonepe_webhook_handler_no_slash'),
+
+    # Gemini AI Copywriting & Context Generation endpoint
+    path('ai/generate-copy/', generate_ai_copy, name='generate_ai_copy'),
 ]
 
 
