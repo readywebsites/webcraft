@@ -165,10 +165,11 @@ You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks,
 """
 
     models_to_try = [
-        "gemini-1.5-flash",
-        "gemini-1.5-pro",
-        "gemini-2.0-flash",
-        "gemini-pro"
+        "gemini-3.5-flash",
+        "gemini-3.6-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemma-4-26b-a4b-it"
     ]
 
     for model in models_to_try:
@@ -230,6 +231,7 @@ def generate_fallback_business_content(
     combined_context = f"{b_name} {desc} {cat}".lower()
 
     # Detect domain keywords
+    is_soda_or_drinks = any(k in combined_context for k in ['soda', 'beverage', 'drink', 'cola', 'fountain', 'spritzer', 'float', 'juice', 'smoothie', 'shake', 'boba'])
     is_pizza_or_italian = any(k in combined_context for k in ['pizza', 'pizzeria', 'wood-fired', 'sourdough', 'neapolitan', 'pasta', 'italian', 'trattoria', 'calzone', 'burrata'])
     is_restaurant_or_cafe = any(k in combined_context for k in ['restaurant', 'cafe', 'coffee', 'bistro', 'bakery', 'food', 'dining', 'bar', 'grill', 'burger', 'sushi', 'dessert'])
     is_fashion_or_clothing = any(k in combined_context for k in ['fashion', 'clothing', 'apparel', 'wear', 'boutique', 'dress', 'jeans', 'accessories', 'shoes', 'footwear', 'style'])
@@ -237,8 +239,59 @@ def generate_fallback_business_content(
     is_tech_or_saas = any(k in combined_context for k in ['tech', 'saas', 'software', 'app', 'ai', 'cloud', 'developer', 'startup', 'digital', 'analytics', 'platform'])
     is_flower_or_plant = any(k in combined_context for k in ['flower', 'florist', 'plants', 'bouquet', 'bloom', 'garden', 'roses', 'floral'])
     is_pet_shop = any(k in combined_context for k in ['pet', 'dog', 'cat', 'puppy', 'vet', 'animal', 'grooming'])
+    is_car_or_repair = any(k in combined_context for k in ['car', 'auto', 'vehicle', 'mechanic', 'repair', 'garage', 'detailing', 'tire', 'service'])
 
-    if is_pizza_or_italian:
+    if is_soda_or_drinks:
+        return {
+            "brand_name": b_name,
+            "tagline": tagline or f"Best Craft Sodas & Refreshing Fountain Drinks in Town",
+            "hero": {
+                "headline": f"Best Handcrafted Sodas & Legendary Flavors at {b_name}",
+                "subheadline": f"Taste the freshest, fizziest craft sodas in town! From nostalgic vintage fountain colas to exotic fruit spritzers and decadent ice cream floats.",
+                "badge_text": "BEST FLAVORS IN TOWN",
+                "cta_primary": "Explore Drink Menu",
+                "cta_secondary": "Visit Our Soda Bar"
+            },
+            "about": {
+                "title": f"Pouring Joy, Fizz & Legendary Flavors Daily",
+                "subtitle": "The Art of Handcrafted Sodas",
+                "story": f"At {b_name}, we are passionate about the craft of carbonation. Every soda is freshly poured with real cane sugar, natural botanical infusions, and rich custom flavor combinations crafted to make you smile.",
+                "highlights": [
+                    "50+ Unique Craft Soda & Spritzer Flavors",
+                    "Hand-Poured Real Cane Sugar & Natural Fruits",
+                    "Signature Creamy Ice Cream & Sorbet Floats"
+                ]
+            },
+            "services_or_products": [
+                { "title": "Vintage Hand-Poured Cola", "desc": "Classic botanical spices, citrus oils, and pure cane sugar carbonated fresh to order.", "price": "$4.50", "tag": "House Favorite" },
+                { "title": "Artisanal Root Beer Float", "desc": "Draft micro-brewed root beer topped with a velvety scoop of Madagascar vanilla bean ice cream.", "price": "$6.50", "tag": "Best Seller" },
+                { "title": "Exotic Passionfruit Berry Spritzer", "desc": "Sparkling bubbly water infused with fresh passionfruit puree, wild berries, and mint.", "price": "$5.00", "tag": "Refreshing" },
+                { "title": "Creamy Salted Caramel Soda", "desc": "Fizzy cream soda layered with salted caramel drizzle and whipped cream.", "price": "$5.50", "tag": "Sweet Treat" }
+            ],
+            "features": [
+                { "title": "Made Fresh to Order", "desc": "Every single drink is mixed live with crisp sparkling carbonation and premium syrups." },
+                { "title": "All Natural Ingredients", "desc": "No artificial aftertaste — crafted with real fruit purees, botanical herbs, and pure cane sugar." },
+                { "title": "Custom Mixology", "desc": "Build your own custom fizzy creation by combining your favorite flavor syrups and sweet creams." }
+            ],
+            "testimonials": [
+                { "quote": "Hands down the best soda shop in town! The root beer float and exotic fruit spritzers are unmatched.", "author": "Liam K.", "role": "Soda Enthusiast" },
+                { "quote": "Incredible selection of unique flavors. You can really taste the quality of real cane sugar and fresh ingredients.", "author": "Maya Patel", "role": "Regular Guest" },
+                { "quote": "Our whole family comes here every weekend. Best craft drinks and friendly atmosphere!", "author": "Chris Evans", "role": "Local Guide" }
+            ],
+            "cta_banner": {
+                "headline": f"Thirsty for the Best Soda in Town?",
+                "subheadline": "Stop by our soda bar today or order refreshing craft bottles to take home.",
+                "button_text": "Order Drinks Now"
+            },
+            "stats": [
+                { "number": "50+", "label": "Unique Flavors" },
+                { "number": "100%", "label": "Pure Cane Sugar" },
+                { "number": "15k+", "label": "Thirsty Customers" },
+                { "number": "4.9 ★", "label": "Flavor Rating" }
+            ]
+        }
+
+    elif is_pizza_or_italian:
         return {
             "brand_name": b_name,
             "tagline": tagline or "Authentic Wood-Fired Neapolitan Pizza & Italian Craft",
@@ -308,6 +361,55 @@ def generate_fallback_business_content(
             ]
         }
 
+    elif is_car_or_repair:
+        return {
+            "brand_name": b_name,
+            "tagline": tagline or f"Expert Auto Repair, Diagnostics & Maintenance You Can Trust",
+            "hero": {
+                "headline": f"Reliable Auto Care & Precision Mechanics at {b_name}",
+                "subheadline": "Certified master technicians providing honest diagnostics, factory maintenance, engine diagnostics, brake repair, and tune-ups.",
+                "badge_text": "CERTIFIED MASTER TECHNICIANS",
+                "cta_primary": "Schedule Service Online",
+                "cta_secondary": "View Repair Services"
+            },
+            "about": {
+                "title": "Keeping Your Vehicle Safe, Smooth & Road-Ready",
+                "subtitle": "Integrity, Precision & Expertise",
+                "story": f"At {b_name}, we treat your vehicle with meticulous care. Our ASE-certified technicians use dealership-grade diagnostic scan tools and OEM parts to deliver prompt, honest service without hidden fees.",
+                "highlights": [
+                    "ASE-Certified Mechanics & Factory Equipment",
+                    "Full 24-Month / 24,000-Mile Nationwide Warranty",
+                    "Complimentary Multi-Point Vehicle Safety Inspection"
+                ]
+            },
+            "services_or_products": [
+                { "title": "Comprehensive Engine Diagnostics", "desc": "Complete computerized OBD-II scan, electrical testing, and performance optimization.", "price": "$89.00", "tag": "Essential" },
+                { "title": "Precision Brake Pad & Rotor Service", "desc": "Premium ceramic brake pads, rotor resurfacing, and complete fluid exchange.", "price": "From $149", "tag": "Safety First" },
+                { "title": "Full Synthetic Oil & Filter Service", "desc": "Mobil 1 full synthetic oil, OEM filter replacement, and tire pressure check.", "price": "$69.95", "tag": "Maintenance" },
+                { "title": "Transmission & Drivetrain Repair", "desc": "Fluid flushes, clutch adjustments, CV axles, and mechanical overhauls.", "price": "Custom Quote", "tag": "Expert Care" }
+            ],
+            "features": [
+                { "title": "Honest Digital Estimates", "desc": "Transparent inspection photos and clear pricing sent directly to your phone before work begins." },
+                { "title": "Fast Same-Day Turnaround", "desc": "Most maintenance and minor repair services completed the very same day." },
+                { "title": "Guaranteed Workmanship", "desc": "Backed by our comprehensive parts and labor warranty for complete peace of mind." }
+            ],
+            "testimonials": [
+                { "quote": "Finally found an honest mechanic! They diagnosed my check engine light quickly and fixed it at a fair price.", "author": "Robert Chen", "role": "Verified Customer" },
+                { "quote": "Fast service, clean waiting room, and exceptional communication throughout the repair.", "author": "Jessica Miller", "role": "Loyal Client" }
+            ],
+            "cta_banner": {
+                "headline": f"Need Expert Auto Service or Repair?",
+                "subheadline": "Book your appointment online today and receive a complimentary vehicle health scan.",
+                "button_text": "Book Appointment Now"
+            },
+            "stats": [
+                { "number": "20+ Yrs", "label": "Mechanic Experience" },
+                { "number": "100%", "label": "OEM Quality Parts" },
+                { "number": "24k Mi", "label": "Service Warranty" },
+                { "number": "4.9 ★", "label": "Google Reviews" }
+            ]
+        }
+
     elif is_restaurant_or_cafe:
         return {
             "brand_name": b_name,
@@ -357,101 +459,53 @@ def generate_fallback_business_content(
             ]
         }
 
-    elif is_fitness_or_gym:
-        return {
-            "brand_name": b_name,
-            "tagline": tagline or "Unleash Your Potential with High Performance Training",
-            "hero": {
-                "headline": f"Transform Your Mind, Body & Strength at {b_name}",
-                "subheadline": "State-of-the-art training facilities, science-backed metabolic programming, and certified elite coaches to elevate your fitness journey.",
-                "badge_text": "ELITE ATHLETIC PERFORMANCE",
-                "cta_primary": "Start 7-Day Free Trial",
-                "cta_secondary": "Explore Class Schedule"
-            },
-            "about": {
-                "title": "Where Champions & Fitness Enthusiasts Are Built",
-                "subtitle": "Our Mission & Philosophy",
-                "story": f"At {b_name}, we combine cutting-edge strength equipment with tailored coaching and recovery therapies to help members achieve peak health, stamina, and confidence.",
-                "highlights": [
-                    "Certified Elite Strength & Conditioning Coaches",
-                    "Full Recovery Zone with Infrared Sauna & Ice Plunge",
-                    "Personalized Nutrition & Body Composition Tracking"
-                ]
-            },
-            "services_or_products": [
-                { "title": "High-Intensity Functional HIIT", "desc": "45-minute intense conditioning sessions engineered for maximum calorie burn and endurance.", "price": "Included", "tag": "High Energy" },
-                { "title": "1-on-1 Personalized Coaching", "desc": "Custom hypertrophy, mobility, and strength programming tailored to your unique biology.", "price": "Custom", "tag": "Elite" },
-                { "title": "Strength & Olympic Powerlifting", "desc": "Dedicated platform zones, competition barbells, and technique coaching.", "price": "Included", "tag": "Strength" },
-                { "title": "Cryotherapy & Contrast Recovery", "desc": "Cold plunge hydrotherapy, infrared saunas, and pneumatic compression boots.", "price": "Add-on", "tag": "Recovery" }
-            ],
-            "features": [
-                { "title": "World-Class Equipment", "desc": "Fully equipped with top-tier competition barbells, functional rigs, and cardio machines." },
-                { "title": "Science-Based Programming", "desc": "Periodized workout tracks designed to prevent plateaus and maximize muscle growth." },
-                { "title": "Supportive Community", "desc": "Train alongside motivating peers and passionate coaches who push you to succeed." }
-            ],
-            "testimonials": [
-                { "quote": "Lost 25 lbs and gained incredible strength in 4 months. The coaches here genuinely care about your progress!", "author": "Alex Rivera", "role": "Member (2 Years)" },
-                { "quote": "The recovery zone with cold plunges and saunas has completely revolutionized my workout recovery.", "author": "Marcus Bennett", "role": "Competitive Athlete" }
-            ],
-            "cta_banner": {
-                "headline": "Ready to Start Your Transformation?",
-                "subheadline": "Claim your complimentary 7-day all-access pass today and experience the difference.",
-                "button_text": "Claim Free 7-Day Pass"
-            },
-            "stats": [
-                { "number": "24/7", "label": "Facility Access" },
-                { "number": "98%", "label": "Goal Achievement" },
-                { "number": "1,200+", "label": "Active Members" },
-                { "number": "20+", "label": "Expert Coaches" }
-            ]
-        }
-
     else:
-        # Universal Business Template (SaaS, Fashion, E-commerce, Services)
+        # Dynamic contextual synthesis from user's business description
+        clean_desc_lead = (business_description.strip() if business_description else f"Premier products and services by {b_name}")
         return {
             "brand_name": b_name,
-            "tagline": tagline or f"Premium Quality & Exceptional Results by {b_name}",
+            "tagline": tagline or f"Authentic Quality & Exceptional Offerings at {b_name}",
             "hero": {
-                "headline": f"Elevate Your Experience with {b_name}",
-                "subheadline": f"Discover modern solutions, exceptional craftsmanship, and tailored services engineered to help you thrive.",
-                "badge_text": "TOP RATED & VERIFIED",
-                "cta_primary": "Get Started Today",
-                "cta_secondary": "Explore Highlights"
+                "headline": f"Discover the Best in Quality & Craft at {b_name}",
+                "subheadline": clean_desc_lead,
+                "badge_text": "PREMIUM CRAFT & QUALITY",
+                "cta_primary": "Explore Offerings",
+                "cta_secondary": "Contact Our Team"
             },
             "about": {
-                "title": f"Built with Passion, Driven by Excellence",
-                "subtitle": "Who We Are",
-                "story": f"At {b_name}, we are dedicated to providing superior value and innovative solutions tailored to your unique requirements.",
+                "title": f"Crafted with Passion & Dedication to Excellence",
+                "subtitle": f"The Story Behind {b_name}",
+                "story": f"At {b_name}, our journey is rooted in delivering the finest experience in {desc or 'our craft'}. We focus on quality ingredients, rigorous standards, and personalized service tailored directly to you.",
                 "highlights": [
-                    "Dedicated 24/7 Customer Support",
-                    "Rigorous Quality Standards & Craftsmanship",
-                    "Fast, Secure & Seamless Experience"
+                    f"100% Dedicated to Quality & Detail",
+                    f"Friendly, Knowledgeable & Attentive Team",
+                    f"Trusted by Hundreds of Delighted Customers"
                 ]
             },
             "services_or_products": [
-                { "title": "Core Premium Service", "desc": "Comprehensive solution delivering unmatched performance and reliability.", "price": "Featured", "tag": "Most Popular" },
-                { "title": "Advanced Custom Solution", "desc": "Tailored features configured specifically to optimize your workflow.", "price": "Custom", "tag": "Enterprise" },
-                { "title": "Express Quick-Start Package", "desc": "Fast-track implementation designed for immediate results.", "price": "Starter", "tag": "Essential" },
-                { "title": "Ongoing Advisory & Support", "desc": "Continuous optimization, maintenance, and dedicated specialist assistance.", "price": "Included", "tag": "Guaranteed" }
+                { "title": f"Signature {b_name} Selection", "desc": f"Our most sought-after offering, featuring premium craftsmanship and finest standards.", "price": "Featured", "tag": "Best Choice" },
+                { "title": f"Custom Specialty Option", "desc": f"Tailored specifically according to your preferences and requests.", "price": "Custom", "tag": "Special Pick" },
+                { "title": f"Popular Daily Favorite", "desc": f"A customer favorite prepared fresh daily with meticulous care.", "price": "Popular", "tag": "Top Rated" },
+                { "title": f"Exclusive Premium Package", "desc": f"Complete all-inclusive package designed for maximum delight and value.", "price": "Special", "tag": "Exclusive" }
             ],
             "features": [
-                { "title": "Unmatched Reliability", "desc": "Engineered with proven methodologies to ensure smooth, flawless performance." },
-                { "title": "Modern & Intuitive", "desc": "Designed with precision to provide the most enjoyable user experience." },
-                { "title": "Guaranteed Satisfaction", "desc": "We back all products and services with our commitment to excellence." }
+                { "title": "Unmatched Quality", "desc": "Every single detail is prepared with immense care and passion." },
+                { "title": "Customer First", "desc": "We take pride in providing a warm, responsive, and welcoming experience." },
+                { "title": "Guaranteed Satisfaction", "desc": "We back all our offerings with a total commitment to delight you." }
             ],
             "testimonials": [
-                { "quote": "Working with this team exceeded all our expectations. Truly outstanding quality and attention to detail!", "author": "Rachel Adams", "role": "Verified Client" },
-                { "quote": "The results speak for themselves. Fast, responsive, and incredibly dependable service.", "author": "Thomas Wright", "role": "Business Owner" }
+                { "quote": f"The quality and passion at {b_name} are unmatched. Exactly what I was looking for!", "author": "Alex Morgan", "role": "Satisfied Customer" },
+                { "quote": "Remarkable attention to detail, friendly service, and unbeatable quality.", "author": "Samira Patel", "role": "Loyal Guest" }
             ],
             "cta_banner": {
-                "headline": f"Ready to Get Started with {b_name}?",
-                "subheadline": "Connect with our team today and take the first step towards exceptional results.",
-                "button_text": "Get Started Now"
+                "headline": f"Ready to Experience the Difference with {b_name}?",
+                "subheadline": f"Visit us or get in touch today to explore our full range of offerings.",
+                "button_text": "Get in Touch"
             },
             "stats": [
-                { "number": "10k+", "label": "Satisfied Clients" },
-                { "number": "99.9%", "label": "Satisfaction Rate" },
-                { "number": "24/7", "label": "Support Available" },
-                { "number": "5 ★", "label": "Industry Rating" }
+                { "number": "100%", "label": "Customer Satisfaction" },
+                { "number": "5k+", "label": "Delighted Clients" },
+                { "number": "4.9 ★", "label": "Review Score" },
+                { "number": "Daily", "label": "Fresh Craftsmanship" }
             ]
         }
