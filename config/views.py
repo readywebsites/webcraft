@@ -880,25 +880,21 @@ def generate_website(request):
 
         if db_cat:
             category_name = db_cat.name
-            # Strictly select up to 6 templates belonging to this selected category from Admin
+            # Select up to 6 templates belonging to this selected category from Admin
             candidate_templates = list(GitHubTemplate.objects.filter(category=db_cat)[:6])
-            if not candidate_templates:
-                return Response({
-                    "success": False,
-                    "no_templates": True,
-                    "error": f"No GitHub templates found for category '{category_name}' in Admin. Please add or link GitHub templates to '{category_name}' in the Admin panel."
-                }, status=status.HTTP_404_NOT_FOUND)
-        else:
-            # Fallback if no specific category was found in DB
+
+        # If selected category has no templates directly attached, use available templates in Admin
+        if not candidate_templates:
             candidate_templates = list(GitHubTemplate.objects.exclude(source_code_html='').exclude(source_code_html__isnull=True)[:6])
             if not candidate_templates:
                 candidate_templates = list(GitHubTemplate.objects.all()[:6])
-            if not candidate_templates:
-                return Response({
-                    "success": False,
-                    "no_templates": True,
-                    "error": "No website templates are currently available in Admin. Please import templates in the Admin panel."
-                }, status=status.HTTP_404_NOT_FOUND)
+
+        if not candidate_templates:
+            return Response({
+                "success": False,
+                "no_templates": True,
+                "error": "No website templates are currently available in Admin. Please add templates in the Admin panel."
+            }, status=status.HTTP_404_NOT_FOUND)
 
         # Default fallback preset for category content
         matched_preset = next((b for b in BUSINESS_TYPES_DATA if b['id'] == business_type_id), BUSINESS_TYPES_DATA[0])
@@ -923,8 +919,6 @@ def generate_website(request):
             logo_url = logo_file
         elif logo_mode == 'image':
             logo_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&q=80"
-
-
 
         # Handle Uploaded Hero Banner (Only set hero_image_url if user explicitly uploaded a hero image)
         hero_image_url = ""
@@ -972,16 +966,16 @@ def generate_website(request):
         # 2. Build Customized Website Previews directly from the category's Admin templates
         previews_list = []
         for index, tpl in enumerate(candidate_templates):
+            t_logo_type = getattr(tpl, 'logo_type', 'both')
+            t_logo_url = logo_url
+            if t_logo_type == 'text' or logo_mode == 'text':
+                t_logo_url = ""
+
+            raw_html = tpl.source_code_html or f"<div style='padding:3rem;text-align:center;'><h1>{business_name}</h1><p>{final_tagline}</p></div>"
+            raw_css = tpl.source_code_css or ""
+            raw_js = tpl.source_code_js or ""
+
             try:
-                t_logo_type = getattr(tpl, 'logo_type', 'both')
-                t_logo_url = logo_url
-                if t_logo_type == 'text' or logo_mode == 'text':
-                    t_logo_url = ""
-
-                raw_html = tpl.source_code_html or f"<div style='padding:3rem;text-align:center;'><h1>{business_name}</h1><p>{final_tagline}</p></div>"
-                raw_css = tpl.source_code_css or ""
-                raw_js = tpl.source_code_js or ""
-
                 t_edited_html, t_edited_css = apply_user_details_to_template(
                     raw_html,
                     raw_css,
@@ -1001,59 +995,60 @@ def generate_website(request):
                         'ai_content': ai_content,
                     }
                 )
+            except Exception:
+                t_edited_html = raw_html
+                t_edited_css = raw_css
 
-                cat_price = db_cat.price if (db_cat and hasattr(db_cat, 'price')) else 499
-                item = {
-                    "website_id": f"gh_web_{tpl.id}_{uuid.uuid4().hex[:6]}",
-                    "option_index": len(previews_list) + 1,
-                    "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            cat_price = db_cat.price if (db_cat and hasattr(db_cat, 'price')) else 499
+            item = {
+                "website_id": f"gh_web_{tpl.id}_{uuid.uuid4().hex[:6]}",
+                "option_index": len(previews_list) + 1,
+                "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "business_name": business_name,
+                "business_description": business_description,
+                "business_type": business_type_id,
+                "category_name": category_name,
+                "category_price": cat_price,
+                "price": cat_price,
+                "template_id": f"gh-{tpl.owner or 'readywebsites'}-{tpl.repo_name or 'template'}",
+                "template_name": tpl.title or f"Option {len(previews_list) + 1}",
+                "thumbnail_url": tpl.thumbnail_url or "",
+                "logo_type": t_logo_type,
+                "image_pool": image_pool,
+                "images": images_by_role,
+                "extracted_keywords": extracted_keywords,
+                "github_source": {
+                    "repo_url": tpl.repo_url or "",
+                    "owner": tpl.owner or "readywebsites",
+                    "repo_name": tpl.repo_name or "template",
+                    "default_branch": tpl.default_branch or "main"
+                },
+                "source_code_html": t_edited_html or raw_html,
+                "source_code_css": t_edited_css or raw_css,
+                "source_code_js": raw_js,
+                "content": {
                     "business_name": business_name,
                     "business_description": business_description,
-                    "business_type": business_type_id,
-                    "category_name": category_name,
-                    "category_price": cat_price,
-                    "price": cat_price,
-                    "template_id": f"gh-{tpl.owner or 'readywebsites'}-{tpl.repo_name or 'template'}",
-                    "template_name": tpl.title or f"Option {len(previews_list) + 1}",
-                    "thumbnail_url": tpl.thumbnail_url or "",
+                    "logo_url": logo_url,
                     "logo_type": t_logo_type,
-                    "image_pool": image_pool,
+                    "hero_image_url": hero_image_url,
                     "images": images_by_role,
-                    "extracted_keywords": extracted_keywords,
-                    "github_source": {
-                        "repo_url": tpl.repo_url or "",
-                        "owner": tpl.owner or "readywebsites",
-                        "repo_name": tpl.repo_name or "template",
-                        "default_branch": tpl.default_branch or "main"
-                    },
-                    "source_code_html": t_edited_html or raw_html,
-                    "source_code_css": t_edited_css or raw_css,
-                    "source_code_js": raw_js,
-                    "content": {
-                        "business_name": business_name,
-                        "business_description": business_description,
-                        "logo_url": logo_url,
-                        "logo_type": t_logo_type,
-                        "hero_image_url": hero_image_url,
-                        "images": images_by_role,
-                        "image_pool": image_pool,
-                        "tagline": final_tagline,
-                        "primary_color": final_color,
-                        "contact_email": final_email,
-                        "contact_phone": final_phone,
-                        "ai_content": ai_content,
-                        "hero": ai_content.get('hero', {}),
-                        "about": ai_content.get('about', {}),
-                        "services": ai_content.get('services_or_products', matched_preset['default_services']),
-                        "features": ai_content.get('features', []),
-                        "testimonials": ai_content.get('testimonials', matched_preset['default_testimonials']),
-                        "stats": ai_content.get('stats', []),
-                        "cta_banner": ai_content.get('cta_banner', {})
-                    }
+                    "image_pool": image_pool,
+                    "tagline": final_tagline,
+                    "primary_color": final_color,
+                    "contact_email": final_email,
+                    "contact_phone": final_phone,
+                    "ai_content": ai_content,
+                    "hero": ai_content.get('hero', {}),
+                    "about": ai_content.get('about', {}),
+                    "services": ai_content.get('services_or_products', matched_preset['default_services']),
+                    "features": ai_content.get('features', []),
+                    "testimonials": ai_content.get('testimonials', matched_preset['default_testimonials']),
+                    "stats": ai_content.get('stats', []),
+                    "cta_banner": ai_content.get('cta_banner', {})
                 }
-                previews_list.append(item)
-            except Exception as exc:
-                print(f"Error compiling template {tpl.id}: {exc}")
+            }
+            previews_list.append(item)
 
         if not previews_list:
             return Response({
