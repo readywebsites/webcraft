@@ -333,24 +333,6 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             logo_tags = soup.select(logo_selectors)
             for img in logo_tags:
                 if img.name == 'img':
-                    parent_names = [p.name.lower() for p in img.parents]
-                    parent_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in img.parents]).lower()
-
-                    # Must be inside header, nav, or footer
-                    if not any(pt in parent_names for pt in ['header', 'nav', 'footer']):
-                        if not any(bc in parent_classes for bc in ['navbar-brand', 'header-logo', 'site-logo', 'footer-logo', 'footer-brand']):
-                            continue
-
-                    # Skip body content sections (products, sliders, galleries, testimonials, etc.) unless inside header/nav/footer
-                    if any(sc in parent_classes for sc in ['slider', 'carousel', 'gallery', 'products', 'product-card', 'testimonials', 'team', 'services', 'features', 'portfolio', 'clients', 'partners', 'sponsors', 'tech-stack', 'brands-list', 'trusted-by', 'showcase']):
-                        if 'header' not in parent_names and 'nav' not in parent_names and 'footer' not in parent_names:
-                            continue
-
-                    # Check image attributes for decorative/content keywords
-                    img_attrs = f"{img.get('class', '')} {img.get('id', '')} {img.get('alt', '')} {img.get('src', '')}".lower()
-                    if re.search(r'(?:slider|gallery|product|item|card|testimonial|carousel|client|partner|sponsor|tech|feature|hero|avatar|thumb|brand-\d|logo-\d)', img_attrs):
-                        continue
-
                     img['src'] = logo_url
                     if img.has_attr('srcset'):
                         img['srcset'] = logo_url
@@ -358,65 +340,79 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                     img['style'] = f"{existing_style}; max-height: 60px !important; max-width: 280px !important; object-fit: contain !important; width: auto !important;".strip('; ')
             html = str(soup)
         except Exception:
-            def repl_logo_container(m):
-                container_html = m.group(0)
-                def repl_img(img_m):
-                    tag = img_m.group(0)
-                    if re.search(r'(?:slider|gallery|product|item|card|testimonial|carousel|client|partner|sponsor|tech|feature|hero|avatar|thumb|brand-\d|logo-\d)', tag, re.I):
-                        return tag
-                    tag = re.sub(r'src=["\'][^"\']+["\']', f'src="{logo_url}"', tag, flags=re.I)
-                    tag = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{logo_url}"', tag, flags=re.I)
-                    return tag
-                return re.sub(r'<img\s+[^>]*>', repl_img, container_html, flags=re.I)
+            pass
 
-            html = re.sub(
-                r'<(?:header|nav|footer)\s*[^>]*>.*?</(?:header|nav|footer)>',
-                repl_logo_container,
-                html,
-                flags=re.IGNORECASE | re.DOTALL
-            )
+    # 4. FULL-PAGE CONTENT & CARD IMAGE REPLACEMENT (Pexels Pool & Role Mappings)
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, 'html.parser')
 
-    # 4. HERO BANNER REPLACEMENT IN HTML (Scoped strictly to the main top Hero section)
-    if hero_url:
-        def repl_hero_img(m):
-            img_tag = m.group(0)
-            if re.search(r'(?:logo|brand|client|partner|sponsor|tech-stack|trusted|showcase|avatar|product|promo|footer|sidebar)', img_tag, re.I):
-                return img_tag
-            img_tag = re.sub(r'src=["\'][^"\']+["\']', f'src="{hero_url}"', img_tag, flags=re.IGNORECASE)
-            img_tag = re.sub(r'srcset=["\'][^"\']+["\']', f'srcset="{hero_url}"', img_tag, flags=re.IGNORECASE)
-            return img_tag
+        pool_urls = [item['url'] for item in image_pool if isinstance(item, dict) and item.get('url')]
+        if not pool_urls and images:
+            pool_urls = list(images.values())
 
-        # 4a. Target explicitly tagged hero images or images inside main hero section / hero-img class
-        html = re.sub(
-            r'<img\s+[^>]*?(?:class|id|alt|src|name|data-[^=]+)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image)[^"\']*["\'][^>]*>',
-            repl_hero_img,
-            html,
-            flags=re.IGNORECASE
-        )
-        html = re.sub(
-            r'<img\s+[^>]*?data-editable=["\']hero_image["\'][^>]*>',
-            repl_hero_img,
-            html,
-            flags=re.IGNORECASE
-        )
+        if pool_urls:
+            img_pool_idx = 0
+            all_imgs = soup.find_all('img')
 
-        # 4b. Target background-image on main hero container section ONLY (excluding promo/product/footer/sidebar banners)
-        def repl_style_bg(m):
-            style_attr = m.group(0)
-            if re.search(r'(?:clients|partners|sponsors|tech-stack|trusted|showcase|logos|promo|product|footer|sidebar|gallery)', style_attr, re.I):
-                return style_attr
-            return re.sub(r'url\((?:&quot;|["\'])?[^"\'\)]+(?:&quot;|["\'])?\)', f"url('{hero_url}')", style_attr, flags=re.IGNORECASE)
+            for img in all_imgs:
+                # Skip if logo
+                parent_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in img.parents]).lower()
+                img_classes = ' '.join(img.get('class', [])).lower() if isinstance(img.get('class'), list) else str(img.get('class', '')).lower()
+                img_id = str(img.get('id', '')).lower()
+                img_alt = str(img.get('alt', '')).lower()
 
-        html = re.sub(
-            r'<(?:section|header|div|main)\s+[^>]*?(?:class|id|data-[^=]+)=["\'][^"\']*(?:fit-hero|bistro-hero|saas-hero|main-hero|home-hero|\bhero\b|data-editable="hero_image")[^"\']*["\'][^>]*>',
-            lambda m: re.sub(r'style=["\'][^"\']*url\([^"\']+\)[^"\']*["\']', repl_style_bg, m.group(0), flags=re.IGNORECASE),
-            html,
-            flags=re.IGNORECASE
-        )
+                if 'logo' in parent_classes or 'logo' in img_classes or 'logo' in img_id or 'logo' in img_alt or img.has_attr('data-logo'):
+                    if logo_url:
+                        img['src'] = logo_url
+                    continue
 
-    # 5. Sanitize broken external placeholder domains & numerical image paths (e.g. via.placeholder.com, 1920x600)
-    html = re.sub(r"src=[\"'](?:https?:)?\/\/(?:via\.placeholder\.com|placehold\.it|dummyimage\.com|placehold\.co)\/([^\"']+)[\"']", 'src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80"', html, flags=re.IGNORECASE)
-    html = re.sub(r"src=[\"']\/?\d{2,4}x\d{2,4}[^\"']*[\"']", 'src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80"', html, flags=re.IGNORECASE)
+                # Check if explicitly hero
+                is_hero = 'hero' in parent_classes or 'hero' in img_classes or 'banner' in img_classes or img.has_attr('data-editable') and 'hero' in img.get('data-editable', '')
+                if is_hero and hero_url:
+                    img['src'] = hero_url
+                    if img.has_attr('srcset'):
+                        img['srcset'] = hero_url
+                    continue
+
+                # Check if data-image attribute is present
+                if img.has_attr('data-image'):
+                    role_key = str(img['data-image']).lower().strip()
+                    if images.get(role_key):
+                        img['src'] = images[role_key]
+                        if img.has_attr('srcset'):
+                            img['srcset'] = images[role_key]
+                        continue
+
+                # Assign next domain-relevant image from pool
+                target_src = pool_urls[img_pool_idx % len(pool_urls)]
+                img['src'] = target_src
+                if img.has_attr('srcset'):
+                    img['srcset'] = target_src
+                img_pool_idx += 1
+
+            # Replace background images in style attributes
+            for el in soup.find_all(style=re.compile(r'background(?:-image)?\s*:\s*url', re.I)):
+                parent_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in el.parents]).lower()
+                el_classes = ' '.join(el.get('class', [])).lower() if isinstance(el.get('class'), list) else str(el.get('class', '')).lower()
+                
+                if 'hero' in el_classes or 'hero' in parent_classes or 'banner' in el_classes:
+                    bg_target = hero_url or pool_urls[0]
+                elif 'about' in el_classes or 'about' in parent_classes:
+                    bg_target = images.get('about') or pool_urls[1 % len(pool_urls)]
+                elif 'cta' in el_classes or 'cta' in parent_classes:
+                    bg_target = images.get('cta') or pool_urls[2 % len(pool_urls)]
+                else:
+                    bg_target = pool_urls[img_pool_idx % len(pool_urls)]
+                    img_pool_idx += 1
+
+                current_style = el['style']
+                cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', current_style, flags=re.I).strip('; ')
+                el['style'] = f"{cleaned}; background-image: url('{bg_target}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+
+            html = str(soup)
+    except Exception as img_err:
+        print(f"[Image Replacer Notice] Error during full-page image injection: {img_err}")
 
     # 4. CONTACT EMAIL REPLACEMENT IN HTML
     if email:
