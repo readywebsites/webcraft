@@ -969,57 +969,22 @@ def generate_website(request):
             tagline=final_tagline
         )
 
-        # 2. Build Customized Website Previews for each template using the shared image pool
+        # 2. Build Customized Website Previews directly from the category's Admin templates
         previews_list = []
         for index, tpl in enumerate(candidate_templates):
             try:
-                if tpl.repo_url:
-                    from .github_importer import parse_github_repo_url
-                    o, r, b = parse_github_repo_url(tpl.repo_url)
-                    if o: tpl.owner = o
-                    if r: tpl.repo_name = r
-                    if b and (not tpl.default_branch or tpl.default_branch == 'main'): tpl.default_branch = b
-
-                is_fallback_stock = (
-                    not tpl.source_code_html
-                    or len(tpl.source_code_html) < 100
-                    or 'saas-template-root' in tpl.source_code_html
-                    or 'fit-template-root' in tpl.source_code_html
-                    or 'bistro-template-root' in tpl.source_code_html
-                    or 'POWERED BY GITHUB REPO:' in tpl.source_code_html
-                    or not tpl.is_imported
-                )
-                if is_fallback_stock:
-                    from .github_importer import import_source_from_github
-                    imp_data = import_source_from_github(
-                        tpl.owner or '',
-                        tpl.repo_name or '',
-                        tpl.default_branch or 'main',
-                        category_slug=db_cat.slug if db_cat else '',
-                        title=tpl.title or business_name,
-                        repo_url=tpl.repo_url or ''
-                    )
-                    if imp_data.get('html'):
-                        tpl.source_code_html = imp_data.get('html', '')
-                        tpl.source_code_css = imp_data.get('css', '')
-                        tpl.source_code_js = imp_data.get('js', '')
-                        tpl.editable_placeholders = imp_data.get('placeholders', {})
-                        tpl.is_imported = imp_data.get('is_imported', True)
-                        if imp_data.get('default_branch'):
-                            tpl.default_branch = imp_data.get('default_branch')
-                        tpl.save()
-
-
                 t_logo_type = getattr(tpl, 'logo_type', 'both')
-
-                # Rule: If logo is in text format for the selected template, use business_name as logo
                 t_logo_url = logo_url
                 if t_logo_type == 'text' or logo_mode == 'text':
                     t_logo_url = ""
 
+                raw_html = tpl.source_code_html or f"<div style='padding:3rem;text-align:center;'><h1>{business_name}</h1><p>{final_tagline}</p></div>"
+                raw_css = tpl.source_code_css or ""
+                raw_js = tpl.source_code_js or ""
+
                 t_edited_html, t_edited_css = apply_user_details_to_template(
-                    tpl.source_code_html or '',
-                    tpl.source_code_css or '',
+                    raw_html,
+                    raw_css,
                     {
                         'business_name': business_name,
                         'business_description': business_description,
@@ -1040,7 +1005,7 @@ def generate_website(request):
                 cat_price = db_cat.price if (db_cat and hasattr(db_cat, 'price')) else 499
                 item = {
                     "website_id": f"gh_web_{tpl.id}_{uuid.uuid4().hex[:6]}",
-                    "option_index": index + 1,
+                    "option_index": len(previews_list) + 1,
                     "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "business_name": business_name,
                     "business_description": business_description,
@@ -1048,8 +1013,8 @@ def generate_website(request):
                     "category_name": category_name,
                     "category_price": cat_price,
                     "price": cat_price,
-                    "template_id": f"gh-{tpl.owner}-{tpl.repo_name}",
-                    "template_name": tpl.title or f"Option {index + 1}",
+                    "template_id": f"gh-{tpl.owner or 'readywebsites'}-{tpl.repo_name or 'template'}",
+                    "template_name": tpl.title or f"Option {len(previews_list) + 1}",
                     "thumbnail_url": tpl.thumbnail_url or "",
                     "logo_type": t_logo_type,
                     "image_pool": image_pool,
@@ -1057,13 +1022,13 @@ def generate_website(request):
                     "extracted_keywords": extracted_keywords,
                     "github_source": {
                         "repo_url": tpl.repo_url or "",
-                        "owner": tpl.owner or "github",
+                        "owner": tpl.owner or "readywebsites",
                         "repo_name": tpl.repo_name or "template",
                         "default_branch": tpl.default_branch or "main"
                     },
-                    "source_code_html": t_edited_html or '',
-                    "source_code_css": t_edited_css or '',
-                    "source_code_js": tpl.source_code_js or '',
+                    "source_code_html": t_edited_html or raw_html,
+                    "source_code_css": t_edited_css or raw_css,
+                    "source_code_js": raw_js,
                     "content": {
                         "business_name": business_name,
                         "business_description": business_description,
@@ -1091,85 +1056,11 @@ def generate_website(request):
                 print(f"Error compiling template {tpl.id}: {exc}")
 
         if not previews_list:
-            # Fall back to any working template in the database
-            fallback_tpls = list(GitHubTemplate.objects.exclude(source_code_html='').exclude(source_code_html__isnull=True)[:3])
-            for index, tpl in enumerate(fallback_tpls):
-                try:
-                    t_edited_html, t_edited_css = apply_user_details_to_template(
-                        tpl.source_code_html or '',
-                        tpl.source_code_css or '',
-                        {
-                            'business_name': business_name,
-                            'business_description': business_description,
-                            'category_name': category_name,
-                            'logo_url': logo_url,
-                            'logo_type': getattr(tpl, 'logo_type', 'both'),
-                            'hero_image_url': hero_image_url,
-                            'images': images_by_role,
-                            'image_pool': image_pool,
-                            'contact_email': final_email,
-                            'contact_phone': final_phone,
-                            'tagline': final_tagline,
-                            'primary_color': final_color,
-                            'ai_content': ai_content,
-                        }
-                    )
-                    item = {
-                        "website_id": f"gh_web_{tpl.id}_{uuid.uuid4().hex[:6]}",
-                        "option_index": len(previews_list) + 1,
-                        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "business_name": business_name,
-                        "business_description": business_description,
-                        "business_type": business_type_id,
-                        "category_name": category_name,
-                        "category_price": 499,
-                        "price": 499,
-                        "template_id": f"gh-{tpl.owner}-{tpl.repo_name}",
-                        "template_name": tpl.title or f"Option {len(previews_list) + 1}",
-                        "thumbnail_url": tpl.thumbnail_url or "",
-                        "logo_type": getattr(tpl, 'logo_type', 'both'),
-                        "image_pool": image_pool,
-                        "images": images_by_role,
-                        "extracted_keywords": extracted_keywords,
-                        "github_source": {
-                            "repo_url": tpl.repo_url or "",
-                            "owner": tpl.owner or "github",
-                            "repo_name": tpl.repo_name or "template",
-                            "default_branch": tpl.default_branch or "main"
-                        },
-                        "source_code_html": t_edited_html or '',
-                        "source_code_css": t_edited_css or '',
-                        "source_code_js": tpl.source_code_js or '',
-                        "content": {
-                            "business_name": business_name,
-                            "business_description": business_description,
-                            "logo_url": logo_url,
-                            "hero_image_url": hero_image_url,
-                            "images": images_by_role,
-                            "image_pool": image_pool,
-                            "tagline": final_tagline,
-                            "primary_color": final_color,
-                            "contact_email": final_email,
-                            "contact_phone": final_phone,
-                            "ai_content": ai_content,
-                            "hero": ai_content.get('hero', {}),
-                            "about": ai_content.get('about', {}),
-                            "services": ai_content.get('services_or_products', matched_preset['default_services']),
-                            "features": ai_content.get('features', []),
-                            "testimonials": ai_content.get('testimonials', matched_preset['default_testimonials']),
-                            "stats": ai_content.get('stats', []),
-                            "cta_banner": ai_content.get('cta_banner', {})
-                        }
-                    }
-                    previews_list.append(item)
-                except Exception as fb_exc:
-                    print(f"Fallback compilation error for template {tpl.id}: {fb_exc}")
-
-        if not previews_list:
             return Response({
                 "success": False,
-                "error": f"Unable to generate website options. Please make sure at least one valid GitHub template is imported in Admin."
-            }, status=status.HTTP_400_BAD_REQUEST)
+                "no_templates": True,
+                "error": f"No templates available for '{category_name}'. Please add templates in the Admin panel."
+            }, status=status.HTTP_404_NOT_FOUND)
         clean_previews = [dict(item) for item in previews_list]
         primary_data = dict(clean_previews[0])
         primary_data["previews"] = clean_previews
