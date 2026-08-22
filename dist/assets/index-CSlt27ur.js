@@ -378,24 +378,53 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               servicesArr.forEach(function(s) { if (s.desc || s.description) domainParas.push(s.desc || s.description); });
             }
 
-            // Headings sweep
-            var allH = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            // Headings & Title Elements sweep
+            var titleSelectors = 'h1, h2, h3, h4, h5, h6, .title, .card-title, .product-title, .service-title, .item-title, .item-name, .entry-title, .post-title, .box-title, .tp-caption, .slide-title, .banner-title, .ps-product__title, .collection__category, [class*="item-title"], [class*="card-title"], [class*="product-title"], [class*="service-title"], [class*="product-name"], [class*="service-name"]';
+            var allTitles = document.querySelectorAll(titleSelectors);
             var hIdx = 0;
             var cardHIdx = 0;
-            allH.forEach(function(h) {
+            allTitles.forEach(function(h) {
+              if (h.closest('script, style, head')) return;
               if (h.querySelector('img, svg') && !h.textContent.trim()) return;
-              if (h.tagName === 'H1' && heroObj && heroObj.headline) {
-                h.textContent = heroObj.headline;
-                return;
+              var hClasses = (h.className || '').toLowerCase();
+              if (hClasses.indexOf('copyright') !== -1 || hClasses.indexOf('email') !== -1 || hClasses.indexOf('phone') !== -1 || hClasses.indexOf('logo') !== -1) return;
+
+              var targetHText = "";
+              if (h.tagName === 'H1' || hClasses.indexOf('banner-title') !== -1 || hClasses.indexOf('hero') !== -1) {
+                targetHText = (heroObj && heroObj.headline) || busTitle;
+              } else {
+                var parentCard = h.closest('.card, .item, .box, .col, .grid, .product, .service, .feature, .pricing, .collection, .menu');
+                if (parentCard && servicesArr && cardHIdx < servicesArr.length) {
+                  var itm = servicesArr[cardHIdx];
+                  if (itm.title) targetHText = itm.title;
+                  cardHIdx++;
+                } else if (sectionHeadings.length > 0) {
+                  targetHText = sectionHeadings[hIdx % sectionHeadings.length];
+                  hIdx++;
+                }
               }
-              var parentCard = h.closest('.card, .item, .box, .col, .grid, .product, .service, .feature, .pricing');
-              if (parentCard && servicesArr && cardHIdx < servicesArr.length) {
-                var itm = servicesArr[cardHIdx];
-                if (itm.title) h.textContent = itm.title;
-                cardHIdx++;
-              } else if (sectionHeadings.length > 0) {
-                h.textContent = sectionHeadings[hIdx % sectionHeadings.length];
-                hIdx++;
+
+              if (targetHText) {
+                var innerA = h.querySelector('a');
+                var innerSpan = h.querySelector('span');
+                if (innerA) {
+                  innerA.textContent = targetHText;
+                } else if (innerSpan && !innerSpan.querySelector('img, svg')) {
+                  innerSpan.textContent = targetHText;
+                } else {
+                  h.textContent = targetHText;
+                }
+              }
+            });
+
+            // Navigation Menu sanitizer
+            var navLabels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"];
+            var navIdx = 0;
+            document.querySelectorAll('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a').forEach(function(na) {
+              var txt = (na.textContent || '').toLowerCase();
+              if (/(?:flower|cake|pet|dog|cloth|saree|museum|repair|mechanic|jewelry|boutique|bakery|bread)/i.test(txt)) {
+                na.textContent = navLabels[navIdx % navLabels.length];
+                navIdx++;
               }
             });
 

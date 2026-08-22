@@ -126,6 +126,19 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
                         el.string = brand_name
 
         # -------------------------------------------------------------
+        # STEP 1.5: Sanitize Navigation Menu Links
+        # -------------------------------------------------------------
+        nav_standard_labels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"]
+        nav_idx = 0
+        for nav_a in soup.select('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a'):
+            txt = nav_a.get_text(strip=True)
+            if not txt:
+                continue
+            if any(w in txt.lower() for w in ['flower', 'cake', 'pet', 'dog', 'cloth', 'saree', 'museum', 'repair', 'mechanic', 'jewelry', 'boutique', 'bakery', 'bread']):
+                nav_a.string = nav_standard_labels[nav_idx % len(nav_standard_labels)]
+                nav_idx += 1
+
+        # -------------------------------------------------------------
         # STEP 2: Update Hero Section Elements
         # -------------------------------------------------------------
         h1_el = soup.find('h1')
@@ -138,34 +151,83 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
             break
 
         # -------------------------------------------------------------
-        # STEP 3: Complete Semantic Sweep of All Headings (H1 - H6)
+        # STEP 3: Complete Semantic Sweep of All Headings & Title Elements
         # -------------------------------------------------------------
         heading_idx = 0
         card_title_idx = 0
-        all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
 
-        for h in all_headings:
-            if h.find(['img', 'svg']) and not h.get_text(strip=True):
+        title_selectors = [
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            '.title', '.card-title', '.product-title', '.service-title',
+            '.item-title', '.item-name', '.entry-title', '.post-title',
+            '.box-title', '.tp-caption', '.slide-title', '.banner-title',
+            '.ps-product__title', '.collection__category',
+            '[class*="item-title"]', '[class*="card-title"]',
+            '[class*="product-title"]', '[class*="service-title"]',
+            '[class*="product-name"]', '[class*="service-name"]'
+        ]
+
+        all_title_elements = soup.select(', '.join(title_selectors))
+
+        for el in all_title_elements:
+            if el.find_parent(['script', 'style', 'head']):
+                continue
+            if el.find(['input', 'button', 'select']):
+                continue
+            # Skip if element contains primarily an image or SVG without text
+            if el.find(['img', 'svg']) and not el.get_text(strip=True):
                 continue
 
-            current_text = h.get_text(strip=True)
-            if not current_text:
+            current_text = el.get_text(strip=True)
+            if not current_text or len(current_text) < 2:
                 continue
 
-            # Check if this heading is inside a card/item container
-            parent_card = h.find_parent(['div', 'article', 'li'], class_=re.compile(r'card|item|box|col|grid|product|service|feature|pricing', re.I))
+            # Skip copyright or email/phone elements
+            el_classes = ' '.join(el.get('class', [])).lower() if isinstance(el.get('class'), list) else str(el.get('class', '')).lower()
+            if any(k in el_classes for k in ['copyright', 'email', 'phone', 'social', 'logo', 'brand-name', 'business-name']):
+                continue
 
-            if h == h1_el:
-                h.string = hero_headline
+            # Check if this heading/title is inside a card/item container
+            parent_card = el.find_parent(['div', 'article', 'li', 'section'], class_=re.compile(r'card|item|box|col|grid|product|service|feature|pricing|collection|menu', re.I))
+
+            target_title_text = ""
+            if el == h1_el or 'banner-title' in el_classes or 'hero' in el_classes:
+                target_title_text = hero_headline
             elif parent_card and card_title_idx < len(all_items):
-                item_title = all_items[card_title_idx]['title']
-                if item_title:
-                    h.string = item_title
+                target_title_text = all_items[card_title_idx]['title']
+                if target_title_text:
                     card_title_idx += 1
             else:
-                assigned_heading = section_headings[heading_idx % len(section_headings)]
-                h.string = assigned_heading
+                target_title_text = section_headings[heading_idx % len(section_headings)]
                 heading_idx += 1
+
+            if target_title_text:
+                if el.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                    inner_a = el.find('a')
+                    if inner_a:
+                        el.clear()
+                        new_a = soup.new_tag('a', href=inner_a.get('href', '#'))
+                        new_a.string = target_title_text
+                        el.append(new_a)
+                    else:
+                        el.clear()
+                        el.append(target_title_text)
+                else:
+                    inner_a = el.find('a')
+                    if inner_a:
+                        inner_a.string = target_title_text
+                    else:
+                        el.string = target_title_text
+
+        # -------------------------------------------------------------
+        # STEP 3.5: Update Category Filter Tabs, Pills & Overlines
+        # -------------------------------------------------------------
+        category_tags = ['All Offerings', 'Best Seller', 'Signature', 'Chef Special', 'Fresh Daily', 'Popular', 'Customer Choice']
+        cat_idx = 0
+        for cat_el in soup.select('.collection__category, .item-cat, .cat-name, .ps-filter__left a, .category-name, [class*="collection__cat"], ul[class*="filter"] li a, .portfolio-filter a, .nav-tabs a, .filter-button-group button, .filter-button-group a'):
+            if cat_el.get_text(strip=True):
+                cat_el.string = category_tags[cat_idx % len(category_tags)]
+                cat_idx += 1
 
         # -------------------------------------------------------------
         # STEP 4: Complete Semantic Sweep of All Paragraphs (<p>)
