@@ -340,23 +340,15 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // 6. Sequential Replacement for Content Images from Pexels Pool
-            var poolList = (imagePoolArr && imagePoolArr.length > 0) ? imagePoolArr.map(function(p){ return p.url; }) : Object.values(imagesMap);
-            if (poolList && poolList.length > 0) {
-              var allContentImgs = document.querySelectorAll('img');
-              var poolPointer = 0;
-              allContentImgs.forEach(function(img) {
-                if (img.getAttribute('data-logo') || img.getAttribute('data-image') || img.getAttribute('data-editable') === 'logo') return;
-                var srcLow = (img.src || '').toLowerCase();
-                var classLow = (img.className || '').toLowerCase();
-                if (/logo|icon|avatar|favicon|cart|star|arrow|close|menu|search|badge/i.test(srcLow + ' ' + classLow)) return;
-                var replacementUrl = poolList[poolPointer % poolList.length];
-                if (replacementUrl) {
-                  img.src = replacementUrl;
-                  img.srcset = replacementUrl;
-                  poolPointer++;
-                }
-              });
+            // 6. Dismiss any lingering preloaders
+            document.querySelectorAll('.ps-loading, .loading, .is-loading, .preloader, .page-loader, #preloader, #page-loader').forEach(function(p) {
+              p.classList.remove('ps-loading', 'loading', 'is-loading');
+              p.style.display = 'none';
+            });
+            if (document.body) {
+              document.body.classList.remove('ps-loading', 'loading', 'is-loading');
+              document.body.style.opacity = '1';
+              document.body.style.visibility = 'visible';
             }
 
             if (busTitle) {
@@ -367,12 +359,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 }
               });
             }
-
-            document.querySelectorAll('img').forEach(function(img) {
-              img.onerror = function() {
-                img.src = 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80';
-              };
-            });
           } catch(err) {}
         });
 
