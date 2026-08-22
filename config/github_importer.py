@@ -1,5 +1,7 @@
 import os
 import re
+import io
+import zipfile
 import json
 import urllib.request
 import urllib.parse
@@ -560,11 +562,12 @@ def clean_react_component_code(code: str) -> str:
     return code
 
 
-def parse_and_process_react_repo(owner: str, repo_name: str, branch: str, repo_files: list) -> Tuple[str, str, str]:
+def parse_and_process_react_repo(owner: str, repo_name: str, branch: str, repo_files: list, files_map: Dict[str, str] = None) -> Tuple[str, str, str]:
     """
     Parses React repository files (.jsx, .tsx, .js, package.json), extracts components,
     bundles JSX/TSX for browser transpilation, and fetches CSS files.
     """
+    files_map = files_map or {}
     entry_candidates = [
         'src/App.jsx', 'src/App.tsx', 'src/App.js', 'src/main.jsx', 'src/main.tsx',
         'src/index.jsx', 'src/index.tsx', 'src/index.js', 'App.jsx', 'App.tsx', 'App.js', 'index.jsx'
@@ -586,7 +589,7 @@ def parse_and_process_react_repo(owner: str, repo_name: str, branch: str, repo_f
     if not entry_file:
         return "", "", ""
 
-    entry_code = fetch_raw_github_file(owner, repo_name, branch, entry_file)
+    entry_code = files_map.get(entry_file) or fetch_raw_github_file(owner, repo_name, branch, entry_file)
     if not entry_code or len(entry_code.strip()) < 20:
         return "", "", ""
 
@@ -594,7 +597,7 @@ def parse_and_process_react_repo(owner: str, repo_name: str, branch: str, repo_f
     child_files = [f for f in repo_files if (f.endswith('.jsx') or f.endswith('.tsx') or f.endswith('.js')) and f != entry_file and ('/components/' in f or '/pages/' in f or '/views/' in f)]
     
     for c_file in child_files[:12]:
-        code = fetch_raw_github_file(owner, repo_name, branch, c_file)
+        code = files_map.get(c_file) or fetch_raw_github_file(owner, repo_name, branch, c_file)
         if code and len(code.strip()) > 30:
             cleaned_child = clean_react_component_code(code)
             child_components_code.append(f"/* Component from: {c_file} */\n" + cleaned_child)
@@ -645,7 +648,7 @@ if (typeof {app_name} !== 'undefined') {{
     html_code = ""
     candidate_html = ['index.html', 'public/index.html', 'src/index.html']
     for h_path in candidate_html:
-        fetched_h = fetch_raw_github_file(owner, repo_name, branch, h_path)
+        fetched_h = files_map.get(h_path) or fetch_raw_github_file(owner, repo_name, branch, h_path)
         if fetched_h and len(fetched_h.strip()) > 30:
             html_code = fetched_h
             break
@@ -667,10 +670,10 @@ if (typeof {app_name} !== 'undefined') {{
             html_code = html_code.replace('<body>', '<body>\n  <div id="root"></div>')
 
     # Fetch ALL CSS files in the React repository
-    css_code = fetch_repo_css_files(owner, repo_name, branch, html_code, repo_files)
+    css_code = fetch_repo_css_files(owner, repo_name, branch, html_code, repo_files, files_map)
     for f in repo_files:
         if f.endswith('.css') and f not in css_code:
-            extra_css = fetch_raw_github_file(owner, repo_name, branch, f)
+            extra_css = files_map.get(f) or fetch_raw_github_file(owner, repo_name, branch, f)
             if extra_css:
                 css_code += f"\n\n/* Imported: {f} */\n" + extra_css
 
@@ -724,7 +727,7 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
         for f in repo_files
     )
     if not html_code and is_react:
-        r_html, r_css, r_js = parse_and_process_react_repo(owner, repo_name, actual_branch, repo_files)
+        r_html, r_css, r_js = parse_and_process_react_repo(owner, repo_name, actual_branch, repo_files, files_map)
         if r_html and r_js:
             html_code = r_html
             css_code = r_css
@@ -794,7 +797,7 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
         if css_snippets:
             css_code = "\n\n".join(css_snippets)
         else:
-            css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files)
+            css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files, files_map)
 
 
 
@@ -805,7 +808,7 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
         html_code = re.sub(r'<meta[^>]+http-equiv=["\']Content-Security-Policy["\'][^>]*>', '', html_code, flags=re.IGNORECASE)
         html_code = auto_tag_github_html(html_code)
         if not css_code:
-            css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files)
+            css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files, files_map)
 
     if not html_code or len(html_code) < 100:
         default_html, default_css, default_js, placeholders = get_default_category_template(category_slug, title, owner, repo_name)
