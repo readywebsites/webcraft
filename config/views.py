@@ -140,49 +140,52 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                         new_img = soup.new_tag('img', src=hero_url, alt="Banner", style="width: 100%; height: 100%; object-fit: cover;")
                         el.append(new_img)
 
-        # E. Pexels Business Images: <img data-image="role">
-        if images:
-            img_data_els = soup.select('img[data-image]')
-            for img in img_data_els:
-                role_val = img.get('data-image', '').strip().lower()
-                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
-                if target_img_url:
-                    img['src'] = target_img_url
+        # E. Explicit Placeholders Replacement for Images: <img src="{{...}}">
+        if hero_url:
+            for img in soup.select('img[src*="HERO_IMAGE"], img[src*="hero_image"], img[src*="BANNER_IMAGE"]'):
+                img['src'] = hero_url
+                if img.has_attr('srcset'):
+                    img['srcset'] = hero_url
+
+        # F. User Logo Replacement (data-logo="business_logo" / [data-editable="logo"])
+        if logo_url:
+            logo_els = soup.select('span.logo, span.business-logo, .business-logo, .logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]')
+            for el in logo_els:
+                img = el if el.name == 'img' else el.find('img')
+                if img:
+                    img['src'] = logo_url
+                    img['alt'] = b_name or 'Logo'
                     if img.has_attr('srcset'):
-                        img['srcset'] = target_img_url
+                        img['srcset'] = logo_url
+                    img['style'] = f"{img.get('style', '')}; max-height: 60px !important; max-width: 280px !important; object-fit: contain !important; width: auto !important;".strip('; ')
+                else:
+                    el.clear()
+                    new_img = soup.new_tag('img', src=logo_url, alt=b_name or 'Logo', style="max-height: 60px; max-width: 280px; object-fit: contain; width: auto;")
+                    el.append(new_img)
+        elif b_name:
+            text_logo_els = soup.select('span.logo, span.business-logo, .logo, [data-logo="business_logo"]')
+            for el in text_logo_els:
+                if el.name != 'img' and not el.find('img'):
+                    el.string = b_name
 
-        # F. Pexels Background Images: [data-background-image="role"]
-        if images:
-            bg_data_els = soup.select('[data-background-image]')
-            for el in bg_data_els:
-                role_val = el.get('data-background-image', '').strip().lower()
-                target_img_url = images.get(role_val) or (hero_url if role_val == 'hero' else '')
-                if target_img_url:
+        # G. Hero Banner Image: <span class="banner-image"> / [data-editable="hero_image"]
+        if hero_url:
+            banner_els = soup.select('span.banner-image, .banner-image, span.hero-banner, .hero-banner, span.hero-image, .hero-image, [data-editable="hero_image"], [data-editable="banner-image"]')
+            for el in banner_els:
+                img = el if el.name == 'img' else el.find('img')
+                if img:
+                    img['src'] = hero_url
+                    if img.has_attr('srcset'):
+                        img['srcset'] = hero_url
+                else:
                     existing_style = el.get('style', '')
-                    cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
-                    new_style = f"{cleaned_style}; background-image: url('{target_img_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
-                    el['style'] = new_style
-
-        # G. Remaining Content Images Replacement from Pexels Pool
-        # Replaces template placeholder images with high-resolution Pexels photos
-        if image_pool or images:
-            pool_urls = [p['url'] for p in image_pool if isinstance(p, dict) and p.get('url')] if image_pool else list(images.values())
-            content_imgs = soup.select('img')
-            pool_idx = 0
-            for c_img in content_imgs:
-                # Skip already replaced logo, hero, or tiny icons/badges
-                if c_img.get('data-logo') or c_img.get('data-image') or c_img.get('data-editable') == 'logo':
-                    continue
-                c_src = c_img.get('src', '').lower()
-                c_class = ' '.join(c_img.get('class', [])) if isinstance(c_img.get('class'), list) else str(c_img.get('class', '')).lower()
-                if re.search(r'(?:logo|icon|avatar|favicon|cart|star|arrow|close|menu|search|badge)', c_src + ' ' + c_class):
-                    continue
-                if pool_urls:
-                    replacement_url = pool_urls[pool_idx % len(pool_urls)]
-                    c_img['src'] = replacement_url
-                    if c_img.has_attr('srcset'):
-                        c_img['srcset'] = replacement_url
-                    pool_idx += 1
+                    if 'background' in existing_style.lower() or el.name in ['section', 'header', 'div', 'main']:
+                        cleaned_style = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', existing_style, flags=re.I).strip('; ')
+                        el['style'] = f"{cleaned_style}; background-image: url('{hero_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+                    else:
+                        el.clear()
+                        new_img = soup.new_tag('img', src=hero_url, alt="Banner", style="width: 100%; height: 100%; object-fit: cover;")
+                        el.append(new_img)
 
         # H. Contact Email: <span class="business-email"> / span.email / .email / [data-editable="contact_email"]
         if email:
@@ -929,12 +932,12 @@ def generate_website(request):
         previews_list = []
         for index, tpl in enumerate(candidate_templates):
             try:
-                if not tpl.owner or not tpl.repo_name:
+                if tpl.repo_url:
                     from .github_importer import parse_github_repo_url
                     o, r, b = parse_github_repo_url(tpl.repo_url)
                     if o: tpl.owner = o
                     if r: tpl.repo_name = r
-                    if b and not tpl.default_branch: tpl.default_branch = b
+                    if b and (not tpl.default_branch or tpl.default_branch == 'main'): tpl.default_branch = b
 
                 is_fallback_stock = (
                     not tpl.source_code_html
@@ -942,16 +945,27 @@ def generate_website(request):
                     or 'saas-template-root' in tpl.source_code_html
                     or 'fit-template-root' in tpl.source_code_html
                     or 'bistro-template-root' in tpl.source_code_html
+                    or 'POWERED BY GITHUB REPO:' in tpl.source_code_html
+                    or not tpl.is_imported
                 )
-                if is_fallback_stock or not tpl.is_imported:
+                if is_fallback_stock:
                     from .github_importer import import_source_from_github
-                    imp_data = import_source_from_github(tpl.owner or '', tpl.repo_name or '', tpl.default_branch or 'main', category_slug=db_cat.slug if db_cat else '', title=business_name)
+                    imp_data = import_source_from_github(
+                        tpl.owner or '',
+                        tpl.repo_name or '',
+                        tpl.default_branch or 'main',
+                        category_slug=db_cat.slug if db_cat else '',
+                        title=tpl.title or business_name,
+                        repo_url=tpl.repo_url or ''
+                    )
                     if imp_data.get('html'):
                         tpl.source_code_html = imp_data.get('html', '')
                         tpl.source_code_css = imp_data.get('css', '')
                         tpl.source_code_js = imp_data.get('js', '')
                         tpl.editable_placeholders = imp_data.get('placeholders', {})
-                        tpl.is_imported = True
+                        tpl.is_imported = imp_data.get('is_imported', True)
+                        if imp_data.get('default_branch'):
+                            tpl.default_branch = imp_data.get('default_branch')
                         tpl.save()
 
 
@@ -1207,26 +1221,21 @@ def import_github_template(request):
     if not repo_url:
         return Response({"success": False, "error": "Please provide a valid repo_url."}, status=status.HTTP_400_BAD_REQUEST)
 
+    from .github_importer import import_source_from_github, parse_github_repo_url
+    po, pr, pb = parse_github_repo_url(repo_url)
+    owner = po or data.get('owner', '').strip()
+    repo_name = pr or data.get('repo_name', '').strip()
+    branch = pb or data.get('default_branch', 'main')
+    category_slug = data.get('category_slug') or data.get('category')
+
+    title = data.get('title') or repo_name or f"{owner}/{repo_name}".strip('/')
+
     # Normalize repo_url
     clean_url = repo_url.rstrip('/')
     clean_url = re.sub(r'\.git$', '', clean_url, flags=re.IGNORECASE)
     if not clean_url.startswith('http://') and not clean_url.startswith('https://'):
         clean_url = f"https://github.com/{clean_url.lstrip('/')}"
     repo_url = clean_url
-
-    owner = data.get('owner', '').strip()
-    repo_name = data.get('repo_name', '').strip()
-    category_slug = data.get('category_slug') or data.get('category')
-
-    from .github_importer import import_source_from_github, parse_github_repo_url
-    if not owner or not repo_name:
-        po, pr, pb = parse_github_repo_url(repo_url)
-        owner = owner or po
-        repo_name = repo_name or pr
-
-    title = data.get('title') or f"{owner}/{repo_name}".strip('/')
-    if not title:
-        title = repo_name or "Custom GitHub Template"
 
     # Category FK resolution
     cat_obj = None
@@ -1238,8 +1247,7 @@ def import_github_template(request):
 
     saved_obj = None
     try:
-        branch = data.get('default_branch', 'main')
-        imp_data = import_source_from_github(owner, repo_name, branch, category_slug or (cat_obj.slug if cat_obj else ''), title)
+        imp_data = import_source_from_github(owner, repo_name, branch, category_slug or (cat_obj.slug if cat_obj else ''), title, repo_url=repo_url)
         
         obj, created = GitHubTemplate.objects.update_or_create(
             repo_url=repo_url,
@@ -1257,7 +1265,7 @@ def import_github_template(request):
                 "source_code_css": imp_data.get('css', ''),
                 "source_code_js": imp_data.get('js', ''),
                 "editable_placeholders": imp_data.get('placeholders', {}),
-                "is_imported": True
+                "is_imported": imp_data.get('is_imported', True)
             }
         )
         saved_obj = {
@@ -1270,7 +1278,6 @@ def import_github_template(request):
         }
     except Exception as e:
         print(f"Error in import_github_template: {e}")
-        # Graceful fallback: attempt minimal model save
         try:
             obj, created = GitHubTemplate.objects.update_or_create(
                 repo_url=repo_url,
@@ -1359,7 +1366,12 @@ def generate_from_github_template(request):
         hero_image_url = images_by_role.get('hero', hero_image_url)
 
     # Look up or import source code for this repo
-    from .github_importer import import_source_from_github
+    from .github_importer import import_source_from_github, parse_github_repo_url
+    po, pr, pb = parse_github_repo_url(repo_url)
+    owner = po or owner
+    repo_name = pr or repo_name
+    branch = pb or data.get('default_branch', 'main')
+
     db_tpl = GitHubTemplate.objects.filter(repo_url__iexact=repo_url).first()
     if not db_tpl:
         db_tpl = GitHubTemplate.objects.filter(owner__iexact=owner, repo_name__iexact=repo_name).first()
@@ -1371,20 +1383,31 @@ def generate_from_github_template(request):
             or 'saas-template-root' in db_tpl.source_code_html
             or 'fit-template-root' in db_tpl.source_code_html
             or 'bistro-template-root' in db_tpl.source_code_html
+            or 'POWERED BY GITHUB REPO:' in db_tpl.source_code_html
+            or not db_tpl.is_imported
         )
-        if is_fallback_stock or not db_tpl.is_imported:
-            imp = import_source_from_github(owner, repo_name, db_tpl.default_branch or data.get('default_branch', 'main'), '', business_name)
+        if is_fallback_stock:
+            imp = import_source_from_github(
+                owner=db_tpl.owner or owner,
+                repo_name=db_tpl.repo_name or repo_name,
+                branch=db_tpl.default_branch or branch,
+                category_slug=db_tpl.category.slug if db_tpl.category else '',
+                title=business_name,
+                repo_url=db_tpl.repo_url or repo_url
+            )
             if imp.get('html'):
                 db_tpl.source_code_html = imp['html']
                 db_tpl.source_code_css = imp['css']
                 db_tpl.source_code_js = imp['js']
-                db_tpl.is_imported = True
+                db_tpl.is_imported = imp.get('is_imported', True)
+                if imp.get('default_branch'):
+                    db_tpl.default_branch = imp.get('default_branch')
                 db_tpl.save()
         html_src = db_tpl.source_code_html
         css_src = db_tpl.source_code_css
         js_src = db_tpl.source_code_js
     else:
-        imp = import_source_from_github(owner, repo_name, data.get('default_branch', 'main'), '', business_name)
+        imp = import_source_from_github(owner, repo_name, branch, '', business_name, repo_url=repo_url)
         html_src = imp['html']
         css_src = imp['css']
         js_src = imp['js']
@@ -1541,16 +1564,27 @@ def get_github_template_source(request):
             or 'saas-template-root' in db_tpl.source_code_html
             or 'fit-template-root' in db_tpl.source_code_html
             or 'bistro-template-root' in db_tpl.source_code_html
+            or 'POWERED BY GITHUB REPO:' in db_tpl.source_code_html
+            or not db_tpl.is_imported
         )
-        if is_fallback_stock or not db_tpl.is_imported:
+        if is_fallback_stock:
             from .github_importer import import_source_from_github
-            imp = import_source_from_github(db_tpl.owner or '', db_tpl.repo_name or '', db_tpl.default_branch or 'main', db_tpl.category.slug if db_tpl.category else '', db_tpl.title)
+            imp = import_source_from_github(
+                owner=db_tpl.owner or '',
+                repo_name=db_tpl.repo_name or '',
+                branch=db_tpl.default_branch or 'main',
+                category_slug=db_tpl.category.slug if db_tpl.category else '',
+                title=db_tpl.title,
+                repo_url=db_tpl.repo_url or ''
+            )
             if imp.get('html'):
                 db_tpl.source_code_html = imp['html']
                 db_tpl.source_code_css = imp['css']
                 db_tpl.source_code_js = imp['js']
                 db_tpl.editable_placeholders = imp.get('placeholders', {})
-                db_tpl.is_imported = True
+                db_tpl.is_imported = imp.get('is_imported', True)
+                if imp.get('default_branch'):
+                    db_tpl.default_branch = imp.get('default_branch')
                 db_tpl.save()
 
         return Response({

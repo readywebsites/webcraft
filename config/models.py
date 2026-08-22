@@ -106,22 +106,31 @@ class GitHubTemplate(models.Model):
                 clean_url = f"https://github.com/{clean_url.lstrip('/')}"
             self.repo_url = clean_url
 
-        # 1. Auto extract owner and repo_name from repo_url if not provided or clean them up
+        # 1. Auto extract owner and repo_name from repo_url
         try:
             if self.repo_url:
                 from .github_importer import parse_github_repo_url
                 parsed_owner, parsed_repo, parsed_branch = parse_github_repo_url(self.repo_url)
-                if parsed_owner and not self.owner:
+                if parsed_owner:
                     self.owner = parsed_owner
-                if parsed_repo and not self.repo_name:
+                if parsed_repo:
                     self.repo_name = parsed_repo
                 if parsed_branch and (not self.default_branch or self.default_branch == 'main'):
                     self.default_branch = parsed_branch
         except Exception:
             pass
 
-        # 2. Auto import source code from GitHub if not already provided
-        if not self.source_code_html:
+        # 2. Auto import source code from GitHub if not already provided or if fallback stock template
+        is_fallback_stock = (
+            not self.source_code_html
+            or len(self.source_code_html) < 100
+            or 'saas-template-root' in self.source_code_html
+            or 'fit-template-root' in self.source_code_html
+            or 'bistro-template-root' in self.source_code_html
+            or 'POWERED BY GITHUB REPO:' in self.source_code_html
+            or not self.is_imported
+        )
+        if is_fallback_stock:
             try:
                 from .github_importer import import_source_from_github, get_default_category_template
                 cat_slug = self.category.slug if self.category else ''
@@ -130,14 +139,17 @@ class GitHubTemplate(models.Model):
                     repo_name=self.repo_name or 'template-repo',
                     branch=self.default_branch or 'main',
                     category_slug=cat_slug,
-                    title=self.title or self.repo_name or 'Modern Template'
+                    title=self.title or self.repo_name or 'Modern Template',
+                    repo_url=self.repo_url or ''
                 )
                 if imported_res and imported_res.get('html'):
                     self.source_code_html = imported_res.get('html', '')
                     self.source_code_css = imported_res.get('css', '')
                     self.source_code_js = imported_res.get('js', '')
                     self.editable_placeholders = imported_res.get('placeholders', {})
-                    self.is_imported = True
+                    self.is_imported = imported_res.get('is_imported', True)
+                    if imported_res.get('default_branch'):
+                        self.default_branch = imported_res.get('default_branch')
                 else:
                     def_html, def_css, def_js, def_ph = get_default_category_template(
                         category_slug=cat_slug,
