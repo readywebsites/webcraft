@@ -46,6 +46,10 @@ def apply_user_details_to_template(raw_html, raw_css, details):
     pool_urls = [item['url'] for item in image_pool if isinstance(item, dict) and item.get('url')]
     if not pool_urls and images:
         pool_urls = [u for u in images.values() if u]
+    if not pool_urls:
+        from .pexels_service import build_fallback_image_pool
+        fb_pool = build_fallback_image_pool(business_name=b_name, category=details.get('category_name', 'general'))
+        pool_urls = [item['url'] for item in fb_pool if item.get('url')]
 
     # If hero_url is not set but hero is present in pool, use it
     if not hero_url and images.get('hero'):
@@ -118,12 +122,16 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         if b_name:
             bname_els = soup.select('span.business-name, .business-name, span.site-title, .site-title, span.brand-name, .brand-name, span.company-name, .company-name, [data-editable="title"], [data-editable="business-name"]')
             for el in bname_els:
-                if el.name not in ['img', 'svg'] and not el.find(['img', 'svg']):
-                    el.string = b_name
+                if el.name not in ['img', 'svg']:
+                    inner_img = el.find(['img', 'svg'])
+                    if inner_img:
+                        inner_img.replace_with(soup.new_string(b_name))
+                    else:
+                        el.string = b_name
 
-        # C. User Logo Replacement (data-logo="business_logo" / span.logo / span.business-logo / [data-editable="logo"])
+        # C. User Logo Replacement (Image Mode vs Text Mode)
         if logo_url:
-            logo_els = soup.select('span.logo, span.business-logo, .business-logo, .logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]')
+            logo_els = soup.select('span.logo, span.business-logo, .business-logo, .logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo], .navbar-brand, .header-logo, .site-logo')
             for el in logo_els:
                 img = el if el.name == 'img' else el.find('img')
                 if img:
@@ -145,9 +153,19 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                         h_logo['srcset'] = logo_url
                     h_logo['style'] = f"{h_logo.get('style', '')}; max-height: 60px !important; max-width: 280px !important; object-fit: contain !important; width: auto !important;".strip('; ')
         elif b_name:
-            text_logo_els = soup.select('span.logo, span.business-logo, .logo, [data-logo="business_logo"]')
+            # Text logo mode: Replace template logo image with text brand title
+            text_logo_els = soup.select('.navbar-brand, header .logo, nav .logo, .site-logo, span.logo, span.business-logo, .business-logo, .logo, [data-logo="business_logo"], [data-editable="logo"]')
             for el in text_logo_els:
-                if el.name != 'img' and not el.find('img'):
+                img = el if el.name == 'img' else el.find('img')
+                if img:
+                    new_span = soup.new_tag('span', style="font-size: 1.45rem; font-weight: 800; color: inherit; text-decoration: none; display: inline-block;")
+                    new_span.string = b_name
+                    if el.name == 'img':
+                        el.replace_with(new_span)
+                    else:
+                        el.clear()
+                        el.append(new_span)
+                else:
                     el.string = b_name
 
         # D. Tagline: <span class="business-tagline"> / span.tagline / span.subtitle / [data-editable="tagline"]
@@ -223,7 +241,6 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                 top_sliders.append(sc)
 
         handled_slides = set()
-
         global_slide_idx = 0
 
         for sc in top_sliders:
@@ -391,19 +408,21 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         html = re.sub(r'href=["\']mailto:[^"\']+["\']', f'href="mailto:{email}"', html, flags=re.IGNORECASE)
         html = re.sub(r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b', email, html)
 
-    # 5. CONTACT PHONE REGEX FALLBACK
+    # 5. CONTACT PHONE REGEX FALLBACK (Exclude numbers in SVG paths, CSS, and HTML attributes)
     if phone:
         clean_phone_digits = re.sub(r'[^\d+]', '', phone)
         html = re.sub(r'href=["\']tel:[^"\']+["\']', f'href="tel:{clean_phone_digits}"', html, flags=re.IGNORECASE)
         def repl_phone_context(m):
             full_str = m.string
             start = m.start()
-            before = full_str[max(0, start - 120):start]
-            if re.search(r'(?:src|srcset|href=["\']https?:\/\/|url\(|unsplash|photo-)', before, re.IGNORECASE):
+            before = full_str[max(0, start - 150):start]
+            # Don't replace numbers inside <svg>, <path d="...">, coordinates, attributes, or image URLs
+            if re.search(r'(?:<path|<svg|d=["\']|viewBox|transform|style=|class=|id=|src=|srcset=|href=["\']https?:\/\/|url\(|unsplash|photo-)', before, re.IGNORECASE):
                 return m.group(0)
             return phone
 
-        html = re.sub(r'(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', repl_phone_context, html)
+        # Matches standard US/UK/International formats like +1 (555) 000-0000, (1245) 2456 012, +91 98765 43210, etc.
+        html = re.sub(r'(?:\+\d{1,3}[\s.-]?)?\(?\d{2,5}\)?[\s.-]?\d{2,5}[\s.-]?\d{3,5}', repl_phone_context, html)
 
     # 6. CSS STYLESHEET REPLACEMENTS
     if css:

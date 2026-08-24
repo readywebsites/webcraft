@@ -140,9 +140,12 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
         for sel in brand_selectors:
             for el in soup.select(sel):
                 if el.name not in ['img', 'svg', 'picture', 'video']:
-                    if not el.find(['img', 'svg']):
+                    inner_img = el.find(['img', 'svg'])
+                    if inner_img:
+                        inner_img.replace_with(soup.new_string(brand_name))
+                    else:
                         el.string = brand_name
-                        processed_nodes.add(id(el))
+                    processed_nodes.add(id(el))
 
         # -------------------------------------------------------------
         # STEP 2: Sanitize Navigation Menu Links
@@ -165,6 +168,11 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
         if h1_el and id(h1_el) not in processed_nodes:
             h1_el.string = hero_headline
             processed_nodes.add(id(h1_el))
+
+        for h_hero in soup.select('.hero-title, .banner-title, .slider-title, [data-editable="title"], [data-editable="headline"]'):
+            if id(h_hero) not in processed_nodes:
+                h_hero.string = hero_headline
+                processed_nodes.add(id(h_hero))
 
         for b_el in soup.select('.hero-badge, .fit-badge, .bistro-sub-tag, .saas-pill, .tag-badge'):
             if id(b_el) not in processed_nodes:
