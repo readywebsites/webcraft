@@ -541,15 +541,15 @@ def auto_tag_github_html(html_code: str) -> str:
         attrs = match.group(2)
         if 'data-background-image' in attrs.lower() or 'data-editable' in attrs.lower():
             return match.group(0)
-        return f'<{tag_name} {attrs} data-background-image="hero" data-editable="hero_image"'
-    html_code = re.sub(r'<(section|div|header|main)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:hero|banner|jumbotron|main-banner|header-bg|slider-area|welcome-area)[^"\']*["\'][^>]*)', tag_hero_bg, html_code, count=1, flags=re.IGNORECASE)
+        return f'<{tag_name} {attrs} data-background-image="banner_1" data-editable="hero_image"'
+    html_code = re.sub(r'<(section|div|header|main)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:main-hero|home-hero|fit-hero|bistro-hero|saas-hero)[^"\']*["\'][^>]*)', tag_hero_bg, html_code, count=1, flags=re.IGNORECASE)
 
     def tag_hero_img(match):
         attrs = match.group(1)
         if 'data-image' in attrs.lower() or 'data-logo' in attrs.lower():
             return match.group(0)
-        return f'<img {attrs} data-image="hero" data-editable="hero_image"'
-    html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image|hero\.png|hero\.jpg|banner|slide-1)[^"\']*["\'][^>]*)', tag_hero_img, html_code, count=1, flags=re.IGNORECASE)
+        return f'<img {attrs} data-image="banner_1" data-editable="hero_image"'
+    html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:hero-img|main-hero-img|hero_image|hero\.png|hero\.jpg)[^"\']*["\'][^>]*)', tag_hero_img, html_code, count=1, flags=re.IGNORECASE)
 
     # 4. Tag Hero Taglines / Subtitles
     def tag_tagline(match):

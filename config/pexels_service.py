@@ -6,20 +6,51 @@ import urllib.request
 import urllib.parse
 from django.conf import settings
 
-# Predefined standard website image roles
+# Predefined standard website image roles supporting multi-banner slides and multi-image sections
 IMAGE_ROLES = [
     'hero',
+    'hero_1',
+    'hero_2',
+    'hero_3',
+    'hero_4',
+    'hero_5',
+    'hero_6',
+    'banner_1',
+    'banner_2',
+    'banner_3',
+    'banner_4',
+    'banner_5',
+    'banner_6',
+    'slide_1',
+    'slide_2',
+    'slide_3',
+    'slide_4',
+    'slide_5',
+    'slide_6',
     'about',
+    'about_1',
+    'about_2',
     'service_1',
     'service_2',
     'service_3',
+    'service_4',
+    'service_5',
+    'service_6',
     'product_1',
     'product_2',
     'product_3',
+    'product_4',
+    'product_5',
+    'product_6',
     'gallery_1',
     'gallery_2',
     'gallery_3',
-    'cta'
+    'gallery_4',
+    'gallery_5',
+    'gallery_6',
+    'cta',
+    'cta_1',
+    'cta_2'
 ]
 
 # Simple in-memory cache for Pexels search results: { query_key: (timestamp, photos_list) }
@@ -63,6 +94,7 @@ SEMANTIC_ASSOCIATIONS = {
     'restaurant': ['food', 'restaurant', 'dining', 'chef'],
     'cafe': ['coffee', 'cafe', 'pastry', 'breakfast'],
     'bakery': ['bakery', 'bread', 'pastry', 'dessert'],
+    'cake': ['cake', 'bakery', 'pastry', 'dessert'],
     'pizza': ['pizza', 'italian food', 'restaurant', 'dining'],
     'burger': ['burger', 'fast food', 'restaurant', 'fries'],
     'bistro': ['bistro', 'food', 'restaurant', 'wine dining'],
@@ -95,12 +127,17 @@ SEMANTIC_ASSOCIATIONS = {
     'florist': ['florist', 'flowers', 'floral arrangement', 'plants'],
     'car': ['luxury car', 'automotive', 'vehicle', 'driving'],
     'automotive': ['automotive', 'car repair', 'mechanic', 'cars'],
+    'repair': ['car repair', 'mechanic', 'automotive', 'garage'],
+    'mechanic': ['mechanic', 'car repair', 'automotive', 'tools'],
+    'dairy': ['dairy farm', 'cows', 'milk farm', 'agriculture'],
+    'farm': ['organic farm', 'agriculture', 'fresh produce', 'nature'],
     'law': ['lawyer', 'legal', 'courthouse', 'business meeting'],
     'lawyer': ['lawyer', 'legal advice', 'office', 'court'],
     'finance': ['finance', 'investment', 'stock market', 'banking'],
     'accounting': ['accounting', 'finance', 'calculator', 'business office'],
     'pet': ['pets', 'dogs and cats', 'veterinary', 'animals'],
     'vet': ['veterinarian', 'pet healthcare', 'dog clinic', 'animal care'],
+    'dog': ['dogs', 'pet care', 'puppy', 'veterinary'],
     'education': ['education', 'university', 'students studying', 'classroom'],
     'school': ['school', 'students', 'learning', 'classroom'],
     'photography': ['photography studio', 'photographer', 'camera', 'photo shoot'],
@@ -111,8 +148,94 @@ SEMANTIC_ASSOCIATIONS = {
     'furniture': ['furniture design', 'interior design', 'living room', 'woodworking'],
 }
 
-# Reliable high-resolution curated fallback pool with attribution
+# Reliable high-resolution curated fallback pools by business category
 FALLBACK_PHOTO_CATALOG = {
+    'restaurant': [
+        {"url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1400&q=80", "alt": "Gourmet dining restaurant interior"},
+        {"url": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1400&q=80", "alt": "Artisanal restaurant dish"},
+        {"url": "https://images.unsplash.com/photo-1544025162-d76694265947?w=1200&q=80", "alt": "Chef preparing specialty dishes"},
+        {"url": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=900&q=80", "alt": "Fresh handcrafted artisanal pasta"},
+        {"url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=900&q=80", "alt": "Wood fired Neapolitan pizza"},
+        {"url": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=900&q=80", "alt": "Sommelier wine selection"},
+        {"url": "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=900&q=80", "alt": "Fresh baked sourdough bread and pastries"},
+        {"url": "https://images.unsplash.com/photo-1550617931-e17a7b70dce2?w=900&q=80", "alt": "Delicious bakery cupcakes and pastries"},
+        {"url": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=900&q=80", "alt": "Specialty cafe espresso coffee"},
+        {"url": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=900&q=80", "alt": "Cozy cafe breakfast table"},
+        {"url": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=900&q=80", "alt": "Authentic Italian pizza dish"},
+        {"url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=900&q=80", "alt": "Gourmet handcrafted burger"},
+        {"url": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=900&q=80", "alt": "Fresh farm salad and healthy ingredients"},
+        {"url": "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=900&q=80", "alt": "Artisanal gourmet sandwich"},
+        {"url": "https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?w=900&q=80", "alt": "Signature culinary showcase"},
+        {"url": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=80", "alt": "Fine dining ambient table"}
+    ],
+    'fashion': [
+        {"url": "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1400&q=80", "alt": "Luxury fashion seasonal collection"},
+        {"url": "https://images.unsplash.com/photo-1445205170230-053b83016050?w=1400&q=80", "alt": "Contemporary fashion boutique lookbook"},
+        {"url": "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&q=80", "alt": "High end boutique shopping showcase"},
+        {"url": "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=900&q=80", "alt": "Sustainable organic apparel"},
+        {"url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=900&q=80", "alt": "Handcrafted leather accessories"},
+        {"url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=900&q=80", "alt": "Minimalist designer jewelry"},
+        {"url": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=900&q=80", "alt": "Premium curated boutique storefront"},
+        {"url": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=900&q=80", "alt": "Editorial fashion photography"},
+        {"url": "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=900&q=80", "alt": "Modern designer couture"},
+        {"url": "https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?w=900&q=80", "alt": "Urban lifestyle fashion apparel"},
+        {"url": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80", "alt": "Vibrant fashion runway model"},
+        {"url": "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&q=80", "alt": "Chic contemporary street style"}
+    ],
+    'fitness': [
+        {"url": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1400&q=80", "alt": "Modern high performance gym training facility"},
+        {"url": "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=1400&q=80", "alt": "High intensity interval workout session"},
+        {"url": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1200&q=80", "alt": "1-on-1 personal fitness coaching"},
+        {"url": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=900&q=80", "alt": "Cryo recovery and wellness spa"},
+        {"url": "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=900&q=80", "alt": "Pilates and mobility training"},
+        {"url": "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=900&q=80", "alt": "Athletic strength and endurance training"},
+        {"url": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=900&q=80", "alt": "Crossfit training weights session"},
+        {"url": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=900&q=80", "alt": "Mindfulness yoga and recovery"},
+        {"url": "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=900&q=80", "alt": "Dedicated bodybuilding training"},
+        {"url": "https://images.unsplash.com/photo-1599058945522-28d584b6f0ff?w=900&q=80", "alt": "Active functional cardio training"}
+    ],
+    'tech': [
+        {"url": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1400&q=80", "alt": "Real-time analytics and data platform"},
+        {"url": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1400&q=80", "alt": "Cloud analytics and SaaS dashboard metrics"},
+        {"url": "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1200&q=80", "alt": "Unified observability telemetry"},
+        {"url": "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=900&q=80", "alt": "Enterprise cloud security governance"},
+        {"url": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=900&q=80", "alt": "Engineering agile dev team"},
+        {"url": "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=900&q=80", "alt": "Developer product workshop"},
+        {"url": "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=900&q=80", "alt": "Collaborative product sprint"},
+        {"url": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80", "alt": "Global AI cloud infrastructure"}
+    ],
+    'car': [
+        {"url": "https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=1400&q=80", "alt": "Expert automotive repair service center"},
+        {"url": "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=1400&q=80", "alt": "Modern certified auto mechanic workshop"},
+        {"url": "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200&q=80", "alt": "Luxury vehicle diagnostic tuning"},
+        {"url": "https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?w=900&q=80", "alt": "Professional engine diagnostics"},
+        {"url": "https://images.unsplash.com/photo-1563720223185-11003d516935?w=900&q=80", "alt": "Brake and tire precision service"},
+        {"url": "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=900&q=80", "alt": "Vehicle detailing and paint protection"},
+        {"url": "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=900&q=80", "alt": "Auto maintenance and oil change"},
+        {"url": "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=1200&q=80", "alt": "Certified master mechanic inspection"}
+    ],
+    'salon': [
+        {"url": "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1400&q=80", "alt": "Luxury modern beauty and hair salon"},
+        {"url": "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1400&q=80", "alt": "Professional hairstylist consultation"},
+        {"url": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1200&q=80", "alt": "Relaxing facial and spa therapy"},
+        {"url": "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=900&q=80", "alt": "Premium skincare and wellness treatment"},
+        {"url": "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=900&q=80", "alt": "Organic facial and beauty care"},
+        {"url": "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=900&q=80", "alt": "Artistic hair styling and blow dry"}
+    ],
+    'flower': [
+        {"url": "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=1400&q=80", "alt": "Artisanal floral boutique arrangement"},
+        {"url": "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=1400&q=80", "alt": "Fresh seasonal flower bouquets"},
+        {"url": "https://images.unsplash.com/photo-1508615039623-a25605d2b022?w=1200&q=80", "alt": "Handcrafted wedding flower decor"},
+        {"url": "https://images.unsplash.com/photo-1519378058457-4c29a0a2efac?w=900&q=80", "alt": "Botanical roses and exotic flowers"},
+        {"url": "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=900&q=80", "alt": "Spring garden blossoms and plants"}
+    ],
+    'dairy': [
+        {"url": "https://images.unsplash.com/photo-1527153857715-3908f2ae5e81?w=1400&q=80", "alt": "Organic green pasture dairy farm"},
+        {"url": "https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=1400&q=80", "alt": "Healthy grass-fed dairy cattle"},
+        {"url": "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=1200&q=80", "alt": "Fresh farm milk and dairy products"},
+        {"url": "https://images.unsplash.com/photo-1528732263440-4dd1a18a4cc2?w=900&q=80", "alt": "Artisanal farm cheese and butter"},
+        {"url": "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=900&q=80", "alt": "Lush country farm landscape"}
+    ],
     'general': [
         {"url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&q=80", "photographer": "Israel Andrade", "photographer_url": "https://unsplash.com/@israelreid", "alt": "Modern professional workspace"},
         {"url": "https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=1200&q=80", "photographer": "Alesia Kazantceva", "photographer_url": "https://unsplash.com/@alekazan", "alt": "Creative office interior"},
@@ -132,7 +255,13 @@ FALLBACK_PHOTO_CATALOG = {
 
 def get_pexels_api_key() -> str:
     """Safely retrieves Pexels API Key from environment or Django settings."""
-    key = os.environ.get('PEXELS_API_KEY') or getattr(settings, 'PEXELS_API_KEY', '') or ''
+    key = os.environ.get('PEXELS_API_KEY') or ''
+    if not key:
+        try:
+            if settings.configured:
+                key = getattr(settings, 'PEXELS_API_KEY', '') or ''
+        except Exception:
+            pass
     return key.strip().strip('"').strip("'")
 
 
@@ -145,15 +274,8 @@ def extract_keywords_from_business_info(
     """
     Reads the user's business description, name, category, and tagline,
     and dynamically extracts relevant search keywords without hardcoded category limitations.
-
-    Examples:
-      * "clothing boutique" -> ['fashion', 'clothing', 'boutique', 'apparel']
-      * "restaurant" -> ['food', 'restaurant', 'dining', 'chef']
-      * "salon" -> ['beauty salon', 'hair', 'beauty', 'hairstylist']
-      * "modern dental clinic for families" -> ['dentist', 'dental clinic', 'healthcare', 'clinic']
     """
     combined_text = f"{description} {name} {category} {tagline}".lower()
-    # Normalize punctuation
     clean_text = re.sub(r'[^a-zA-Z0-9\s-]', ' ', combined_text)
     raw_tokens = [w.strip() for w in clean_text.split() if len(w.strip()) > 1]
 
@@ -194,10 +316,10 @@ def extract_keywords_from_business_info(
         else:
             keywords.append('business professional')
 
-    return keywords[:8]
+    return keywords[:10]
 
 
-def query_pexels_api(search_query: str, per_page: int = 15) -> list[dict]:
+def query_pexels_api(search_query: str, per_page: int = 30) -> list[dict]:
     """
     Communicates securely with Pexels API: GET https://api.pexels.com/v1/search
     Caches results in memory to minimize API calls and handle rate limits.
@@ -245,21 +367,61 @@ def query_pexels_api(search_query: str, per_page: int = 15) -> list[dict]:
     return []
 
 
-def build_fallback_image_pool(business_name: str = '', keywords: list[str] = None) -> list[dict]:
+def select_best_fallback_catalog(category: str = '', keywords: list[str] = None) -> list[dict]:
+    """Selects the most suitable categorized fallback photo list based on category and keywords."""
+    combined = f"{category} {' '.join(keywords or [])}".lower()
+    
+    if any(k in combined for k in ['bakery', 'cake', 'pastry', 'bread', 'restaurant', 'food', 'cafe', 'coffee', 'dining', 'bistro', 'pizza', 'burger']):
+        return FALLBACK_PHOTO_CATALOG['restaurant']
+    if any(k in combined for k in ['fashion', 'cloth', 'apparel', 'boutique', 'dress', 'saree', 'jewelry', 'shoe', 'shopping', 'retail', 'store']):
+        return FALLBACK_PHOTO_CATALOG['fashion']
+    if any(k in combined for k in ['gym', 'fit', 'fitness', 'workout', 'train', 'sport', 'yoga', 'crossfit', 'athletics']):
+        return FALLBACK_PHOTO_CATALOG['fitness']
+    if any(k in combined for k in ['tech', 'saas', 'software', 'app', 'code', 'data', 'cloud', 'ai', 'platform']):
+        return FALLBACK_PHOTO_CATALOG['tech']
+    if any(k in combined for k in ['car', 'automotive', 'mechanic', 'repair', 'auto', 'vehicle', 'garage']):
+        return FALLBACK_PHOTO_CATALOG['car']
+    if any(k in combined for k in ['salon', 'spa', 'beauty', 'hair', 'skincare', 'cosmetics', 'wellness']):
+        return FALLBACK_PHOTO_CATALOG['salon']
+    if any(k in combined for k in ['flower', 'florist', 'botanical', 'bouquet', 'plant']):
+        return FALLBACK_PHOTO_CATALOG['flower']
+    if any(k in combined for k in ['dairy', 'farm', 'milk', 'cow', 'agriculture', 'organic']):
+        return FALLBACK_PHOTO_CATALOG['dairy']
+        
+    return FALLBACK_PHOTO_CATALOG['general']
+
+
+def build_fallback_image_pool(business_name: str = '', keywords: list[str] = None, category: str = '') -> list[dict]:
     """
-    Generates a high quality fallback image pool mapped to standard roles
+    Generates a high quality, category-specific fallback image pool mapped to standard roles
     with photographer attribution when Pexels API key is missing or offline.
     """
-    catalog = FALLBACK_PHOTO_CATALOG['general']
-    pool = []
+    matched_catalog = select_best_fallback_catalog(category=category, keywords=keywords)
+    general_catalog = FALLBACK_PHOTO_CATALOG['general']
+    
+    # Combined catalog to ensure at least 25 unique photos
+    full_catalog = list(matched_catalog)
+    for g_item in general_catalog:
+        if not any(it['url'] == g_item['url'] for it in full_catalog):
+            full_catalog.append(g_item)
 
-    for idx, role in enumerate(IMAGE_ROLES):
-        item = catalog[idx % len(catalog)]
+    pool = []
+    total_images_needed = max(len(IMAGE_ROLES), len(full_catalog))
+
+    for idx in range(total_images_needed):
+        item = full_catalog[idx % len(full_catalog)]
+        role = IMAGE_ROLES[idx] if idx < len(IMAGE_ROLES) else f"image_{idx + 1}"
         role_label = role.replace('_', ' ').title()
+        
+        # High quality dimensions
+        url = item["url"]
+        thumb_url = re.sub(r'w=\d+', 'w=400', url)
+
         pool.append({
+            "id": f"fb_{idx + 1}",
             "role": role,
-            "url": item["url"],
-            "thumbnail_url": item["url"].replace('w=1400', 'w=400').replace('w=1200', 'w=400').replace('w=900', 'w=400'),
+            "url": url,
+            "thumbnail_url": thumb_url,
             "pexels_url": "https://www.pexels.com",
             "photographer": item.get("photographer", "Curated Contributor"),
             "photographer_url": item.get("photographer_url", "https://www.pexels.com"),
@@ -284,10 +446,11 @@ def build_image_pool_for_business(
     """
     Main Service Function:
     1. Determines keywords from the user's business description & details.
-    2. Searches Pexels for relevant images (with caching).
-    3. Maps the fetched images to standard roles:
-       ['hero', 'about', 'service_1', 'service_2', 'service_3', 'product_1', 'product_2',
-        'product_3', 'gallery_1', 'gallery_2', 'gallery_3', 'cta']
+    2. Searches Pexels for relevant images (with caching and deduplication).
+    3. Maps fetched images to all distinct roles:
+       ['hero', 'hero_1', 'hero_2', 'hero_3', 'banner_1', 'banner_2', 'banner_3',
+        'slide_1', 'slide_2', 'slide_3', 'about', 'service_1'..'service_6',
+        'product_1'..'product_6', 'gallery_1'..'gallery_6', 'cta']
     4. Preserves photographer name, profile URL, Pexels photo page URL, and alt text.
     5. Returns (image_pool_list, role_to_url_map, extracted_keywords).
     """
@@ -302,30 +465,33 @@ def build_image_pool_for_business(
     primary_query = " ".join(keywords[:3]) if keywords else (category or name or "business")
 
     # Fetch photos from Pexels API
-    photos = query_pexels_api(primary_query, per_page=16)
+    photos = query_pexels_api(primary_query, per_page=30)
 
-    # If first query returned fewer than 6 photos, try a broader single keyword search
-    if len(photos) < 6 and len(keywords) > 1:
-        secondary_query = keywords[0]
-        secondary_photos = query_pexels_api(secondary_query, per_page=16)
-        if secondary_photos:
-            # Merge while avoiding duplicates
-            existing_ids = {p.get('id') for p in photos}
-            for sp in secondary_photos:
-                if sp.get('id') not in existing_ids:
-                    photos.append(sp)
+    # If first query returned fewer than 15 photos, try individual secondary keyword searches
+    if len(photos) < 15 and len(keywords) > 1:
+        for extra_kw in keywords[1:4]:
+            extra_photos = query_pexels_api(extra_kw, per_page=15)
+            if extra_photos:
+                existing_ids = {p.get('id') for p in photos}
+                for ep in extra_photos:
+                    if ep.get('id') not in existing_ids:
+                        photos.append(ep)
+                        existing_ids.add(ep.get('id'))
+            if len(photos) >= 25:
+                break
 
     image_pool = []
     images_by_role = {}
 
     if photos and len(photos) >= 3:
         # Build image pool from live Pexels results
-        for idx, role in enumerate(IMAGE_ROLES):
+        for idx in range(max(len(IMAGE_ROLES), len(photos))):
             photo = photos[idx % len(photos)]
+            role = IMAGE_ROLES[idx] if idx < len(IMAGE_ROLES) else f"image_{idx + 1}"
             src_dict = photo.get('src', {})
 
             # Select high quality URL based on role
-            if role in ['hero', 'cta']:
+            if 'hero' in role or 'banner' in role or 'slide' in role or 'cta' in role:
                 photo_url = src_dict.get('large2x') or src_dict.get('landscape') or src_dict.get('large') or src_dict.get('original') or ''
             elif 'service' in role or 'product' in role:
                 photo_url = src_dict.get('large') or src_dict.get('medium') or src_dict.get('large2x') or ''
@@ -340,6 +506,7 @@ def build_image_pool_for_business(
             photo_alt = photo.get('alt') or f"{name} {role.replace('_', ' ').title()}"
 
             pool_item = {
+                "id": photo.get('id') or f"px_{idx + 1}",
                 "role": role,
                 "url": photo_url,
                 "thumbnail_url": thumb_url,
@@ -357,17 +524,21 @@ def build_image_pool_for_business(
             image_pool.append(pool_item)
             images_by_role[role] = photo_url
     else:
-        # Graceful fallback catalog
-        image_pool = build_fallback_image_pool(business_name=name, keywords=keywords)
+        # Graceful category-tailored fallback catalog
+        image_pool = build_fallback_image_pool(business_name=name, keywords=keywords, category=category)
         for item in image_pool:
             images_by_role[item["role"]] = item["url"]
 
-    # If user explicitly uploaded a hero image, prioritize it for the hero role URL
+    # If user explicitly uploaded a hero image, prioritize it for the primary hero/banner roles
     if user_hero_url and user_hero_url.strip():
-        images_by_role['hero'] = user_hero_url.strip()
+        clean_user_hero = user_hero_url.strip()
+        images_by_role['hero'] = clean_user_hero
+        images_by_role['hero_1'] = clean_user_hero
+        images_by_role['banner_1'] = clean_user_hero
+        images_by_role['slide_1'] = clean_user_hero
         for item in image_pool:
-            if item.get('role') == 'hero':
-                item['url'] = user_hero_url.strip()
+            if item.get('role') in ['hero', 'hero_1', 'banner_1', 'slide_1']:
+                item['url'] = clean_user_hero
                 item['source'] = 'user_upload'
                 item['alt'] = f"{name} Hero Banner"
 
