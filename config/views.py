@@ -122,32 +122,34 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         if b_name:
             bname_els = soup.select('span.business-name, .business-name, span.site-title, .site-title, span.brand-name, .brand-name, span.company-name, .company-name, [data-editable="title"], [data-editable="business-name"]')
             for el in bname_els:
-                if el.name not in ['img', 'svg']:
+                if el.parent and el.name not in ['img', 'svg']:
                     inner_img = el.find(['img', 'svg'])
-                    if inner_img:
+                    if inner_img and inner_img.parent:
                         inner_img.replace_with(soup.new_string(b_name))
-                    else:
+                    elif el.parent:
                         el.string = b_name
 
         # C. User Logo Replacement (Image Mode vs Text Mode)
         if logo_url:
             logo_els = soup.select('span.logo, span.business-logo, .business-logo, .logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo], .navbar-brand, .header-logo, .site-logo')
             for el in logo_els:
+                if not el.parent:
+                    continue
                 img = el if el.name == 'img' else el.find('img')
-                if img:
+                if img and img.parent:
                     img['src'] = logo_url
                     img['alt'] = b_name or 'Logo'
                     if img.has_attr('srcset'):
                         img['srcset'] = logo_url
                     img['style'] = f"{img.get('style', '')}; max-height: 60px !important; max-width: 280px !important; object-fit: contain !important; width: auto !important;".strip('; ')
-                else:
+                elif el.parent:
                     el.clear()
                     new_img = soup.new_tag('img', src=logo_url, alt=b_name or 'Logo', style="max-height: 60px; max-width: 280px; object-fit: contain; width: auto;")
                     el.append(new_img)
             
             # Replace header/nav/footer branding logos
             for h_logo in soup.select('header img, nav img, footer img, .navbar-brand img, .header-logo img, .site-logo img, .footer-logo img, .footer-brand img'):
-                if not h_logo.has_attr('data-image'):
+                if h_logo.parent and not h_logo.has_attr('data-image'):
                     h_logo['src'] = logo_url
                     if h_logo.has_attr('srcset'):
                         h_logo['srcset'] = logo_url
@@ -156,23 +158,27 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             # Text logo mode: Replace template logo image with text brand title
             text_logo_els = soup.select('.navbar-brand, header .logo, nav .logo, .site-logo, span.logo, span.business-logo, .business-logo, .logo, [data-logo="business_logo"], [data-editable="logo"]')
             for el in text_logo_els:
+                if not el.parent:
+                    continue
                 img = el if el.name == 'img' else el.find('img')
-                if img:
+                if img and img.parent:
                     new_span = soup.new_tag('span', style="font-size: 1.45rem; font-weight: 800; color: inherit; text-decoration: none; display: inline-block;")
                     new_span.string = b_name
                     if el.name == 'img':
-                        el.replace_with(new_span)
-                    else:
+                        if el.parent:
+                            el.replace_with(new_span)
+                    elif el.parent:
                         el.clear()
                         el.append(new_span)
-                else:
+                elif el.parent:
                     el.string = b_name
 
         # D. Tagline: <span class="business-tagline"> / span.tagline / span.subtitle / [data-editable="tagline"]
         if tagline:
             tagline_els = soup.select('span.business-tagline, .business-tagline, span.tagline, .tagline, span.subtitle, .subtitle, span.hero-sub, [data-editable="tagline"]')
             for el in tagline_els:
-                el.string = tagline
+                if el.parent:
+                    el.string = tagline
 
         # E. MULTI-BANNER SLIDER & MULTI-IMAGE REPLACEMENT ENGINE
         processed_imgs = set()

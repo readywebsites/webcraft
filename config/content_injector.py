@@ -139,11 +139,11 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
         ]
         for sel in brand_selectors:
             for el in soup.select(sel):
-                if el.name not in ['img', 'svg', 'picture', 'video']:
+                if el.parent and el.name not in ['img', 'svg', 'picture', 'video']:
                     inner_img = el.find(['img', 'svg'])
-                    if inner_img:
+                    if inner_img and inner_img.parent:
                         inner_img.replace_with(soup.new_string(brand_name))
-                    else:
+                    elif el.parent:
                         el.string = brand_name
                     processed_nodes.add(id(el))
 
@@ -188,7 +188,7 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
             # Check accordion wrappers
             acc_wrappers = soup.select('.accordion, .faq, [class*="faq"], [class*="accordion"]')
             for acc in acc_wrappers:
-                sub_cards = acc.select('.card, .panel, .toggle, > div')
+                sub_cards = acc.select('.card, .panel, .toggle') or [c for c in acc.find_all(recursive=False) if c.name == 'div']
                 if len(sub_cards) >= 2:
                     faq_containers.extend(sub_cards)
 
