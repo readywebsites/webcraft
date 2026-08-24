@@ -131,7 +131,6 @@ class GitHubTemplate(models.Model):
             or 'bistro-template-root' in self.source_code_html
             or 'POWERED BY GITHUB REPO:' in self.source_code_html
             or not self.is_imported
-            or not self.pages
         )
         if is_fallback_stock:
             try:

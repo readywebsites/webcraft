@@ -126,16 +126,18 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
         processed_nodes = set()
 
         # -------------------------------------------------------------
-        # STEP 1: Document Title & Navbar Brand Text
+        # STEP 1: Document Title & Navbar Brand Text (All Templates)
         # -------------------------------------------------------------
         if soup.title:
             soup.title.string = f"{brand_name} - {tagline}" if tagline else brand_name
 
         brand_selectors = [
-            'span.business-name', '.business-name', 'span.site-title', '.site-title',
-            'span.brand-name', '.brand-name', 'span.company-name', '.company-name',
-            '[data-editable="title"]', '.navbar-brand', '.logo a', '.logo-text',
-            '.brand', '.header-logo', '.site-logo'
+            'header .navbar-brand', 'nav .navbar-brand', '.navbar-brand',
+            'header .logo', 'nav .logo', '.site-logo', '.header-logo', '.brand-logo',
+            '.brand', '.logo', '.site-branding', '.logo-box', '.logo-area', '.logo-holder',
+            '.custom-logo-link', 'span.business-name', '.business-name', 'span.site-title',
+            '.site-title', 'span.brand-name', '.brand-name', 'span.company-name', '.company-name',
+            '[data-editable="title"]', '[data-editable="logo"]'
         ]
         for sel in brand_selectors:
             for el in soup.select(sel):
@@ -152,7 +154,7 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
         # -------------------------------------------------------------
         nav_standard_labels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"]
         nav_idx = 0
-        for nav_a in soup.select('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a'):
+        for nav_a in soup.select('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a'):
             txt = nav_a.get_text(strip=True)
             if not txt:
                 continue
@@ -162,19 +164,36 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
             processed_nodes.add(id(nav_a))
 
         # -------------------------------------------------------------
-        # STEP 3: Hero Section Main Headline & Badges
+        # STEP 3: Hero & Masthead Main Headline, Subtitles & Badges
         # -------------------------------------------------------------
-        h1_el = soup.find('h1')
-        if h1_el and id(h1_el) not in processed_nodes:
-            h1_el.string = hero_headline
-            processed_nodes.add(id(h1_el))
+        hero_h_selectors = [
+            'h1', '.hero-title', '.hero-heading', '.banner-title', '.banner-heading',
+            '.slider-title', '.slider-heading', '.intro-heading', '.masthead-heading',
+            '.main-title', '[data-editable="headline"]', '[data-editable="title"]',
+            '.tp-caption.title', '.rs-layer.title'
+        ]
+        for h_sel in hero_h_selectors:
+            for h_hero in soup.select(h_sel):
+                if id(h_hero) not in processed_nodes:
+                    h_hero.string = hero_headline
+                    processed_nodes.add(id(h_hero))
+                    break
+            if any(id(soup.find(h_sel.split('.')[0])) in processed_nodes for _ in [0] if soup.find(h_sel.split('.')[0])):
+                pass
 
-        for h_hero in soup.select('.hero-title, .banner-title, .slider-title, [data-editable="title"], [data-editable="headline"]'):
-            if id(h_hero) not in processed_nodes:
-                h_hero.string = hero_headline
-                processed_nodes.add(id(h_hero))
+        hero_sub_selectors = [
+            '.hero-subtitle', '.hero-subheading', '.banner-subtitle', '.banner-subheading',
+            '.slider-subtitle', '.intro-lead-in', '.masthead-subheading', '.hero-sub',
+            '.lead', '.hero-text', '.business-tagline', '[data-editable="tagline"]',
+            '.tp-caption.sub-title', '.rs-layer.sub-title'
+        ]
+        for sub_sel in hero_sub_selectors:
+            for sub_el in soup.select(sub_sel):
+                if id(sub_el) not in processed_nodes and not sub_el.find_parent('footer'):
+                    sub_el.string = hero_subheadline
+                    processed_nodes.add(id(sub_el))
 
-        for b_el in soup.select('.hero-badge, .fit-badge, .bistro-sub-tag, .saas-pill, .tag-badge'):
+        for b_el in soup.select('.hero-badge, .fit-badge, .bistro-sub-tag, .saas-pill, .tag-badge, .hero-tag, .badge-pill'):
             if id(b_el) not in processed_nodes:
                 b_el.string = hero_badge
                 processed_nodes.add(id(b_el))
@@ -185,7 +204,6 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
         # -------------------------------------------------------------
         faq_containers = soup.select('.accordion-item, .faq-item, .accordion-card, .toggle, .panel, dl, [class*="faq-item"], [class*="accordion-item"]')
         if not faq_containers:
-            # Check accordion wrappers
             acc_wrappers = soup.select('.accordion, .faq, [class*="faq"], [class*="accordion"]')
             for acc in acc_wrappers:
                 sub_cards = acc.select('.card, .panel, .toggle') or [c for c in acc.find_all(recursive=False) if c.name == 'div']
@@ -220,9 +238,14 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
                 processed_nodes.add(id(a_el))
 
         # -------------------------------------------------------------
-        # STEP 5: CARD-LEVEL UNIFIED SEMANTIC REPLACEMENT (Title + Desc + Tag + Price)
+        # STEP 5: CARD-LEVEL UNIFIED SEMANTIC REPLACEMENT (Services, Products, Features, Portfolio, Team, Pricing, Modals)
         # -------------------------------------------------------------
-        card_selectors = '.card, .product, .service, .item, .feature, [class*="service-item"], [class*="product-item"], [class*="feature-box"], [class*="ps-product"], [class*="pricing-card"]'
+        card_selectors = (
+            '.card, .product, .service, .item, .feature, .portfolio-item, .team-member, .timeline-panel, '
+            '.box, .service-box, .service-block, .feature-box, .single-item, .pricing-card, .portfolio-modal, .modal-body, '
+            '[class*="service-item"], [class*="product-item"], [class*="feature-box"], [class*="portfolio-item"], '
+            '[class*="portfolio-modal"], [class*="ps-product"], [class*="pricing-card"], [class*="service-block"], [class*="single-service"]'
+        )
         all_raw_cards = soup.select(card_selectors)
         top_cards = []
         for c in all_raw_cards:
@@ -235,7 +258,10 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
                 continue
 
             # 1. Title Element in Card
-            title_el = card_el.find(['h2', 'h3', 'h4', 'h5', 'h6', 'span'], class_=re.compile(r'title|name|header', re.I)) or card_el.find(['h2', 'h3', 'h4', 'h5', 'h6'])
+            title_el = (
+                card_el.find(['h2', 'h3', 'h4', 'h5', 'h6', 'span'], class_=re.compile(r'title|name|header|heading', re.I))
+                or card_el.find(['h2', 'h3', 'h4', 'h5', 'h6'])
+            )
             if title_el and id(title_el) not in processed_nodes:
                 inner_a = title_el.find('a')
                 if inner_a:
@@ -246,9 +272,9 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
                 processed_nodes.add(id(title_el))
 
             # 2. Tag / Badge Element in Card
-            badge_el = card_el.select_one('.badge, .tag, .card-tag, .tag-badge, .cat-name, .collection__category')
+            badge_el = card_el.select_one('.badge, .tag, .card-tag, .tag-badge, .cat-name, .category, .subheading, .portfolio-caption-subheading, .collection__category')
             if badge_el and id(badge_el) not in processed_nodes:
-                badge_el.string = item_data['tag']
+                badge_el.string = item_data['tag'] or micro_tags[c_idx % len(micro_tags)]
                 processed_nodes.add(id(badge_el))
 
             # 3. Price Element in Card
@@ -258,10 +284,9 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
                 processed_nodes.add(id(price_el))
 
             # 4. Description Paragraph in Card (Directly paired with title!)
-            desc_el = card_el.find('p', class_=re.compile(r'desc|text|info|content', re.I)) or card_el.find('p')
+            desc_el = card_el.find('p', class_=re.compile(r'desc|text|info|content|timeline-body', re.I)) or card_el.find('p')
             if desc_el and id(desc_el) not in processed_nodes:
                 orig_desc_len = len(desc_el.get_text(strip=True))
-                # If original was a tiny badge or label (<= 25 chars), don't put a full sentence
                 if orig_desc_len <= 25:
                     desc_el.string = item_data['tag'] or micro_tags[c_idx % len(micro_tags)]
                 else:
@@ -332,12 +357,17 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
         # -------------------------------------------------------------
         # STEP 8: REMAINING HEADINGS & TITLES (Length-Aware)
         # -------------------------------------------------------------
-        title_selectors = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', '.title', '.sub-title', '.subtitle', '.section-title', '[class*="title"]']
+        title_selectors = [
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6', '.title', '.sub-title', '.subtitle',
+            '.section-title', '.heading', '.subheading', '.portfolio-caption-heading',
+            '.portfolio-caption-subheading', '.timeline-heading', '[class*="title"]',
+            '[class*="heading"]', '.tp-caption', '.rs-layer'
+        ]
         h_idx = 0
         for el in soup.select(', '.join(title_selectors)):
             if id(el) in processed_nodes:
                 continue
-            if el.find_parent(['script', 'style', 'head']):
+            if el.find_parent(['script', 'style', 'head', 'footer']):
                 continue
             if el.find(['img', 'svg']) and not el.get_text(strip=True):
                 continue
@@ -374,15 +404,17 @@ def inject_business_content_into_html(raw_html: str, content: Dict[str, Any]) ->
             processed_nodes.add(id(el))
 
         # -------------------------------------------------------------
-        # STEP 9: REMAINING PARAGRAPHS (<p>) (Strict Length Budgeting)
+        # STEP 9: REMAINING PARAGRAPHS & BODY TEXTS (<p>, .text-muted, .lead, .desc)
         # -------------------------------------------------------------
         p_idx = 0
-        for p in soup.find_all('p'):
+        for p in soup.find_all(['p', 'div']):
             if id(p) in processed_nodes:
+                continue
+            if p.name == 'div' and not any(k in ' '.join(p.get('class', [])).lower() for k in ['desc', 'text-muted', 'lead', 'info', 'timeline-body', 'caption-text', 'sub-heading']):
                 continue
             if p.find_parent(['script', 'style', 'head', 'footer', '.copyright']):
                 continue
-            if p.find(['input', 'button', 'select']):
+            if p.find(['input', 'button', 'select', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'ul', 'ol']):
                 continue
 
             orig_txt = p.get_text(strip=True)

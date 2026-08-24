@@ -253,33 +253,62 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // 2. User Logo Replacement (Image Mode vs Text Mode)
+            // Helper to set all image and lazyload attributes
+            function setImgAllAttrs(imgEl, targetUrl) {
+              if (!targetUrl || !imgEl) return;
+              imgEl.src = targetUrl;
+              imgEl.srcset = targetUrl;
+              ['data-src', 'data-original', 'data-lazy', 'data-lazy-src', 'data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina'].forEach(function(attr) {
+                if (imgEl.hasAttribute(attr)) imgEl.setAttribute(attr, targetUrl);
+              });
+            }
+
+            // Helper to set container background attributes & inline style
+            function setContainerBgAttrs(el, targetUrl) {
+              if (!targetUrl || !el) return;
+              ['data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-bg-img', 'data-background-img'].forEach(function(attr) {
+                if (el.hasAttribute(attr)) el.setAttribute(attr, targetUrl);
+              });
+              var currentSt = el.getAttribute('style') || '';
+              var cleaned = currentSt.replace(/background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?/gi, '').replace(/;\s*$/, '');
+              el.style.backgroundImage = "url('" + targetUrl + "')";
+              el.style.backgroundSize = 'cover';
+              el.style.backgroundPosition = 'center';
+            }
+
+            // 2. User Logo Replacement (Image Mode vs Text Mode across ALL templates)
+            var logoContainers = document.querySelectorAll(
+              'header .navbar-brand, nav .navbar-brand, .navbar-brand, header .logo, nav .logo, ' +
+              '.site-logo, .header-logo, .brand-logo, .brand, .logo, .site-branding, .logo-box, ' +
+              '.logo-area, .logo-holder, .custom-logo-link, span.logo, span.business-logo, ' +
+              '.business-logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]'
+            );
+
             if (logoUrl) {
-              document.querySelectorAll('span.logo, span.business-logo, .business-logo, .logo, [data-logo="business_logo"], [data-logo="logo"], img[data-logo]').forEach(function(el) {
+              logoContainers.forEach(function(el) {
                 var img = el.tagName === 'IMG' ? el : el.querySelector('img');
                 if (img) {
-                  img.src = logoUrl;
-                  img.srcset = logoUrl;
+                  setImgAllAttrs(img, logoUrl);
+                  img.alt = busTitle || 'Logo';
                   img.style.maxHeight = '60px';
                   img.style.maxWidth = '280px';
                   img.style.objectFit = 'contain';
-                } else {
+                } else if (['IMG', 'SVG'].indexOf(el.tagName) === -1) {
                   el.innerHTML = '<img src="' + logoUrl + '" alt="' + (busTitle || 'Logo') + '" style="max-height:60px;max-width:280px;object-fit:contain;" />';
                 }
               });
 
-              var logoImgs = document.querySelectorAll('header img, nav img, footer img, .navbar img, .site-header img, .navbar-brand img, .header-logo img, .site-logo img, [data-editable="logo"]');
+              var logoImgs = document.querySelectorAll('header img, nav img, .navbar-brand img, .header-logo img, .site-logo img, .footer-logo img, .footer-brand img');
               logoImgs.forEach(function(img) {
-                if (img.getAttribute('data-image')) return; // Skip stock images
-                img.src = logoUrl;
-                img.srcset = logoUrl;
+                if (img.getAttribute('data-image')) return;
+                setImgAllAttrs(img, logoUrl);
                 img.style.maxHeight = '60px';
                 img.style.maxWidth = '280px';
                 img.style.objectFit = 'contain';
               });
             } else if (busTitle) {
               // In text logo mode: Replace template logo image with bold text brand name
-              document.querySelectorAll('header .navbar-brand, nav .navbar-brand, header .logo, nav .logo, .site-logo, .brand, [data-logo="business_logo"], [data-editable="logo"], span.logo, span.business-logo, .business-logo, .logo').forEach(function(el) {
+              logoContainers.forEach(function(el) {
                 var img = el.tagName === 'IMG' ? el : el.querySelector('img');
                 if (img) {
                   var span = document.createElement('span');
@@ -339,7 +368,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 if (swiperSlides && swiperSlides.length > 0) return Array.from(swiperSlides);
 
                 // 3. Owl Carousel
-                var owlSlides = container.querySelectorAll('.owl-stage > .owl-item, .owl-carousel > .item, .owl-carousel > div, .owl-item');
+                var owlSlides = container.querySelectorAll('.owl-stage > .owl-item, .owl-carousel > .item, .owl-carousel > div, .owl-item, .owl-carousel .item');
                 if (owlSlides && owlSlides.length > 0) {
                   var topOwl = [];
                   owlSlides.forEach(function(s) {
@@ -386,7 +415,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 });
                 if (directChildren.length >= 2) {
                   var withImgs = directChildren.filter(function(c) {
-                    return c.querySelector('img') || /background/i.test(c.getAttribute('style') || '');
+                    return c.querySelector('img') || /background/i.test(c.getAttribute('style') || '') || c.hasAttribute('data-background') || c.hasAttribute('data-bg');
                   });
                   if (withImgs.length >= 2) return withImgs;
                 }
@@ -395,7 +424,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
 
               // Step A: Discover top-level sliders
-              var sliderSelectors = '.rev_slider, .tp-banner, .swiper-container, .swiper, .owl-carousel, .slick-slider, .carousel, [class*="slider-area"], [class*="hero-slider"], [class*="banner-slider"], [class*="main-slider"], .ak-slider, [class*="slider_wrap"], [class*="rev_slider_wrapper"]';
+              var sliderSelectors = '.rev_slider, .tp-banner, .swiper-container, .swiper, .owl-carousel, .slick-slider, .carousel, [class*="slider-area"], [class*="hero-slider"], [class*="banner-slider"], [class*="main-slider"], .ak-slider, [class*="slider_wrap"], [class*="rev_slider_wrapper"], [class*="home-slider"]';
               var allSliders = document.querySelectorAll(sliderSelectors);
               var topSliders = [];
               allSliders.forEach(function(sc) {
@@ -453,34 +482,27 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                     }
 
                     if (bgImgEl && slideBannerUrl) {
-                      bgImgEl.src = slideBannerUrl;
-                      bgImgEl.srcset = slideBannerUrl;
+                      setImgAllAttrs(bgImgEl, slideBannerUrl);
                       processedImgs.add(bgImgEl);
                     }
 
-                    // Check inline style background
-                    if (/background(?:-image)?\s*:\s*url/i.test(slideEl.getAttribute('style') || '')) {
-                      slideEl.style.backgroundImage = "url('" + slideBannerUrl + "')";
-                      slideEl.style.backgroundSize = 'cover';
-                      slideEl.style.backgroundPosition = 'center';
-                      processedBgs.add(slideEl);
-                    } else {
-                      var subBg = slideEl.querySelector('[style*="background"], [style*="url("]');
-                      if (subBg && !bgImgEl && slideBannerUrl && !processedBgs.has(subBg)) {
-                        subBg.style.backgroundImage = "url('" + slideBannerUrl + "')";
-                        subBg.style.backgroundSize = 'cover';
-                        subBg.style.backgroundPosition = 'center';
+                    // Check container background
+                    setContainerBgAttrs(slideEl, slideBannerUrl);
+                    processedBgs.add(slideEl);
+
+                    slideEl.querySelectorAll('[data-background], [data-bg], [data-bg-image], [style*="background"], [style*="url("]').forEach(function(subBg) {
+                      if (subBg.tagName !== 'IMG' && !processedBgs.has(subBg)) {
+                        setContainerBgAttrs(subBg, slideBannerUrl);
                         processedBgs.add(subBg);
                       }
-                    }
+                    });
 
                     // Multi-Image in slide / Side-by-Side in slide: ensure each layer gets a distinct image!
                     slideImgs.forEach(function(otherImg) {
                       if (processedImgs.has(otherImg)) return;
                       var layerUrl = poolUrls[livePoolIdx % poolUrls.length];
                       livePoolIdx++;
-                      otherImg.src = layerUrl;
-                      otherImg.srcset = layerUrl;
+                      setImgAllAttrs(otherImg, layerUrl);
                       processedImgs.add(otherImg);
                     });
                   });
@@ -488,10 +510,12 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
 
               // Step B: Standalone hero sections
-              document.querySelectorAll('section, header, div, main').forEach(function(sec) {
+              document.querySelectorAll('section, header, div.hero, div.banner, div.masthead, main').forEach(function(sec) {
                 var sCls = (sec.className || '').toLowerCase();
                 var sId = (sec.id || '').toLowerCase();
-                if ((sCls.indexOf('hero') !== -1 || sId.indexOf('hero') !== -1 || sCls.indexOf('banner') !== -1 || sId.indexOf('banner') !== -1) && !/(?:client|partner|sponsor|logo|footer|sidebar)/i.test(sCls)) {
+                var isHero = /(?:hero|banner|masthead|showcase|intro|welcome)/i.test(sCls) || /(?:hero|banner|masthead|showcase|intro|welcome)/i.test(sId);
+                var isEx = /(?:client|partner|sponsor|logo|footer|sidebar)/i.test(sCls);
+                if (isHero && !isEx) {
                   var secImgs = Array.from(sec.querySelectorAll('img')).filter(function(img) {
                     return !processedImgs.has(img);
                   });
@@ -500,16 +524,13 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                     if (simgCls.indexOf('logo') !== -1) return;
                     var tUrl = livePoolIdx > 1 ? poolUrls[livePoolIdx % poolUrls.length] : (heroImgUrl || poolUrls[0]);
                     livePoolIdx++;
-                    simg.src = tUrl;
-                    simg.srcset = tUrl;
+                    setImgAllAttrs(simg, tUrl);
                     processedImgs.add(simg);
                   });
 
-                  if (/background(?:-image)?\s*:\s*url/i.test(sec.getAttribute('style') || '') && !processedBgs.has(sec)) {
+                  if (!processedBgs.has(sec)) {
                     var tBg = heroImgUrl || poolUrls[0];
-                    sec.style.backgroundImage = "url('" + tBg + "')";
-                    sec.style.backgroundSize = 'cover';
-                    sec.style.backgroundPosition = 'center';
+                    setContainerBgAttrs(sec, tBg);
                     processedBgs.add(sec);
                   }
                 }
@@ -522,21 +543,24 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 var iClasses = (img.className || '').toLowerCase();
                 var iAlt = (img.alt || '').toLowerCase();
                 var iId = (img.id || '').toLowerCase();
+                var iSrc = (img.getAttribute('src') || '').toLowerCase();
 
-                if (pClasses.indexOf('logo') !== -1 || iClasses.indexOf('logo') !== -1 || iAlt.indexOf('logo') !== -1 || iId.indexOf('logo') !== -1 || img.hasAttribute('data-logo')) {
+                if (pClasses.indexOf('logo') !== -1 || iClasses.indexOf('logo') !== -1 || iAlt.indexOf('logo') !== -1 || iId.indexOf('logo') !== -1 || iSrc.indexOf('logo') !== -1 || img.hasAttribute('data-logo')) {
                   if (logoUrl) {
-                    img.src = logoUrl;
-                    img.srcset = logoUrl;
+                    setImgAllAttrs(img, logoUrl);
                   }
                   processedImgs.add(img);
+                  return;
+                }
+
+                if (iSrc.endsWith('.svg') || iSrc.endsWith('.ico') || /(?:flag|payment|visa|mastercard|paypal|cart-icon|arrow-|close|search-icon)/i.test(iSrc) || /(?:flag|payment|visa|mastercard|paypal|cart-icon|arrow-|close|search-icon)/i.test(iClasses)) {
                   return;
                 }
 
                 if (img.hasAttribute('data-image')) {
                   var role = (img.getAttribute('data-image') || '').toLowerCase().trim();
                   if (imagesMap && imagesMap[role]) {
-                    img.src = imagesMap[role];
-                    img.srcset = imagesMap[role];
+                    setImgAllAttrs(img, imagesMap[role]);
                     processedImgs.add(img);
                     return;
                   }
@@ -544,13 +568,12 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
                 var targetSrc = poolUrls[livePoolIdx % poolUrls.length];
                 livePoolIdx++;
-                img.src = targetSrc;
-                img.srcset = targetSrc;
+                setImgAllAttrs(img, targetSrc);
                 processedImgs.add(img);
               });
 
-              // Step D: Replace remaining background images in style attributes
-              document.querySelectorAll('[style*="background"], [style*="url("]').forEach(function(el) {
+              // Step D: Replace remaining background images in style attributes and data-background
+              document.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="background"], [style*="url("]').forEach(function(el) {
                 if (el.tagName === 'IMG' || processedBgs.has(el)) return;
                 var elClasses = (el.className || '').toLowerCase();
                 var bgTarget = "";
@@ -562,9 +585,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                   bgTarget = poolUrls[livePoolIdx % poolUrls.length];
                 }
                 livePoolIdx++;
-                el.style.backgroundImage = "url('" + bgTarget + "')";
-                el.style.backgroundSize = 'cover';
-                el.style.backgroundPosition = 'center';
+                setContainerBgAttrs(el, bgTarget);
                 processedBgs.add(el);
               });
             }
@@ -666,7 +687,12 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             });
 
             // Step 2: Card-Level Unified Semantic Replacement (Title + Desc + Tag + Price)
-            var cardSelectors = '.card, .product, .service, .item, .feature, [class*="service-item"], [class*="product-item"], [class*="feature-box"], [class*="ps-product"], [class*="pricing-card"]';
+            var cardSelectors = (
+              '.card, .product, .service, .item, .feature, .portfolio-item, .team-member, .timeline-panel, ' +
+              '.box, .service-box, .service-block, .feature-box, .single-item, .pricing-card, .portfolio-modal, .modal-body, ' +
+              '[class*="service-item"], [class*="product-item"], [class*="feature-box"], [class*="portfolio-item"], ' +
+              '[class*="portfolio-modal"], [class*="ps-product"], [class*="pricing-card"], [class*="service-block"], [class*="single-service"]'
+            );
             var rawCards = document.querySelectorAll(cardSelectors);
             var topCards = [];
             rawCards.forEach(function(c) {
@@ -685,7 +711,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               var itmData = servicesArr[cIdx % servicesArr.length];
 
               // Title in Card
-              var titleEl = cardEl.querySelector('h2, h3, h4, h5, h6, .title, .item-title, .product-title, .service-title');
+              var titleEl = cardEl.querySelector('h2, h3, h4, h5, h6, .title, .item-title, .product-title, .service-title, [class*="title"], [class*="heading"]');
               if (titleEl && !processedDOMElements.has(titleEl)) {
                 var innerA = titleEl.querySelector('a');
                 if (innerA) {
@@ -698,7 +724,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
 
               // Tag / Badge in Card
-              var badgeEl = cardEl.querySelector('.tag, .badge, .card-tag, .tag-badge, .cat-name, .collection__category');
+              var badgeEl = cardEl.querySelector('.tag, .badge, .card-tag, .tag-badge, .cat-name, .category, .subheading, .portfolio-caption-subheading, .collection__category');
               if (badgeEl && !processedDOMElements.has(badgeEl)) {
                 badgeEl.textContent = itmData.tag || microTagsArr[cIdx % microTagsArr.length];
                 processedDOMElements.add(badgeEl);
@@ -712,7 +738,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
 
               // Description in Card (Strictly Paired with Title!)
-              var descEl = cardEl.querySelector('p');
+              var descEl = cardEl.querySelector('p, .desc, .text, .info, .timeline-body, [class*="desc"]');
               if (descEl && !processedDOMElements.has(descEl)) {
                 var oLen = (descEl.textContent || '').trim().length;
                 if (oLen <= 25) {
@@ -724,7 +750,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
 
               // Button in Card
-              var btnEl = cardEl.querySelector('button, a.btn, a[class*="btn"]');
+              var btnEl = cardEl.querySelector('button, a.btn, a[class*="btn"], a.cta');
               if (btnEl && !processedDOMElements.has(btnEl)) {
                 var bTxt = (btnEl.textContent || '').trim();
                 if (bTxt.length <= 25) {
@@ -766,7 +792,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             // Step 4: Navigation Menu Sanitizer
             var navLabels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"];
             var navIdx = 0;
-            document.querySelectorAll('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a').forEach(function(na) {
+            document.querySelectorAll('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a').forEach(function(na) {
               var txt = (na.textContent || '').toLowerCase();
               if (/(?:flower|cake|pet|dog|cloth|saree|museum|repair|mechanic|jewelry|boutique|bakery|bread)/i.test(txt)) {
                 na.textContent = navLabels[navIdx % navLabels.length];
@@ -776,7 +802,10 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             });
 
             // Step 5: Remaining Headings & Title Elements (Length-Aware)
-            var titleSelectors = 'h1, h2, h3, h4, h5, h6, .title, .sub-title, .subtitle, .section-title, .tp-caption, .slide-title, .banner-title';
+            var titleSelectors = (
+              'h1, h2, h3, h4, h5, h6, .title, .sub-title, .subtitle, .section-title, .heading, .subheading, ' +
+              '.portfolio-caption-heading, .portfolio-caption-subheading, .timeline-heading, .tp-caption, .slide-title, .banner-title, [class*="title"], [class*="heading"]'
+            );
             var allTitles = document.querySelectorAll(titleSelectors);
             var hIdx = 0;
             allTitles.forEach(function(h) {
