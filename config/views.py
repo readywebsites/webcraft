@@ -934,16 +934,6 @@ def generate_website(request):
             raw_html = tpl.source_code_html or f"<div style='padding:3rem;text-align:center;'><h1>{business_name}</h1><p>{final_tagline}</p></div>"
             raw_css = tpl.source_code_css or ""
             raw_js = tpl.source_code_js or ""
-            raw_pages = getattr(tpl, 'pages', None) or {}
-            if not raw_pages and raw_html:
-                raw_pages = {
-                    "index.html": {
-                        "filename": "index.html",
-                        "title": "Home",
-                        "html": raw_html,
-                        "is_homepage": True
-                    }
-                }
 
             user_details_payload = {
                 'business_name': business_name,
@@ -970,15 +960,6 @@ def generate_website(request):
             except Exception:
                 t_edited_html = raw_html
                 t_edited_css = raw_css
-
-            try:
-                customized_pages, _ = apply_user_details_to_pages(
-                    raw_pages,
-                    raw_css,
-                    user_details_payload
-                )
-            except Exception:
-                customized_pages = raw_pages
 
             cat_price = db_cat.price if (db_cat and hasattr(db_cat, 'price')) else 499
             item = {
@@ -1007,7 +988,6 @@ def generate_website(request):
                 "source_code_html": t_edited_html or raw_html,
                 "source_code_css": t_edited_css or raw_css,
                 "source_code_js": raw_js,
-                "pages": customized_pages,
                 "content": {
                     "business_name": business_name,
                     "business_description": business_description,
@@ -1021,7 +1001,6 @@ def generate_website(request):
                     "contact_email": final_email,
                     "contact_phone": final_phone,
                     "ai_content": ai_content,
-                    "pages": customized_pages,
                     "hero": ai_content.get('hero', {}),
                     "about": ai_content.get('about', {}),
                     "services": ai_content.get('services_or_products', matched_preset['default_services']),
@@ -1056,8 +1035,7 @@ def generate_website(request):
                 content_data=primary_data['content'],
                 source_code_html=primary_data['source_code_html'],
                 source_code_css=primary_data['source_code_css'],
-                source_code_js=primary_data['source_code_js'],
-                pages=primary_data.get('pages', {})
+                source_code_js=primary_data['source_code_js']
             )
         except Exception:
             pass
@@ -1452,15 +1430,6 @@ def generate_from_github_template(request):
         user_details_payload
     )
 
-    try:
-        customized_pages, _ = apply_user_details_to_pages(
-            raw_pages,
-            css_src,
-            user_details_payload
-        )
-    except Exception:
-        customized_pages = raw_pages
-
     generated_website = {
         "website_id": f"gh_web_{uuid.uuid4().hex[:10]}",
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -1482,7 +1451,6 @@ def generate_from_github_template(request):
         "source_code_html": edited_html,
         "source_code_css": edited_css,
         "source_code_js": js_src,
-        "pages": customized_pages,
         "content": {
             "business_name": business_name,
             "business_description": business_description,
@@ -1495,7 +1463,6 @@ def generate_from_github_template(request):
             "contact_email": contact_email,
             "contact_phone": contact_phone,
             "ai_content": ai_content,
-            "pages": customized_pages,
             "hero": ai_content.get('hero', {}),
             "about": ai_content.get('about', {}),
             "services": ai_content.get('services_or_products', []),
@@ -1519,8 +1486,7 @@ def generate_from_github_template(request):
             content_data=generated_website['content'],
             source_code_html=html_src,
             source_code_css=css_src,
-            source_code_js=js_src,
-            pages=customized_pages
+            source_code_js=js_src
         )
     except Exception:
         pass
