@@ -39,6 +39,7 @@ class GeneratedWebsite(models.Model):
     source_code_html = models.TextField(blank=True, default='', help_text="Stored HTML source code")
     source_code_css = models.TextField(blank=True, default='', help_text="Stored CSS source code")
     source_code_js = models.TextField(blank=True, default='', help_text="Stored JS source code")
+    pages = models.JSONField(default=dict, blank=True, help_text="Dictionary of all generated pages with user details and replacements")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -87,6 +88,7 @@ class GitHubTemplate(models.Model):
     source_code_html = models.TextField(blank=True, default='', help_text="Stored imported HTML source code from GitHub")
     source_code_css = models.TextField(blank=True, default='', help_text="Stored imported CSS stylesheet source code from GitHub")
     source_code_js = models.TextField(blank=True, default='', help_text="Stored imported JS interactivity scripts from GitHub")
+    pages = models.JSONField(default=dict, blank=True, help_text="Dictionary of all imported template pages: {'about.html': {'filename': 'about.html', 'title': 'About Us', 'html': '...'}, ...}")
     is_imported = models.BooleanField(default=False, help_text="True if repository code has been imported & stored")
     editable_placeholders = models.JSONField(default=dict, blank=True, help_text="Schema of editable placeholder fields detected in source code")
 
@@ -129,6 +131,7 @@ class GitHubTemplate(models.Model):
             or 'bistro-template-root' in self.source_code_html
             or 'POWERED BY GITHUB REPO:' in self.source_code_html
             or not self.is_imported
+            or not self.pages
         )
         if is_fallback_stock:
             try:
@@ -146,12 +149,13 @@ class GitHubTemplate(models.Model):
                     self.source_code_html = imported_res.get('html', '')
                     self.source_code_css = imported_res.get('css', '')
                     self.source_code_js = imported_res.get('js', '')
+                    self.pages = imported_res.get('pages', {})
                     self.editable_placeholders = imported_res.get('placeholders', {})
                     self.is_imported = imported_res.get('is_imported', True)
                     if imported_res.get('default_branch'):
                         self.default_branch = imported_res.get('default_branch')
                 else:
-                    def_html, def_css, def_js, def_ph = get_default_category_template(
+                    def_html, def_css, def_js, def_ph, def_pages = get_default_category_template(
                         category_slug=cat_slug,
                         title=self.title or self.repo_name or 'Modern Template',
                         owner=self.owner or 'templates',
@@ -161,12 +165,13 @@ class GitHubTemplate(models.Model):
                     self.source_code_css = def_css
                     self.source_code_js = def_js
                     self.editable_placeholders = def_ph
+                    self.pages = def_pages
                     self.is_imported = True
             except Exception:
                 try:
                     from .github_importer import get_default_category_template
                     cat_slug = self.category.slug if self.category else ''
-                    def_html, def_css, def_js, def_ph = get_default_category_template(
+                    def_html, def_css, def_js, def_ph, def_pages = get_default_category_template(
                         category_slug=cat_slug,
                         title=self.title or self.repo_name or 'Modern Template',
                         owner=self.owner or 'templates',
@@ -176,6 +181,7 @@ class GitHubTemplate(models.Model):
                     self.source_code_css = def_css
                     self.source_code_js = def_js
                     self.editable_placeholders = def_ph
+                    self.pages = def_pages
                     self.is_imported = True
                 except Exception:
                     pass

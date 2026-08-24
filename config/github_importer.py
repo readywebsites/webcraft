@@ -181,22 +181,128 @@ def download_github_repo_files(owner: str, repo_name: str, branch: str = '') -> 
 
     # If we have file_list from tree API, fetch target HTML and CSS files on-demand
     if file_list and not files_map:
-        # Find candidate HTML files
-        html_candidates = [f for f in file_list if f.endswith('.html') or f.endswith('.htm')]
+        # Find candidate HTML files (excluding node_modules, vendor, tests, etc.)
+        html_candidates = [
+            f for f in file_list
+            if (f.lower().endswith('.html') or f.lower().endswith('.htm'))
+            and not any(ign in f.lower() for ign in ['node_modules', 'vendor', 'bower_components', 'test', 'tests', '.github', 'plugins/demo', 'dist/plugins/'])
+        ]
         best_html_file = find_best_homepage_file(html_candidates, {})
         if best_html_file:
             content = fetch_raw_github_file(owner, repo_name, actual_branch, best_html_file)
             if content:
                 files_map[best_html_file] = content
 
-        # Fetch candidate CSS files (up to 15 top stylesheets)
+        # Fetch other candidate HTML pages (up to 35 template pages)
+        for h_f in html_candidates[:35]:
+            if h_f not in files_map:
+                h_content = fetch_raw_github_file(owner, repo_name, actual_branch, h_f)
+                if h_content and len(h_content.strip()) > 30:
+                    files_map[h_f] = h_content
+
+        # Fetch candidate CSS files (up to 20 top stylesheets)
         css_candidates = [f for f in file_list if f.endswith('.css') and not f.endswith('.min.css.map')]
-        for css_f in css_candidates[:15]:
+        for css_f in css_candidates[:20]:
             c_content = fetch_raw_github_file(owner, repo_name, actual_branch, css_f)
             if c_content:
                 files_map[css_f] = c_content
 
     return actual_branch, files_map, file_list
+
+
+def format_page_title(filename: str, html_code: str = '') -> str:
+    """
+    Generates a clean, friendly title for a template page (e.g. 'about.html' -> 'About Us', 'index.html' -> 'Home').
+    """
+    base = os.path.basename(filename).lower()
+    base_clean = re.sub(r'\.(?:html|htm)$', '', base, flags=re.I)
+
+    standard_titles = {
+        'index': 'Home',
+        'index-2': 'Home Style 2',
+        'index-3': 'Home Style 3',
+        'index-4': 'Home Style 4',
+        'index-5': 'Home Style 5',
+        'home': 'Home',
+        'homepage': 'Home',
+        'homepage-1': 'Home Style 1',
+        'homepage-2': 'Home Style 2',
+        'homepage-3': 'Home Style 3',
+        'homepage-4': 'Home Style 4',
+        'homepage-5': 'Home Style 5',
+        'homepage-6': 'Home Style 6',
+        'homepage-7': 'Home Style 7',
+        'homepage-8': 'Home Style 8',
+        'homepage-9': 'Home Style 9',
+        'homepage-10': 'Home Style 10',
+        'homepage-11': 'Home Style 11',
+        'homepage-12': 'Home Style 12',
+        'about': 'About Us',
+        'about-us': 'About Us',
+        'about-me': 'About Me',
+        'story': 'Our Story',
+        'services': 'Services',
+        'service': 'Services',
+        'service-detail': 'Service Details',
+        'service-details': 'Service Details',
+        'contact': 'Contact Us',
+        'contact-us': 'Contact Us',
+        'contact-1': 'Contact Style 1',
+        'contact-2': 'Contact Style 2',
+        'contact-3': 'Contact Style 3',
+        'menu': 'Chef Menu',
+        'our-menu': 'Our Menu',
+        'classes': 'Classes',
+        'trainers': 'Trainers',
+        'membership': 'Membership',
+        'shop': 'Shop',
+        'shop-category-1': 'Shop Category 1',
+        'shop-category-2': 'Shop Category 2',
+        'shop-default-3-columns': 'Shop (3 Columns)',
+        'shop-default-4-columns': 'Shop (4 Columns)',
+        'shop-fullwidth-3-columns': 'Shop Fullwidth',
+        'shop-metro-1': 'Shop Metro',
+        'products': 'Products',
+        'product-detail': 'Product Details',
+        'product-creative-content': 'Product Showcase',
+        'product-features-affiliate': 'Product Affiliate',
+        'product-features-grouped': 'Grouped Products',
+        'product-features-standard': 'Standard Product',
+        'product-left-image-slider': 'Product Slider',
+        'cart': 'Shopping Cart',
+        'checkout': 'Checkout',
+        'faq': 'FAQs',
+        'faqs': 'FAQs',
+        'blog': 'Blog',
+        'blog-detail': 'Blog Article',
+        'blog-fullwidth-no-sidebar': 'Blog Fullwidth',
+        'blog-list-width-sidebar': 'Blog List',
+        'single-blog-no-sidebar': 'Single Blog',
+        'team': 'Our Team',
+        'testimonials': 'Testimonials',
+        'reviews': 'Reviews',
+        'pricing': 'Pricing Plans',
+        'portfolio': 'Portfolio',
+        'portfolio-classic': 'Portfolio Classic',
+        'portfolio-fullwidth-3-columns': 'Portfolio 3-Col',
+        'portfolio-single-1': 'Portfolio Single',
+        'gallery': 'Gallery',
+        'reservations': 'Reservations',
+        'booking': 'Book Online',
+        'pages': 'Template Pages',
+    }
+    if base_clean in standard_titles:
+        return standard_titles[base_clean]
+
+    if html_code:
+        t_m = re.search(r'<title[^>]*>(.*?)</title>', html_code, re.I | re.DOTALL)
+        if t_m:
+            raw_title = t_m.group(1).strip()
+            cleaned = re.sub(r'[\-\|\–\—]\s*[^-\|–—]+$', '', raw_title).strip()
+            if cleaned and 2 < len(cleaned) < 40 and not any(kw in cleaned.lower() for kw in ['untitled', 'document', 'index', '{{']):
+                return cleaned
+
+    return base_clean.replace('-', ' ').replace('_', ' ').title()
 
 
 def find_matching_file(file_ref: str, repo_files: list) -> str:
@@ -876,6 +982,7 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
             js_code = r_js
 
     # 4. Standard HTML website discovery
+    best_file = None
     if not html_code:
         best_file = find_best_homepage_file(repo_files, files_map)
         if best_file:
@@ -887,13 +994,14 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
                 fetched = fetch_raw_github_file(owner, repo_name, actual_branch, cand_path)
                 if fetched and len(fetched.strip()) > 50:
                     html_code = fetched
+                    best_file = cand_path
                     break
 
     # 5. Extract and bundle all CSS files from repository
     if html_code and not css_code:
         css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files, files_map)
 
-    # 6. Rewrite asset URLs, clean Django tags, and auto-tag elements
+    # 6. Rewrite asset URLs, clean Django tags, and auto-tag elements for primary homepage
     if html_code:
         if '{%' in html_code or '{{' in html_code:
             html_code = clean_django_tags(html_code, owner, repo_name, actual_branch, repo_files)
@@ -905,12 +1013,70 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
         if not css_code:
             css_code = fetch_repo_css_files(owner, repo_name, actual_branch, html_code, repo_files, files_map)
 
-    # 7. Fallback only if no valid HTML could be imported from GitHub
+    # 7. Discover and process ALL template HTML pages across the repository
+    all_html_files = [
+        f for f in set(list(repo_files) + list(files_map.keys()))
+        if (f.lower().endswith('.html') or f.lower().endswith('.htm'))
+        and not any(ign in f.lower() for ign in [
+            'node_modules/', 'bower_components/', 'vendor/', 'tests/', 'test/',
+            'examples/', '.github/', 'plugins/demo', 'dist/plugins/'
+        ])
+    ]
+
+    pages_map: Dict[str, Any] = {}
+
+    if html_code:
+        home_key = os.path.basename(best_file) if (best_file and '/' in best_file) else (best_file or 'index.html')
+        pages_map[home_key] = {
+            "filename": home_key,
+            "path": best_file or 'index.html',
+            "title": format_page_title(best_file or 'index.html', html_code),
+            "html": html_code,
+            "is_homepage": True
+        }
+        if 'index.html' not in pages_map:
+            pages_map['index.html'] = {
+                "filename": 'index.html',
+                "path": best_file or 'index.html',
+                "title": 'Home',
+                "html": html_code,
+                "is_homepage": True
+            }
+
+    for f_path in all_html_files:
+        if best_file and (f_path == best_file or f_path.endswith('/' + best_file)):
+            continue
+        p_raw = files_map.get(f_path) or fetch_raw_github_file(owner, repo_name, actual_branch, f_path)
+        if not p_raw or len(p_raw.strip()) < 40:
+            continue
+
+        if '{%' in p_raw or '{{' in p_raw:
+            p_raw = clean_django_tags(p_raw, owner, repo_name, actual_branch, repo_files)
+
+        p_proc = rewrite_html_asset_urls(p_raw, owner, repo_name, actual_branch)
+        p_proc = auto_tag_github_html(p_proc)
+
+        p_base = os.path.basename(f_path)
+        p_title = format_page_title(f_path, p_proc)
+
+        entry = {
+            "filename": p_base,
+            "path": f_path,
+            "title": p_title,
+            "html": p_proc,
+            "is_homepage": False
+        }
+        pages_map[p_base] = entry
+        if f_path != p_base:
+            pages_map[f_path] = entry
+
+    # 8. Fallback only if no valid HTML could be imported from GitHub
     if not html_code or len(html_code) < 100:
-        default_html, default_css, default_js, placeholders = get_default_category_template(category_slug, title, owner, repo_name)
+        default_html, default_css, default_js, placeholders, default_pages = get_default_category_template(category_slug, title, owner, repo_name)
         html_code = default_html
         css_code = default_css if not css_code else css_code + "\n\n" + default_css
         js_code = default_js
+        pages_map = default_pages
     else:
         placeholders = {
             "logo": "{{LOGO_URL}}",
@@ -918,22 +1084,30 @@ def import_source_from_github(owner: str, repo_name: str = '', branch: str = '',
             "hero_image": "{{HERO_IMAGE_URL}}",
             "tagline": "{{TAGLINE}}"
         }
+        if len(pages_map) <= 1:
+            _, _, _, _, default_pages = get_default_category_template(category_slug, title, owner, repo_name)
+            # Merge fallback sub-pages if repo had only 1 page
+            for pk, pv in default_pages.items():
+                if pk not in pages_map and pk != 'index.html':
+                    pages_map[pk] = pv
 
     return {
         "html": html_code,
         "css": css_code,
         "js": js_code,
+        "pages": pages_map,
         "is_imported": bool(html_code and len(html_code) > 150 and 'POWERED BY GITHUB REPO:' not in html_code),
         "default_branch": actual_branch,
         "placeholders": placeholders
     }
 
 
-def get_default_category_template(category_slug: str, title: str, owner: str, repo_name: str) -> Tuple[str, str, str, Dict[str, Any]]:
+def get_default_category_template(category_slug: str, title: str, owner: str, repo_name: str) -> Tuple[str, str, str, Dict[str, Any], Dict[str, Any]]:
     """
-    Returns authentic, distinct HTML/CSS/JS source code for each business category & template as a safety fallback.
+    Returns authentic, distinct HTML/CSS/JS source code and multi-page dictionary for each business category & template as a safety fallback.
     """
     slug = (category_slug or '').lower()
+    pages: Dict[str, Any] = {}
 
     if 'fit' in slug or 'gym' in slug or 'workout' in slug:
         html = """
@@ -945,11 +1119,11 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
                 <span class="fit-brand-text" data-editable="title">{{SITE_TITLE}}</span>
               </div>
               <nav class="fit-nav-links">
-                <a href="#hero">Home</a>
-                <a href="#classes">Classes</a>
-                <a href="#trainers">Trainers</a>
-                <a href="#membership">Membership</a>
-                <a href="#contact">Contact</a>
+                <a href="index.html">Home</a>
+                <a href="classes.html">Classes</a>
+                <a href="trainers.html">Trainers</a>
+                <a href="membership.html">Membership</a>
+                <a href="contact.html">Contact</a>
               </nav>
               <button class="fit-btn-cta">JOIN NOW</button>
             </div>
@@ -1018,6 +1192,17 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
         </div>
         """.replace('{owner}', str(owner)).replace('{repo_name}', str(repo_name))
 
+        about_html = html.replace('<h2>WORKOUT DEPARTMENTS</h2>', '<h2>ABOUT OUR MISSION &amp; STORY</h2>')
+        classes_html = html.replace('<h2>WORKOUT DEPARTMENTS</h2>', '<h2>SCHEDULE &amp; SPECIALTY CLASSES</h2>')
+        contact_html = html.replace('<h2>WORKOUT DEPARTMENTS</h2>', '<h2>GET IN TOUCH &amp; VISIT US</h2>')
+
+        pages = {
+            "index.html": { "filename": "index.html", "title": "Home", "html": html, "is_homepage": True },
+            "classes.html": { "filename": "classes.html", "title": "Classes & Programs", "html": classes_html, "is_homepage": False },
+            "about.html": { "filename": "about.html", "title": "About Us", "html": about_html, "is_homepage": False },
+            "contact.html": { "filename": "contact.html", "title": "Contact Us", "html": contact_html, "is_homepage": False }
+        }
+
         css = """
         .fit-template-root { font-family: 'Inter', sans-serif; background: #0a0a0f; color: #ffffff; width: 100%; margin: 0; padding: 0; box-sizing: border-box; }
         .fit-container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
@@ -1066,10 +1251,11 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
                 <span class="bistro-title" data-editable="title">{{SITE_TITLE}}</span>
               </div>
               <div class="bistro-menu-items">
-                <a href="#about">Story</a>
-                <a href="#menu">Chef Menu</a>
-                <a href="#cellar">Wine Cellar</a>
-                <a href="#reservations">Reservations</a>
+                <a href="index.html">Home</a>
+                <a href="story.html">Story</a>
+                <a href="menu.html">Chef Menu</a>
+                <a href="reservations.html">Reservations</a>
+                <a href="contact.html">Contact</a>
               </div>
               <button class="bistro-btn-gold">BOOK A TABLE</button>
             </div>
@@ -1136,6 +1322,17 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
         </div>
         """.replace('{owner}', str(owner)).replace('{repo_name}', str(repo_name))
 
+        menu_html = html.replace('<h2>CHEF SIGNATURE SPECIALS</h2>', '<h2>COMPLETE A LA CARTE MENU &amp; TASTINGS</h2>')
+        story_html = html.replace('<h2>CHEF SIGNATURE SPECIALS</h2>', '<h2>OUR HERITAGE &amp; CULINARY PASSION</h2>')
+        contact_html = html.replace('<h2>CHEF SIGNATURE SPECIALS</h2>', '<h2>RESERVATIONS &amp; LOCATION</h2>')
+
+        pages = {
+            "index.html": { "filename": "index.html", "title": "Home", "html": html, "is_homepage": True },
+            "menu.html": { "filename": "menu.html", "title": "Chef Menu", "html": menu_html, "is_homepage": False },
+            "story.html": { "filename": "story.html", "title": "Our Story", "html": story_html, "is_homepage": False },
+            "contact.html": { "filename": "contact.html", "title": "Contact & Location", "html": contact_html, "is_homepage": False }
+        }
+
         css = """
         .bistro-template-root { font-family: 'Playfair Display', Georgia, serif; background: #120e0b; color: #f4e8d3; width: 100%; margin: 0; padding: 0; }
         .bistro-container { max-width: 1140px; margin: 0 auto; padding: 0 1.5rem; }
@@ -1181,10 +1378,11 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
                 <span class="saas-title" data-editable="title">{{SITE_TITLE}}</span>
               </div>
               <div class="saas-links">
-                <a href="#features">Features</a>
-                <a href="#solutions">Solutions</a>
-                <a href="#pricing">Pricing</a>
-                <a href="#docs">Documentation</a>
+                <a href="index.html">Home</a>
+                <a href="features.html">Features</a>
+                <a href="solutions.html">Solutions</a>
+                <a href="pricing.html">Pricing</a>
+                <a href="contact.html">Contact</a>
               </div>
               <div class="saas-actions">
                 <button class="saas-btn-ghost">Sign In</button>
@@ -1247,6 +1445,17 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
         </div>
         """.replace('{owner}', str(owner)).replace('{repo_name}', str(repo_name))
 
+        features_html = html.replace('<h2>ENTERPRISE INFRASTRUCTURE</h2>', '<h2>ADVANCED CLOUD CAPABILITIES &amp; INTEGRATIONS</h2>')
+        pricing_html = html.replace('<h2>ENTERPRISE INFRASTRUCTURE</h2>', '<h2>FLEXIBLE TRANSPARENT PRICING PLANS</h2>')
+        contact_html = html.replace('<h2>ENTERPRISE INFRASTRUCTURE</h2>', '<h2>TALK TO OUR ENGINEERING TEAM</h2>')
+
+        pages = {
+            "index.html": { "filename": "index.html", "title": "Home", "html": html, "is_homepage": True },
+            "features.html": { "filename": "features.html", "title": "Features", "html": features_html, "is_homepage": False },
+            "pricing.html": { "filename": "pricing.html", "title": "Pricing", "html": pricing_html, "is_homepage": False },
+            "contact.html": { "filename": "contact.html", "title": "Contact", "html": contact_html, "is_homepage": False }
+        }
+
         css = """
         .saas-template-root { font-family: 'Inter', system-ui, sans-serif; background: #090d16; color: #f8fafc; width: 100%; margin: 0; padding: 0; }
         .saas-container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
@@ -1293,4 +1502,4 @@ def get_default_category_template(category_slug: str, title: str, owner: str, re
         "contact_phone": "{{CONTACT_PHONE}}"
     }
 
-    return html.strip(), css.strip(), js.strip(), placeholders
+    return html.strip(), css.strip(), js.strip(), placeholders, pages

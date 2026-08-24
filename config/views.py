@@ -426,6 +426,47 @@ def apply_user_details_to_template(raw_html, raw_css, details):
 
     return html, css
 
+
+def apply_user_details_to_pages(pages_dict, raw_css, details):
+    """
+    Applies user branding, logo, hero banner, image pool, contact details,
+    and AI copywriting across EVERY page in the template pages dictionary.
+    """
+    if not pages_dict:
+        return {}, raw_css or ''
+
+    customized_pages = {}
+    edited_css = raw_css or ''
+
+    for page_key, page_info in pages_dict.items():
+        if isinstance(page_info, dict):
+            page_raw_html = page_info.get('html', '')
+            page_title = page_info.get('title', page_key)
+            page_filename = page_info.get('filename', page_key)
+            page_is_home = page_info.get('is_homepage', False)
+        else:
+            page_raw_html = str(page_info)
+            page_title = page_key
+            page_filename = page_key
+            page_is_home = (page_key == 'index.html')
+
+        try:
+            page_edited_html, css_res = apply_user_details_to_template(page_raw_html, raw_css, details)
+            if css_res:
+                edited_css = css_res
+        except Exception:
+            page_edited_html = page_raw_html
+
+        customized_pages[page_key] = {
+            "filename": page_filename,
+            "title": page_title,
+            "html": page_edited_html,
+            "is_homepage": page_is_home
+        }
+
+    return customized_pages, edited_css
+
+
 # Fallback Business Niche Data if Database is empty before migration/seeding
 BUSINESS_TYPES_DATA = [
     {
@@ -868,30 +909,51 @@ def generate_website(request):
             raw_html = tpl.source_code_html or f"<div style='padding:3rem;text-align:center;'><h1>{business_name}</h1><p>{final_tagline}</p></div>"
             raw_css = tpl.source_code_css or ""
             raw_js = tpl.source_code_js or ""
+            raw_pages = getattr(tpl, 'pages', None) or {}
+            if not raw_pages and raw_html:
+                raw_pages = {
+                    "index.html": {
+                        "filename": "index.html",
+                        "title": "Home",
+                        "html": raw_html,
+                        "is_homepage": True
+                    }
+                }
+
+            user_details_payload = {
+                'business_name': business_name,
+                'business_description': business_description,
+                'category_name': category_name or business_type_id,
+                'logo_url': t_logo_url,
+                'logo_type': t_logo_type,
+                'hero_image_url': hero_image_url,
+                'images': images_by_role,
+                'image_pool': image_pool,
+                'contact_email': final_email,
+                'contact_phone': final_phone,
+                'tagline': final_tagline,
+                'primary_color': final_color,
+                'ai_content': ai_content,
+            }
 
             try:
                 t_edited_html, t_edited_css = apply_user_details_to_template(
                     raw_html,
                     raw_css,
-                    {
-                        'business_name': business_name,
-                        'business_description': business_description,
-                        'category_name': category_name or business_type_id,
-                        'logo_url': t_logo_url,
-                        'logo_type': t_logo_type,
-                        'hero_image_url': hero_image_url,
-                        'images': images_by_role,
-                        'image_pool': image_pool,
-                        'contact_email': final_email,
-                        'contact_phone': final_phone,
-                        'tagline': final_tagline,
-                        'primary_color': final_color,
-                        'ai_content': ai_content,
-                    }
+                    user_details_payload
                 )
             except Exception:
                 t_edited_html = raw_html
                 t_edited_css = raw_css
+
+            try:
+                customized_pages, _ = apply_user_details_to_pages(
+                    raw_pages,
+                    raw_css,
+                    user_details_payload
+                )
+            except Exception:
+                customized_pages = raw_pages
 
             cat_price = db_cat.price if (db_cat and hasattr(db_cat, 'price')) else 499
             item = {
@@ -920,6 +982,7 @@ def generate_website(request):
                 "source_code_html": t_edited_html or raw_html,
                 "source_code_css": t_edited_css or raw_css,
                 "source_code_js": raw_js,
+                "pages": customized_pages,
                 "content": {
                     "business_name": business_name,
                     "business_description": business_description,
@@ -933,6 +996,7 @@ def generate_website(request):
                     "contact_email": final_email,
                     "contact_phone": final_phone,
                     "ai_content": ai_content,
+                    "pages": customized_pages,
                     "hero": ai_content.get('hero', {}),
                     "about": ai_content.get('about', {}),
                     "services": ai_content.get('services_or_products', matched_preset['default_services']),
@@ -967,7 +1031,8 @@ def generate_website(request):
                 content_data=primary_data['content'],
                 source_code_html=primary_data['source_code_html'],
                 source_code_css=primary_data['source_code_css'],
-                source_code_js=primary_data['source_code_js']
+                source_code_js=primary_data['source_code_js'],
+                pages=primary_data.get('pages', {})
             )
         except Exception:
             pass
@@ -1167,6 +1232,7 @@ def import_github_template(request):
                 "source_code_html": imp_data.get('html', ''),
                 "source_code_css": imp_data.get('css', ''),
                 "source_code_js": imp_data.get('js', ''),
+                "pages": imp_data.get('pages', {}),
                 "editable_placeholders": imp_data.get('placeholders', {}),
                 "is_imported": imp_data.get('is_imported', True)
             }
@@ -1279,6 +1345,7 @@ def generate_from_github_template(request):
     if not db_tpl:
         db_tpl = GitHubTemplate.objects.filter(owner__iexact=owner, repo_name__iexact=repo_name).first()
 
+    raw_pages = {}
     if db_tpl:
         is_fallback_stock = (
             not db_tpl.source_code_html
@@ -1288,6 +1355,7 @@ def generate_from_github_template(request):
             or 'bistro-template-root' in db_tpl.source_code_html
             or 'POWERED BY GITHUB REPO:' in db_tpl.source_code_html
             or not db_tpl.is_imported
+            or not getattr(db_tpl, 'pages', None)
         )
         if is_fallback_stock:
             imp = import_source_from_github(
@@ -1302,6 +1370,7 @@ def generate_from_github_template(request):
                 db_tpl.source_code_html = imp['html']
                 db_tpl.source_code_css = imp['css']
                 db_tpl.source_code_js = imp['js']
+                db_tpl.pages = imp.get('pages', {})
                 db_tpl.is_imported = imp.get('is_imported', True)
                 if imp.get('default_branch'):
                     db_tpl.default_branch = imp.get('default_branch')
@@ -1309,12 +1378,23 @@ def generate_from_github_template(request):
         html_src = db_tpl.source_code_html
         css_src = db_tpl.source_code_css
         js_src = db_tpl.source_code_js
+        raw_pages = getattr(db_tpl, 'pages', None) or {}
     else:
         imp = import_source_from_github(owner, repo_name, branch, '', business_name, repo_url=repo_url)
         html_src = imp['html']
         css_src = imp['css']
         js_src = imp['js']
+        raw_pages = imp.get('pages', {})
 
+    if not raw_pages and html_src:
+        raw_pages = {
+            "index.html": {
+                "filename": "index.html",
+                "title": "Home",
+                "html": html_src,
+                "is_homepage": True
+            }
+        }
 
     # Generate AI Copywriting Context
     from .ai_service import generate_business_content
@@ -1325,25 +1405,36 @@ def generate_from_github_template(request):
         tagline=tagline
     )
 
+    user_details_payload = {
+        'business_name': business_name,
+        'business_description': business_description,
+        'category_name': f"{owner} {repo_name}",
+        'logo_url': logo_url,
+        'hero_image_url': hero_image_url,
+        'images': images_by_role,
+        'image_pool': image_pool,
+        'contact_email': contact_email,
+        'contact_phone': contact_phone,
+        'tagline': tagline,
+        'primary_color': primary_color,
+        'ai_content': ai_content,
+    }
+
     # Backend editing of imported GitHub template with user details & AI copy
     edited_html, edited_css = apply_user_details_to_template(
         html_src,
         css_src,
-        {
-            'business_name': business_name,
-            'business_description': business_description,
-            'category_name': f"{owner} {repo_name}",
-            'logo_url': logo_url,
-            'hero_image_url': hero_image_url,
-            'images': images_by_role,
-            'image_pool': image_pool,
-            'contact_email': contact_email,
-            'contact_phone': contact_phone,
-            'tagline': tagline,
-            'primary_color': primary_color,
-            'ai_content': ai_content,
-        }
+        user_details_payload
     )
+
+    try:
+        customized_pages, _ = apply_user_details_to_pages(
+            raw_pages,
+            css_src,
+            user_details_payload
+        )
+    except Exception:
+        customized_pages = raw_pages
 
     generated_website = {
         "website_id": f"gh_web_{uuid.uuid4().hex[:10]}",
@@ -1366,6 +1457,7 @@ def generate_from_github_template(request):
         "source_code_html": edited_html,
         "source_code_css": edited_css,
         "source_code_js": js_src,
+        "pages": customized_pages,
         "content": {
             "business_name": business_name,
             "business_description": business_description,
@@ -1378,6 +1470,7 @@ def generate_from_github_template(request):
             "contact_email": contact_email,
             "contact_phone": contact_phone,
             "ai_content": ai_content,
+            "pages": customized_pages,
             "hero": ai_content.get('hero', {}),
             "about": ai_content.get('about', {}),
             "services": ai_content.get('services_or_products', []),
@@ -1387,7 +1480,6 @@ def generate_from_github_template(request):
             "cta_banner": ai_content.get('cta_banner', {})
         }
     }
-
 
     try:
         GeneratedWebsite.objects.create(
@@ -1402,7 +1494,8 @@ def generate_from_github_template(request):
             content_data=generated_website['content'],
             source_code_html=html_src,
             source_code_css=css_src,
-            source_code_js=js_src
+            source_code_js=js_src,
+            pages=customized_pages
         )
     except Exception:
         pass
@@ -1417,7 +1510,7 @@ def generate_from_github_template(request):
 @api_view(['GET', 'POST'])
 def get_github_template_source(request):
     """
-    Endpoint to retrieve imported source code (HTML, CSS, JS) for a given template.
+    Endpoint to retrieve imported source code (HTML, CSS, JS) and all pages for a given template.
     Matches strictly by ID first, Repo URL second, Category slug third.
     """
     repo_url = request.GET.get('repo_url') or (request.data.get('repo_url') if request.data else None)
@@ -1460,6 +1553,7 @@ def get_github_template_source(request):
             or 'bistro-template-root' in db_tpl.source_code_html
             or 'POWERED BY GITHUB REPO:' in db_tpl.source_code_html
             or not db_tpl.is_imported
+            or not getattr(db_tpl, 'pages', None)
         )
         if is_fallback_stock:
             from .github_importer import import_source_from_github
@@ -1475,11 +1569,23 @@ def get_github_template_source(request):
                 db_tpl.source_code_html = imp['html']
                 db_tpl.source_code_css = imp['css']
                 db_tpl.source_code_js = imp['js']
+                db_tpl.pages = imp.get('pages', {})
                 db_tpl.editable_placeholders = imp.get('placeholders', {})
                 db_tpl.is_imported = imp.get('is_imported', True)
                 if imp.get('default_branch'):
                     db_tpl.default_branch = imp.get('default_branch')
                 db_tpl.save()
+
+        raw_pages = getattr(db_tpl, 'pages', None) or {}
+        if not raw_pages and db_tpl.source_code_html:
+            raw_pages = {
+                "index.html": {
+                    "filename": "index.html",
+                    "title": "Home",
+                    "html": db_tpl.source_code_html,
+                    "is_homepage": True
+                }
+            }
 
         return Response({
             "success": True,
@@ -1492,6 +1598,7 @@ def get_github_template_source(request):
                 "source_code_html": db_tpl.source_code_html,
                 "source_code_css": db_tpl.source_code_css,
                 "source_code_js": db_tpl.source_code_js,
+                "pages": raw_pages,
                 "editable_placeholders": db_tpl.editable_placeholders
             }
         }, status=status.HTTP_200_OK)
