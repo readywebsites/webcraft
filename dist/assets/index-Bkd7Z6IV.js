@@ -552,12 +552,38 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // 5.5. Full-Page AI Semantic Copywriting Live Injection
+            // 5.5. Full-Page Length-Aware & Semantic AI Copywriting Live Injection
             var aiContent = ${JSON.stringify(r.ai_content||null)};
             var heroObj = ${JSON.stringify(r.hero||null)} || (aiContent ? aiContent.hero : null);
             var aboutObj = ${JSON.stringify(r.about||null)} || (aiContent ? aiContent.about : null);
-            var servicesArr = ${JSON.stringify(r.services||null)} || (aiContent ? (aiContent.services_or_products || aiContent.services) : null);
-            var testimonialsArr = ${JSON.stringify(r.testimonials||null)} || (aiContent ? aiContent.testimonials : null);
+            var servicesArr = ${JSON.stringify(r.services||null)} || (aiContent ? (aiContent.services_or_products || aiContent.services) : null) || [];
+            var faqsArr = ${JSON.stringify(r.faqs||null)} || (aiContent ? aiContent.faqs : null) || [];
+            var testimonialsArr = ${JSON.stringify(r.testimonials||null)} || (aiContent ? aiContent.testimonials : null) || [];
+            var statsArr = ${JSON.stringify(r.stats||null)} || (aiContent ? aiContent.stats : null) || [];
+            var microTagsArr = ${JSON.stringify(r.micro_tags||null)} || (aiContent ? aiContent.micro_tags : null) || [
+              "Fresh Daily", "Artisanal", "Best Seller", "Organic", "Handcrafted", "Signature", "Top Choice", "Pure Quality"
+            ];
+            var shortTitlesArr = ${JSON.stringify(r.short_titles||null)} || (aiContent ? aiContent.short_titles : null) || [
+              "Our Story", "Signature Offerings", "Why Choose Us", "Customer Reviews", "Frequently Asked Questions", "Get in Touch"
+            ];
+
+            if (faqsArr.length === 0) {
+              faqsArr = [
+                { question: "What makes " + busTitle + " unique?", answer: "We combine premium quality ingredients, rigorous standards, and personalized service tailored directly to your needs." },
+                { question: "How can I place an order or book a service?", answer: "You can easily order online through our website or reach out directly to our team via phone or email." },
+                { question: "Do you offer custom options or special requests?", answer: "Yes! We are delighted to accommodate custom orders and bespoke requests. Simply get in touch with our team." },
+                { question: "What is your satisfaction guarantee?", answer: "We stand behind all our offerings with a complete commitment to your total delight and satisfaction." }
+              ];
+            }
+
+            if (statsArr.length === 0) {
+              statsArr = [
+                { number: "100%", label: "Customer Delight" },
+                { number: "15k+", label: "Happy Clients" },
+                { number: "4.9/5", label: "Google Reviews" },
+                { number: "Daily", label: "Fresh Craft" }
+              ];
+            }
 
             var sectionHeadings = [
               (aboutObj && aboutObj.title) || ("About " + busTitle),
@@ -565,8 +591,16 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               "Why Choose " + busTitle,
               "What Our Customers Say",
               "Our Core Features & Highlights",
-              "Visit Us & Get in Touch",
-              (heroObj && heroObj.headline) || busTagline
+              "Visit Us & Get in Touch"
+            ];
+
+            var mediumPhrases = [
+              (aboutObj && aboutObj.subtitle) || "Craftsmanship & Passion",
+              busTagline || "Exceptional quality and dedicated service",
+              "Handcrafted with precision and passion daily",
+              "Rooted in tradition and unwavering quality",
+              "Dedicated to providing an unforgettable experience",
+              "Discover our finest seasonal selections"
             ];
 
             var domainParas = [
@@ -575,50 +609,144 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               "Every single offering at " + busTitle + " is crafted with extreme precision and dedicated attention to detail.",
               "We take immense pride in our craftsmanship and unwavering dedication to customer satisfaction."
             ];
-            if (servicesArr && servicesArr.length > 0) {
-              servicesArr.forEach(function(s) { if (s.desc || s.description) domainParas.push(s.desc || s.description); });
-            }
 
-            // Headings & Title Elements sweep
-            var titleSelectors = 'h1, h2, h3, h4, h5, h6, .title, .card-title, .product-title, .service-title, .item-title, .item-name, .entry-title, .post-title, .box-title, .tp-caption, .slide-title, .banner-title, .ps-product__title, .collection__category, [class*="item-title"], [class*="card-title"], [class*="product-title"], [class*="service-title"], [class*="product-name"], [class*="service-name"]';
-            var allTitles = document.querySelectorAll(titleSelectors);
-            var hIdx = 0;
-            var cardHIdx = 0;
-            allTitles.forEach(function(h) {
-              if (h.closest('script, style, head')) return;
-              if (h.querySelector('img, svg') && !h.textContent.trim()) return;
-              var hClasses = (h.className || '').toLowerCase();
-              if (hClasses.indexOf('copyright') !== -1 || hClasses.indexOf('email') !== -1 || hClasses.indexOf('phone') !== -1 || hClasses.indexOf('logo') !== -1) return;
+            var processedDOMElements = new Set();
 
-              var targetHText = "";
-              if (h.tagName === 'H1' || hClasses.indexOf('banner-title') !== -1 || hClasses.indexOf('hero') !== -1) {
-                targetHText = (heroObj && heroObj.headline) || busTitle;
-              } else {
-                var parentCard = h.closest('.card, .item, .box, .col, .grid, .product, .service, .feature, .pricing, .collection, .menu');
-                if (parentCard && servicesArr && cardHIdx < servicesArr.length) {
-                  var itm = servicesArr[cardHIdx];
-                  if (itm.title) targetHText = itm.title;
-                  cardHIdx++;
-                } else if (sectionHeadings.length > 0) {
-                  targetHText = sectionHeadings[hIdx % sectionHeadings.length];
-                  hIdx++;
+            // Step 1: FAQs & Accordions Paired Replacement (Question + Answer)
+            var faqCards = document.querySelectorAll('.accordion-item, .faq-item, .accordion-card, .toggle, .panel, dl, [class*="faq-item"], [class*="accordion-item"]');
+            var topFaqCards = [];
+            faqCards.forEach(function(fc) {
+              var isNested = false;
+              for (var i = 0; i < faqCards.length; i++) {
+                if (faqCards[i] !== fc && faqCards[i].contains(fc)) {
+                  isNested = true;
+                  break;
                 }
               }
+              if (!isNested) topFaqCards.push(fc);
+            });
 
-              if (targetHText) {
-                var innerA = h.querySelector('a');
-                var innerSpan = h.querySelector('span');
-                if (innerA) {
-                  innerA.textContent = targetHText;
-                } else if (innerSpan && !innerSpan.querySelector('img, svg')) {
-                  innerSpan.textContent = targetHText;
+            topFaqCards.forEach(function(fEl, fIdx) {
+              var fData = faqsArr[fIdx % faqsArr.length];
+              var qEl = fEl.querySelector('.accordion-button, .faq-question, .question, dt, .toggle-title, [data-bs-toggle="collapse"], [data-toggle="collapse"], .card-header h4, .card-header h5, .panel-title, h4, h5');
+              var aEl = fEl.querySelector('.accordion-body, .faq-answer, .answer, dd, .card-body, .panel-body, .toggle-content, .collapse p, p');
+
+              if (qEl && !processedDOMElements.has(qEl)) {
+                var innerBtn = qEl.querySelector('button, a');
+                if (innerBtn) {
+                  innerBtn.textContent = fData.question;
+                  processedDOMElements.add(innerBtn);
                 } else {
-                  h.textContent = targetHText;
+                  qEl.textContent = fData.question;
+                }
+                processedDOMElements.add(qEl);
+              }
+
+              if (aEl && aEl !== qEl && !processedDOMElements.has(aEl)) {
+                aEl.textContent = fData.answer;
+                processedDOMElements.add(aEl);
+              }
+            });
+
+            // Step 2: Card-Level Unified Semantic Replacement (Title + Desc + Tag + Price)
+            var cardSelectors = '.card, .product, .service, .item, .feature, [class*="service-item"], [class*="product-item"], [class*="feature-box"], [class*="ps-product"], [class*="pricing-card"]';
+            var rawCards = document.querySelectorAll(cardSelectors);
+            var topCards = [];
+            rawCards.forEach(function(c) {
+              var isNested = false;
+              for (var i = 0; i < rawCards.length; i++) {
+                if (rawCards[i] !== c && rawCards[i].contains(c)) {
+                  isNested = true;
+                  break;
+                }
+              }
+              if (!isNested && topFaqCards.indexOf(c) === -1) topCards.push(c);
+            });
+
+            topCards.forEach(function(cardEl, cIdx) {
+              if (servicesArr.length === 0) return;
+              var itmData = servicesArr[cIdx % servicesArr.length];
+
+              // Title in Card
+              var titleEl = cardEl.querySelector('h2, h3, h4, h5, h6, .title, .item-title, .product-title, .service-title');
+              if (titleEl && !processedDOMElements.has(titleEl)) {
+                var innerA = titleEl.querySelector('a');
+                if (innerA) {
+                  innerA.textContent = itmData.title;
+                  processedDOMElements.add(innerA);
+                } else {
+                  titleEl.textContent = itmData.title;
+                }
+                processedDOMElements.add(titleEl);
+              }
+
+              // Tag / Badge in Card
+              var badgeEl = cardEl.querySelector('.tag, .badge, .card-tag, .tag-badge, .cat-name, .collection__category');
+              if (badgeEl && !processedDOMElements.has(badgeEl)) {
+                badgeEl.textContent = itmData.tag || microTagsArr[cIdx % microTagsArr.length];
+                processedDOMElements.add(badgeEl);
+              }
+
+              // Price in Card
+              var priceEl = cardEl.querySelector('.price, .bistro-price, .cost, .amount, [class*="price"]');
+              if (priceEl && !processedDOMElements.has(priceEl) && itmData.price) {
+                priceEl.textContent = itmData.price;
+                processedDOMElements.add(priceEl);
+              }
+
+              // Description in Card (Strictly Paired with Title!)
+              var descEl = cardEl.querySelector('p');
+              if (descEl && !processedDOMElements.has(descEl)) {
+                var oLen = (descEl.textContent || '').trim().length;
+                if (oLen <= 25) {
+                  descEl.textContent = itmData.tag || microTagsArr[cIdx % microTagsArr.length];
+                } else {
+                  descEl.textContent = itmData.desc || itmData.description || "";
+                }
+                processedDOMElements.add(descEl);
+              }
+
+              // Button in Card
+              var btnEl = cardEl.querySelector('button, a.btn, a[class*="btn"]');
+              if (btnEl && !processedDOMElements.has(btnEl)) {
+                var bTxt = (btnEl.textContent || '').trim();
+                if (bTxt.length <= 25) {
+                  btnEl.textContent = bTxt.toLowerCase().indexOf('order') !== -1 ? "Order Now" : "View Details";
+                  processedDOMElements.add(btnEl);
                 }
               }
             });
 
-            // Navigation Menu sanitizer
+            // Step 3: Stats & Counters (Number + Short 1-3 Word Label)
+            var statBlocks = document.querySelectorAll('.stat, .counter, .funfact, .achievement, .count-box, [class*="stat"], [class*="counter"]');
+            var topStats = [];
+            statBlocks.forEach(function(sb) {
+              var isNested = false;
+              for (var i = 0; i < statBlocks.length; i++) {
+                if (statBlocks[i] !== sb && statBlocks[i].contains(sb)) {
+                  isNested = true;
+                  break;
+                }
+              }
+              if (!isNested) topStats.push(sb);
+            });
+
+            topStats.forEach(function(sEl, sIdx) {
+              var sData = statsArr[sIdx % statsArr.length];
+              var numEl = sEl.querySelector('.counter-value, .number, [data-to], h2, h3, h4, strong');
+              var labelEl = sEl.querySelector('p, span, h5, h6, .counter-title, .label, .stat-title');
+
+              if (numEl && !processedDOMElements.has(numEl)) {
+                numEl.textContent = sData.number;
+                processedDOMElements.add(numEl);
+              }
+              if (labelEl && labelEl !== numEl && !processedDOMElements.has(labelEl)) {
+                labelEl.textContent = sData.label;
+                processedDOMElements.add(labelEl);
+              }
+            });
+
+            // Step 4: Navigation Menu Sanitizer
             var navLabels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"];
             var navIdx = 0;
             document.querySelectorAll('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a').forEach(function(na) {
@@ -627,43 +755,83 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 na.textContent = navLabels[navIdx % navLabels.length];
                 navIdx++;
               }
+              processedDOMElements.add(na);
             });
 
-            // Paragraphs sweep
+            // Step 5: Remaining Headings & Title Elements (Length-Aware)
+            var titleSelectors = 'h1, h2, h3, h4, h5, h6, .title, .sub-title, .subtitle, .section-title, .tp-caption, .slide-title, .banner-title';
+            var allTitles = document.querySelectorAll(titleSelectors);
+            var hIdx = 0;
+            allTitles.forEach(function(h) {
+              if (processedDOMElements.has(h)) return;
+              if (h.closest('script, style, head, nav, footer, .copyright')) return;
+              if (h.querySelector('img, svg') && !h.textContent.trim()) return;
+              var hClasses = (h.className || '').toLowerCase();
+              if (/(?:copyright|email|phone|logo|brand)/i.test(hClasses)) return;
+
+              var oTxt = (h.textContent || '').trim();
+              if (!oTxt || oTxt.length < 2) return;
+              var oWords = oTxt.split(/\s+/).length;
+              var oLen = oTxt.length;
+
+              var targetHText = "";
+              if (h.tagName === 'H1' || hClasses.indexOf('banner-title') !== -1 || hClasses.indexOf('hero') !== -1) {
+                targetHText = (heroObj && heroObj.headline) || busTitle;
+              } else if (oWords <= 3 || oLen <= 25) {
+                targetHText = microTagsArr[hIdx % microTagsArr.length];
+              } else if (oWords <= 6 || oLen <= 45) {
+                targetHText = shortTitlesArr[hIdx % shortTitlesArr.length];
+              } else {
+                targetHText = sectionHeadings[hIdx % sectionHeadings.length];
+              }
+              hIdx++;
+
+              var innerA = h.querySelector('a');
+              var innerSpan = h.querySelector('span');
+              if (innerA) {
+                innerA.textContent = targetHText;
+                processedDOMElements.add(innerA);
+              } else if (innerSpan && !innerSpan.querySelector('img, svg')) {
+                innerSpan.textContent = targetHText;
+                processedDOMElements.add(innerSpan);
+              } else {
+                h.textContent = targetHText;
+              }
+              processedDOMElements.add(h);
+            });
+
+            // Step 6: Remaining Paragraphs (<p>) (Strict Length Budgeting)
             var allP = document.querySelectorAll('p');
             var pIdx = 0;
-            var cardPIdx = 0;
             allP.forEach(function(p) {
+              if (processedDOMElements.has(p)) return;
               if (p.closest('script, style, head, .copyright, footer')) return;
-              var parentCard = p.closest('.card, .item, .box, .col, .grid, .product, .service, .feature, .pricing');
-              if (parentCard && servicesArr && cardPIdx < servicesArr.length) {
-                var itm = servicesArr[cardPIdx];
-                if (itm.desc || itm.description) p.textContent = itm.desc || itm.description;
-                cardPIdx++;
-              } else if (domainParas.length > 0) {
+              var pClasses = (p.className || '').toLowerCase();
+              if (/(?:copyright|email|phone|logo|brand|price|author|date|time)/i.test(pClasses)) return;
+
+              var oTxt = (p.textContent || '').trim();
+              if (!oTxt || oTxt.length < 2) return;
+              var oWords = oTxt.split(/\s+/).length;
+              var oLen = oTxt.length;
+
+              if (oWords <= 3 || oLen <= 25) {
+                // Tier 1: 1-3 words micro label (NEVER a long sentence!)
+                p.textContent = microTagsArr[pIdx % microTagsArr.length];
+              } else if (oWords <= 8 || oLen <= 65) {
+                // Tier 2: 4-8 words short subtitle / lead phrase
+                p.textContent = mediumPhrases[pIdx % mediumPhrases.length];
+              } else if (oWords <= 20 || oLen <= 140) {
+                // Tier 3: Medium sentence
+                p.textContent = (servicesArr.length > 0 ? servicesArr[pIdx % servicesArr.length].desc : mediumPhrases[pIdx % mediumPhrases.length]) || "";
+              } else {
+                // Tier 4: Genuine narrative paragraph
                 p.textContent = domainParas[pIdx % domainParas.length];
-                pIdx++;
               }
+              pIdx++;
+              processedDOMElements.add(p);
             });
 
-            // Badges & Pricing sweep
-            if (servicesArr && servicesArr.length > 0) {
-              var cardSelectors = '.fit-card, .bistro-menu-card, .saas-feature-card, .service-card, .product-card, .card, .service-item, .product-item, .ps-product, .feature-box';
-              var foundCards = document.querySelectorAll(cardSelectors);
-              if (!foundCards || foundCards.length === 0) {
-                foundCards = document.querySelectorAll('.grid > div, .row > div');
-              }
-              foundCards.forEach(function(card, idx) {
-                if (idx < servicesArr.length) {
-                  var item = servicesArr[idx];
-                  var tagEl = card.querySelector('.tag, .badge, .card-tag');
-                  if (tagEl && item.tag) tagEl.textContent = item.tag;
-                  var priceEl = card.querySelector('.price, .bistro-price');
-                  if (priceEl && item.price) priceEl.textContent = item.price;
-                }
-              });
-            }
-
+            // Step 7: Testimonials & Reviews
             if (testimonialsArr && testimonialsArr.length > 0) {
               var tCards = document.querySelectorAll('.testimonial, .testimonial-item, .quote-item, .review, blockquote');
               tCards.forEach(function(tc, idx) {
@@ -678,6 +846,23 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 }
               });
             }
+
+            // Step 8: Action Buttons & CTAs (Concise 1-3 Words)
+            var ctaBtns = document.querySelectorAll('button, a.btn, a[class*="btn"], a[class*="button"], a.cta');
+            var ctaLabels = [(heroObj && heroObj.cta_primary) || "Get Started", (heroObj && heroObj.cta_secondary) || "Explore More", "Order Online", "Book Now", "View Details"];
+            var ctaIdx = 0;
+            ctaBtns.forEach(function(btn) {
+              if (processedDOMElements.has(btn)) return;
+              if (btn.closest('nav, .navbar-nav, .social, .social-links')) return;
+              if (btn.querySelector('img, svg') && !btn.textContent.trim()) return;
+
+              var bTxt = (btn.textContent || '').trim();
+              if (bTxt && bTxt.length <= 30) {
+                btn.textContent = ctaLabels[ctaIdx % ctaLabels.length];
+                ctaIdx++;
+                processedDOMElements.add(btn);
+              }
+            });
 
             // 6. Dismiss any lingering preloaders
             document.querySelectorAll('.ps-loading, .loading, .is-loading, .preloader, .page-loader, #preloader, #page-loader').forEach(function(p) {
