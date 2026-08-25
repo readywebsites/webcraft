@@ -930,17 +930,16 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var heroHeadIdx = 0;
 
             document.querySelectorAll(
-              '.hero, .hero-section, .hero-area, .banner, .banner-section, .banner-area, ' +
-              '.slider, .slider-area, .main-slider, .home-slider, .masthead, .intro, .intro-section, ' +
+              '.hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, .masthead, .intro-section, ' +
               '.showcase, .welcome-section, .rev_slider, .swiper-container, .swiper, .carousel, ' +
-              '#hero, #banner, #home, #intro, [class*="hero"], [class*="banner"], [class*="slider"], ' +
-              '[class*="masthead"], [class*="intro"], header + section, header + div, nav + section, ' +
-              'nav + div, main > section:first-child, body > section:first-child, body > div:first-child'
+              '#hero, #home, #intro, #home-hero-container, [class*="hero-"], [class*="slider-"], [class*="masthead"], ' +
+              'main > section:first-child, main > div:first-child'
             ).forEach(function(hSec) {
-              if (hSec.closest('nav, footer') || /(?:footer|sidebar|client|partner)/i.test(hSec.className || '')) return;
+              if (hSec.closest('header, nav, footer, aside, [id*="banner-container"], [id*="header-container"], [id*="navbar-container"], [class*="announcement"], [class*="top-bar"], [class*="header"]') || /(?:footer|sidebar|client|partner|announcement|header|navbar|top-bar)/i.test(hSec.className || '')) return;
+              if (/(?:banner-container|header-container|navbar-container|announcement)/i.test(hSec.id || '')) return;
 
               hSec.querySelectorAll('h1, h2, h3, div, span').forEach(function(ht) {
-                if (processedDOMElements.has(ht) || ht.closest('nav, footer')) return;
+                if (processedDOMElements.has(ht) || ht.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container')) return;
                 var cls = (ht.className || '').toLowerCase();
                 var tag = ht.tagName;
                 if (tag === 'H1' || /(?:title|heading|caption|lead-in)/i.test(cls)) {
@@ -958,18 +957,24 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
 
               var heroSub = hSec.querySelector('p, div.subtitle, span.subtitle, .hero-text, .lead');
-              if (heroSub && !processedDOMElements.has(heroSub) && !heroSub.closest('nav, footer')) {
+              if (heroSub && !processedDOMElements.has(heroSub) && !heroSub.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container')) {
                 heroSub.textContent = (heroObj && heroObj.subheadline) || busTagline || "";
                 processedDOMElements.add(heroSub);
               }
 
               var heroBadge = hSec.querySelector('.badge, .tag, .pill, .kicker, .hero-badge, [class*="badge"]');
-              if (heroBadge && !processedDOMElements.has(heroBadge)) {
+              if (heroBadge && !processedDOMElements.has(heroBadge) && !heroBadge.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container')) {
                 heroBadge.textContent = (heroObj && heroObj.badge_text) || "PREMIUM QUALITY";
                 processedDOMElements.add(heroBadge);
               }
 
-              var heroBtns = hSec.querySelectorAll('a.btn, button, a[class*="btn"], a.cta');
+              // Only replace hero action buttons that have actual text content and are not icon-only buttons
+              var heroBtns = Array.from(hSec.querySelectorAll('a.btn, button.btn, a[class*="btn"], button[class*="btn"], a.cta, .hero-btn, [class*="hero-btn"]')).filter(function(b) {
+                if (b.closest('nav, header, aside, footer, .announcement-bar, #top-banner-container, #header-container, #navbar-container, .header-tools, .header-right, .nav-right')) return false;
+                if (b.querySelector('svg, img, i') && b.textContent.trim().length <= 1) return false;
+                return true;
+              });
+
               if (heroBtns.length >= 1 && !processedDOMElements.has(heroBtns[0])) {
                 heroBtns[0].textContent = (heroObj && heroObj.cta_primary) || "Get Started";
                 processedDOMElements.add(heroBtns[0]);
@@ -1112,16 +1117,16 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             }
 
             // Step 9: Action Buttons & CTAs (Concise 1-3 Words)
-            var ctaBtns = document.querySelectorAll('button, a.btn, a[class*="btn"], a[class*="button"], a.cta');
+            var ctaBtns = document.querySelectorAll('button.btn, a.btn, a[class*="btn"], button[class*="btn"], a.cta');
             var ctaLabels = [(heroObj && heroObj.cta_primary) || "Get Started", (heroObj && heroObj.cta_secondary) || "Explore More", "Order Online", "Book Now", "View Details"];
             var ctaIdx = 0;
             ctaBtns.forEach(function(btn) {
               if (processedDOMElements.has(btn)) return;
-              if (btn.closest('nav, .navbar-nav, .social, .social-links, header, .navbar, #header-container, #navbar-container, #top-banner-container, #announcement-bar-container')) return;
-              if (btn.querySelector('img, svg') && !btn.textContent.trim()) return;
+              if (btn.closest('nav, .navbar-nav, .social, .social-links, header, .navbar, aside, footer, #header-container, #navbar-container, #top-banner-container, #announcement-bar-container, .announcement-bar, .top-bar, .header-tools, .header-right, .nav-right, .header-actions')) return;
+              if (btn.querySelector('img, svg, i') && btn.textContent.trim().length <= 1) return;
 
               var bTxt = (btn.textContent || '').trim();
-              if (bTxt && bTxt.length <= 30) {
+              if (bTxt && bTxt.length <= 30 && bTxt.length >= 2) {
                 btn.textContent = ctaLabels[ctaIdx % ctaLabels.length];
                 ctaIdx++;
                 processedDOMElements.add(btn);

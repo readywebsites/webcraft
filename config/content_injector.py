@@ -248,12 +248,11 @@ def inject_business_content_into_html(
         # STEP 3: Hero & Masthead & Main Slider Headline, Subtitles & Badges
         # -------------------------------------------------------------
         hero_containers = soup.select(
-            '.hero, .hero-section, .hero-area, .banner, .banner-section, .banner-area, '
-            '.slider, .slider-area, .main-slider, .home-slider, .masthead, .intro, .intro-section, '
-            '.showcase, .welcome-section, .rev_slider, .swiper-container, .swiper, .carousel, '
-            '#hero, #banner, #home, #intro, [class*="hero"], [class*="banner"], [class*="slider"], '
-            '[class*="masthead"], [class*="intro"], header + section, header + div, nav + section, '
-            'nav + div, main > section:first-child, body > section:first-child, body > div:first-child'
+            '.hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, '
+            '.masthead, .intro, .intro-section, .showcase, .welcome-section, .rev_slider, '
+            '.swiper-container, .swiper, .carousel, #hero, #home, #intro, #home-hero-container, '
+            '[class*="hero-"], [class*="slider-"], [class*="masthead"], '
+            'main > section:first-child, main > div:first-child'
         )
 
         hero_headline_set = False
@@ -261,7 +260,9 @@ def inject_business_content_into_html(
         h_pool_idx = 0
 
         for h_cont in hero_containers:
-            if h_cont.find_parent(['nav', 'footer']) or any(k in ' '.join(h_cont.get('class', [])).lower() for k in ['footer', 'sidebar', 'client', 'partner']):
+            if h_cont.find_parent(['nav', 'footer', 'header', 'aside']) or h_cont.name in ['nav', 'header', 'aside', 'footer'] or any(k in ' '.join(h_cont.get('class', [])).lower() for k in ['footer', 'sidebar', 'client', 'partner', 'announcement', 'top-bar', 'header', 'navbar']):
+                continue
+            if any(k in str(h_cont.get('id', '')).lower() for k in ['banner-container', 'header-container', 'navbar-container', 'announcement']):
                 continue
 
             # 1. Headline inside hero/slider (Replace across ALL slides / items in slider)
@@ -270,7 +271,7 @@ def inject_business_content_into_html(
                 hero_title_els = h_cont.find_all(['h1', 'h2', 'h3'])
 
             for ht in hero_title_els:
-                if id(ht) in processed_nodes or ht.find_parent(['nav', 'footer']):
+                if id(ht) in processed_nodes or ht.find_parent(['nav', 'footer', 'header', 'aside']):
                     continue
                 target_head = hero_headline_pool[h_pool_idx % len(hero_headline_pool)]
                 h_pool_idx += 1
@@ -286,10 +287,10 @@ def inject_business_content_into_html(
             # 2. Subtitle / Tagline inside hero/slider
             hero_sub_els = h_cont.find_all(['p', 'div', 'span', 'h4', 'h5'], class_=re.compile(r'subtitle|sub-title|subheading|tagline|lead|hero-text|desc', re.I))
             if not hero_sub_els:
-                hero_sub_els = [p for p in h_cont.find_all('p') if id(p) not in processed_nodes]
+                hero_sub_els = [p for p in h_cont.find_all('p') if id(p) not in processed_nodes and not p.find_parent(['nav', 'footer', 'header', 'aside'])]
 
             for hs in hero_sub_els:
-                if id(hs) in processed_nodes or hs.find_parent(['nav', 'footer']):
+                if id(hs) in processed_nodes or hs.find_parent(['nav', 'footer', 'header', 'aside']):
                     continue
                 hs.string = hero_subheadline
                 processed_nodes.add(id(hs))
@@ -297,13 +298,16 @@ def inject_business_content_into_html(
             # 3. Badge / Kicker inside hero
             hero_badge_els = h_cont.find_all(['span', 'div', 'p'], class_=re.compile(r'badge|tag|pill|kicker|sub-tag|hero-tag', re.I))
             for hb in hero_badge_els:
-                if id(hb) in processed_nodes:
+                if id(hb) in processed_nodes or hb.find_parent(['nav', 'footer', 'header', 'aside']):
                     continue
                 hb.string = hero_badge
                 processed_nodes.add(id(hb))
 
-            # 4. CTA Buttons inside hero
-            hero_btns = h_cont.find_all(['a', 'button'], class_=re.compile(r'btn|button|cta', re.I))
+            # 4. CTA Buttons inside hero (Only buttons with visible text, NOT icon buttons)
+            hero_btns = [
+                b for b in h_cont.find_all(['a', 'button'], class_=re.compile(r'btn|button|cta', re.I))
+                if not b.find_parent(['nav', 'footer', 'header', 'aside']) and not (b.find(['svg', 'img']) and len(b.get_text(strip=True)) <= 1)
+            ]
             if hero_btns:
                 if len(hero_btns) >= 1 and id(hero_btns[0]) not in processed_nodes:
                     hero_btns[0].string = cta_pri
@@ -315,7 +319,7 @@ def inject_business_content_into_html(
         # If hero headline was not found via hero containers, find first h1 on page
         if not hero_headline_set:
             first_h1 = soup.find('h1')
-            if first_h1 and id(first_h1) not in processed_nodes and not first_h1.find_parent(['nav', 'footer']):
+            if first_h1 and id(first_h1) not in processed_nodes and not first_h1.find_parent(['nav', 'footer', 'header', 'aside']):
                 inner_a = first_h1.find('a')
                 if inner_a:
                     inner_a.string = hero_headline
