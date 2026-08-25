@@ -76,11 +76,36 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             try {
               if (typeof window.MOCK_DATA !== 'undefined' && window.MOCK_DATA) {
                 if (busTitle) {
-                  window.MOCK_DATA.announcements = [
-                    { id: 1, text: "WELCOME TO " + busTitle.toUpperCase() + (busTagline ? " - " + busTagline.toUpperCase() : "") },
-                    { id: 2, text: "PREMIER QUALITY & DEDICATED SERVICE" },
-                    { id: 3, text: "FREE EXPRESS SHIPPING & DEDICATED SUPPORT" }
-                  ];
+                  // In-place update existing announcements without adding or removing items
+                  if (Array.isArray(window.MOCK_DATA.announcements)) {
+                    window.MOCK_DATA.announcements.forEach(function(a, idx) {
+                      if (idx === 0) {
+                        a.text = "WELCOME TO " + busTitle.toUpperCase() + (busTagline ? " — " + busTagline.toUpperCase() : "");
+                      } else if (idx === 1) {
+                        a.text = "PREMIER QUALITY & DEDICATED CUSTOMER SERVICE";
+                      } else {
+                        a.text = "SPECIAL SEASONAL OFFERS & WORLDWIDE SHIPPING";
+                      }
+                    });
+                  }
+
+                  // In-place update existing categories without adding extra menu items or altering navbar flags
+                  if (Array.isArray(window.MOCK_DATA.categories)) {
+                    var catNames = [];
+                    if (servicesArr && servicesArr.length > 0) {
+                      servicesArr.forEach(function(s) {
+                        if (s.tag && catNames.indexOf(s.tag.toUpperCase()) === -1) catNames.push(s.tag.toUpperCase());
+                        if (s.title && catNames.indexOf(s.title.toUpperCase()) === -1) catNames.push(s.title.toUpperCase());
+                      });
+                    }
+                    if (catNames.length === 0) {
+                      catNames = ["FEATURED", "SPECIALTIES", "BESTSELLERS", "COLLECTIONS", "OFFERINGS"];
+                    }
+                    window.MOCK_DATA.categories.forEach(function(c, cIdx) {
+                      c.name = catNames[cIdx % catNames.length];
+                    });
+                  }
+
                   if (window.MOCK_DATA.comfortBeyondTime) {
                     window.MOCK_DATA.comfortBeyondTime.title = (aiContent && aiContent.about && aiContent.about.title) || ("About " + busTitle);
                     window.MOCK_DATA.comfortBeyondTime.subtitle = busTitle.toUpperCase();
@@ -984,10 +1009,12 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
             });
 
-            // Step 5: Navigation Menu Sanitizer
+            // Step 5: Navigation Menu Sanitizer (Strict In-Place Text Replacement Only)
             var navLabels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"];
             var navIdx = 0;
             document.querySelectorAll('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a').forEach(function(na) {
+              // Protect icon-only links (cart, wishlist, search, profile buttons)
+              if (na.querySelector('svg, img') && na.textContent.trim().length <= 1) return;
               var txt = (na.textContent || '').toLowerCase();
               if (/(?:flower|cake|pet|dog|cloth|saree|museum|repair|mechanic|jewelry|boutique|bakery|bread|car-service)/i.test(txt)) {
                 na.textContent = navLabels[navIdx % navLabels.length];
@@ -1005,10 +1032,10 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var hIdx = 0;
             allTitles.forEach(function(h) {
               if (processedDOMElements.has(h)) return;
-              if (h.closest('script, style, head, nav, footer, .copyright')) return;
+              if (h.closest('script, style, head, nav, footer, .copyright, header, .navbar, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
               if (h.querySelector('img, svg') && !h.textContent.trim()) return;
               var hClasses = (h.className || '').toLowerCase();
-              if (/(?:copyright|email|phone|logo|brand)/i.test(hClasses)) return;
+              if (/(?:copyright|email|phone|logo|brand|announcement|nav-link|menu-item)/i.test(hClasses)) return;
 
               var oTxt = (h.textContent || '').trim();
               if (!oTxt || oTxt.length < 2) return;
@@ -1046,9 +1073,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var pIdx = 0;
             allP.forEach(function(p) {
               if (processedDOMElements.has(p)) return;
-              if (p.closest('script, style, head, .copyright, footer')) return;
+              if (p.closest('script, style, head, .copyright, footer, header, nav, .navbar, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
               var pClasses = (p.className || '').toLowerCase();
-              if (/(?:copyright|email|phone|logo|brand|price|author|date|time)/i.test(pClasses)) return;
+              if (/(?:copyright|email|phone|logo|brand|price|author|date|time|announcement|nav-link|menu-item)/i.test(pClasses)) return;
 
               var oTxt = (p.textContent || '').trim();
               if (!oTxt || oTxt.length < 2) return;
@@ -1090,7 +1117,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var ctaIdx = 0;
             ctaBtns.forEach(function(btn) {
               if (processedDOMElements.has(btn)) return;
-              if (btn.closest('nav, .navbar-nav, .social, .social-links')) return;
+              if (btn.closest('nav, .navbar-nav, .social, .social-links, header, .navbar, #header-container, #navbar-container, #top-banner-container, #announcement-bar-container')) return;
               if (btn.querySelector('img, svg') && !btn.textContent.trim()) return;
 
               var bTxt = (btn.textContent || '').trim();
@@ -1115,8 +1142,10 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             if (busTitle) {
               var brandTexts = document.querySelectorAll('header .navbar-brand, nav .navbar-brand, footer .footer-logo, .site-logo, [data-editable="title"]');
               brandTexts.forEach(function(el) {
-                if (el.tagName !== 'IMG' && !el.querySelector('img')) {
+                if (processedDOMElements.has(el)) return;
+                if (el.tagName !== 'IMG' && !el.querySelector('img, svg, a')) {
                   el.textContent = busTitle;
+                  processedDOMElements.add(el);
                 }
               });
             }

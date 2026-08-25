@@ -585,7 +585,7 @@ def inject_business_content_into_html(
         for el in soup.select(', '.join(title_selectors)):
             if id(el) in processed_nodes:
                 continue
-            if el.find_parent(['script', 'style', 'head', 'footer']):
+            if el.find_parent(['script', 'style', 'head', 'footer', 'nav', 'header', '.navbar', '.announcement-bar', '#announcement-bar-container', '#top-banner-container', '#header-container', '#navbar-container']):
                 continue
             if el.find(['img', 'svg']) and not el.get_text(strip=True):
                 continue
@@ -595,7 +595,7 @@ def inject_business_content_into_html(
                 continue
 
             el_classes = ' '.join(el.get('class', [])).lower() if isinstance(el.get('class'), list) else str(el.get('class', '')).lower()
-            if any(k in el_classes for k in ['copyright', 'email', 'phone', 'social', 'logo', 'brand-name', 'business-name']):
+            if any(k in el_classes for k in ['copyright', 'email', 'phone', 'social', 'logo', 'brand-name', 'business-name', 'announcement', 'nav-link', 'menu-item']):
                 continue
 
             orig_words = len(orig_txt.split())
@@ -627,7 +627,7 @@ def inject_business_content_into_html(
                 continue
             if p.name == 'div' and not any(k in ' '.join(p.get('class', [])).lower() for k in ['desc', 'text-muted', 'lead', 'info', 'timeline-body', 'caption-text', 'sub-heading']):
                 continue
-            if p.find_parent(['script', 'style', 'head', 'footer', '.copyright']):
+            if p.find_parent(['script', 'style', 'head', 'footer', '.copyright', 'nav', 'header', '.navbar', '.announcement-bar', '#announcement-bar-container', '#top-banner-container', '#header-container', '#navbar-container']):
                 continue
             if p.find(['input', 'button', 'select', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'ul', 'ol']):
                 continue
