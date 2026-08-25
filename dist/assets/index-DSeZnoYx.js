@@ -378,9 +378,38 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // Helper to set all image and lazyload attributes
+            // Universal Icon Detector: Ensures icons (SVG, font icons, small icon images) remain exactly identical
+            function isIconElement(el) {
+              if (!el) return false;
+              if (['SVG', 'I', 'EM'].indexOf(el.tagName) !== -1) return true;
+              var cls = (el.className || '').toLowerCase();
+              var pCls = el.parentElement ? (el.parentElement.className || '').toLowerCase() : '';
+              var iconKeys = [
+                'icon', 'ico', 'flaticon', 'feather', 'fa-', 'fas', 'far', 'fab', 'lnr', 'ti-',
+                'bi-', 'ri-', 'icofont', 'material-icons', 'f7-icons', 'star', 'rating', 'badge',
+                'arrow', 'bullet', 'marker', 'check', 'tick', 'close', 'search', 'cart', 'bag',
+                'basket', 'heart', 'wishlist', 'payment', 'visa', 'mastercard', 'paypal', 'social',
+                'facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'tiktok', 'shield', 'award'
+              ];
+              if (iconKeys.some(function(k) { return cls.indexOf(k) !== -1; })) return true;
+              if (['icon-box', 'icon-wrap', 'service-icon', 'feature-icon', 'stat-icon', 'social', 'payment-method', 'rating', 'ratings'].some(function(k) { return pCls.indexOf(k) !== -1; })) return true;
+              if (el.tagName === 'IMG') {
+                var src = (el.getAttribute('src') || '').toLowerCase();
+                var alt = (el.getAttribute('alt') || '').toLowerCase();
+                var eid = (el.getAttribute('id') || '').toLowerCase();
+                if (iconKeys.some(function(k) { return src.indexOf(k) !== -1 || alt.indexOf(k) !== -1 || eid.indexOf(k) !== -1; })) return true;
+                if (src.endsWith('.svg') || src.endsWith('.ico')) return true;
+                var w = el.getAttribute('width');
+                var h = el.getAttribute('height');
+                if (w && parseInt(w, 10) <= 64) return true;
+                if (h && parseInt(h, 10) <= 64) return true;
+              }
+              return false;
+            }
+
+            // Helper to set all image and lazyload attributes (strictly skips icon elements)
             function setImgAllAttrs(imgEl, targetUrl) {
-              if (!targetUrl || !imgEl) return;
+              if (!targetUrl || !imgEl || isIconElement(imgEl)) return;
               imgEl.src = targetUrl;
               imgEl.srcset = targetUrl;
               ['data-src', 'data-original', 'data-lazy', 'data-lazy-src', 'data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina', 'data-srcset', 'data-lazyload'].forEach(function(attr) {
@@ -388,9 +417,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // Helper to set container background attributes & inline style
+            // Helper to set container background attributes & inline style (strictly skips icon boxes)
             function setContainerBgAttrs(el, targetUrl) {
-              if (!targetUrl || !el) return;
+              if (!targetUrl || !el || isIconElement(el)) return;
               ['data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-bg-img', 'data-background-img'].forEach(function(attr) {
                 if (el.hasAttribute(attr)) el.setAttribute(attr, targetUrl);
               });

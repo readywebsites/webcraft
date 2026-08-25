@@ -227,6 +227,41 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         processed_bgs = set()
         pool_idx = 1  # pool_urls[0] reserved for hero / slide 1 banner
 
+        def is_icon_element(el) -> bool:
+            if not el:
+                return False
+            if el.name in ['svg', 'i', 'em']:
+                return True
+            classes = ' '.join(el.get('class', [])).lower() if isinstance(el.get('class'), list) else str(el.get('class', '')).lower()
+            p_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in el.parents if p.name != '[document]']).lower()
+            icon_keywords = [
+                'icon', 'ico', 'flaticon', 'feather', 'fa-', 'fas', 'far', 'fab', 'lnr', 'ti-',
+                'bi-', 'ri-', 'icofont', 'material-icons', 'f7-icons', 'star', 'rating', 'badge',
+                'arrow', 'bullet', 'marker', 'check', 'tick', 'close', 'search', 'cart', 'bag',
+                'basket', 'heart', 'wishlist', 'payment', 'visa', 'mastercard', 'paypal', 'social',
+                'facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'tiktok', 'shield', 'award'
+            ]
+            if any(k in classes for k in icon_keywords) or any(k in p_classes for k in ['icon-box', 'icon-wrap', 'service-icon', 'feature-icon', 'stat-icon', 'social', 'payment-method', 'rating']):
+                return True
+            if el.name == 'img':
+                src = str(el.get('src', '')).lower()
+                alt = str(el.get('alt', '')).lower()
+                eid = str(el.get('id', '')).lower()
+                if any(k in src or k in alt or k in eid for k in icon_keywords):
+                    return True
+                if src.endswith('.svg') or src.endswith('.ico'):
+                    return True
+                w = el.get('width')
+                h = el.get('height')
+                try:
+                    if w and int(re.sub(r'[^\d]', '', str(w))) <= 64:
+                        return True
+                    if h and int(re.sub(r'[^\d]', '', str(h))) <= 64:
+                        return True
+                except Exception:
+                    pass
+            return False
+
         def get_actual_slides(container):
             # 1. Revolution Slider / flexslider / ul slider
             rev_slides = container.select('.rev_slider ul > li, .tp-banner ul > li, .tp-banner-container ul > li, ul.slides > li, .rslides > li')
@@ -385,8 +420,7 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                 processed_imgs.add(id(img))
                 continue
 
-            # Don't replace tiny UI icons / flags / payment badges with photos
-            if i_src.endswith('.svg') or i_src.endswith('.ico') or any(ik in i_src or ik in i_classes for ik in ['flag', 'payment', 'visa', 'mastercard', 'paypal', 'cart-icon', 'arrow-', 'close', 'search-icon']):
+            if is_icon_element(img):
                 continue
 
             if img.has_attr('data-image'):
@@ -402,9 +436,9 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             set_img_all_attrs(img, target_src)
             processed_imgs.add(id(img))
 
-        # Replace remaining background images in style attributes and data-background attributes
+        # Replace remaining background images in style attributes and data-background attributes (excluding icons)
         for el in soup.find_all(lambda tag: tag.has_attr('data-background') or tag.has_attr('data-bg') or tag.has_attr('data-bg-image') or tag.has_attr('data-background-image') or re.search(r'background(?:-image)?\s*:\s*url', str(tag.get('style', '')), re.I)):
-            if id(el) in processed_bgs or el.name == 'img':
+            if id(el) in processed_bgs or el.name == 'img' or is_icon_element(el):
                 continue
             parent_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in el.parents]).lower()
             el_classes = ' '.join(el.get('class', [])).lower() if isinstance(el.get('class'), list) else str(el.get('class', '')).lower()

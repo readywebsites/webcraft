@@ -150,8 +150,43 @@ def inject_business_content_into_html(
 
         processed_nodes = set()
 
+        def is_icon_element(el) -> bool:
+            if not el:
+                return False
+            if el.name in ['svg', 'i', 'em']:
+                return True
+            classes = ' '.join(el.get('class', [])).lower() if isinstance(el.get('class'), list) else str(el.get('class', '')).lower()
+            p_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in el.parents if p.name != '[document]']).lower()
+            icon_keywords = [
+                'icon', 'ico', 'flaticon', 'feather', 'fa-', 'fas', 'far', 'fab', 'lnr', 'ti-',
+                'bi-', 'ri-', 'icofont', 'material-icons', 'f7-icons', 'star', 'rating', 'badge',
+                'arrow', 'bullet', 'marker', 'check', 'tick', 'close', 'search', 'cart', 'bag',
+                'basket', 'heart', 'wishlist', 'payment', 'visa', 'mastercard', 'paypal', 'social',
+                'facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'tiktok', 'shield', 'award'
+            ]
+            if any(k in classes for k in icon_keywords) or any(k in p_classes for k in ['icon-box', 'icon-wrap', 'service-icon', 'feature-icon', 'stat-icon', 'social', 'payment-method', 'rating']):
+                return True
+            if el.name == 'img':
+                src = str(el.get('src', '')).lower()
+                alt = str(el.get('alt', '')).lower()
+                eid = str(el.get('id', '')).lower()
+                if any(k in src or k in alt or k in eid for k in icon_keywords):
+                    return True
+                if src.endswith('.svg') or src.endswith('.ico'):
+                    return True
+                w = el.get('width')
+                h = el.get('height')
+                try:
+                    if w and int(re.sub(r'[^\d]', '', str(w))) <= 64:
+                        return True
+                    if h and int(re.sub(r'[^\d]', '', str(h))) <= 64:
+                        return True
+                except Exception:
+                    pass
+            return False
+
         def set_node_img_attrs(img_tag: Tag, target_u: str):
-            if not target_u or not img_tag:
+            if not target_u or not img_tag or is_icon_element(img_tag):
                 return
             img_tag['src'] = target_u
             if img_tag.has_attr('srcset'):
@@ -477,13 +512,13 @@ def inject_business_content_into_html(
                 target_card_img = card_img_urls[c_idx % len(card_img_urls)]
                 card_imgs = card_el.find_all('img')
                 for cimg in card_imgs:
-                    if id(cimg) not in processed_nodes:
+                    if id(cimg) not in processed_nodes and not is_icon_element(cimg):
                         set_node_img_attrs(cimg, target_card_img)
                         cimg['alt'] = item_data['title']
 
-                # Background images on card element or inner wrapper
+                # Background images on card element or inner wrapper (excluding icon boxes)
                 for bg_el in card_el.find_all(lambda t: t.has_attr('data-bg') or t.has_attr('data-background') or 'background' in str(t.get('style', '')).lower()):
-                    if id(bg_el) not in processed_nodes:
+                    if id(bg_el) not in processed_nodes and not is_icon_element(bg_el):
                         for attr in ['data-bg', 'data-background', 'data-bg-image', 'data-background-image']:
                             if bg_el.has_attr(attr):
                                 bg_el[attr] = target_card_img
