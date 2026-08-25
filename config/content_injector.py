@@ -231,17 +231,58 @@ def inject_business_content_into_html(
                         processed_nodes.add(id(el))
 
         # -------------------------------------------------------------
-        # STEP 2: Sanitize Navigation Menu Links
+        # STEP 1.5: Announcement Bar Text Replacement (In-Place Text Only - Preserving Arrows & Layout)
         # -------------------------------------------------------------
-        nav_standard_labels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"]
-        nav_idx = 0
-        for nav_a in soup.select('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a'):
-            txt = nav_a.get_text(strip=True)
-            if not txt:
+        announcement_text = tagline or f"WELCOME TO {brand_name.upper()} — PREMIER QUALITY & DEDICATED SERVICE"
+        for ap in soup.select('#announcement-text, .announcement-text, aside p, .announcement-bar p, .top-bar p, .top-banner p, [class*="announcement"] p'):
+            if ap.find_parent(['header', 'nav']) or ap.find(['svg', 'button', 'img']):
                 continue
-            if any(w in txt.lower() for w in ['flower', 'cake', 'pet', 'dog', 'cloth', 'saree', 'museum', 'repair', 'mechanic', 'jewelry', 'boutique', 'bakery', 'bread', 'car-service']):
-                nav_a.string = nav_standard_labels[nav_idx % len(nav_standard_labels)]
-                nav_idx += 1
+            ap.string = announcement_text.upper()
+            processed_nodes.add(id(ap))
+
+        # -------------------------------------------------------------
+        # STEP 2: Dynamic Navigation Menu Category Replacement (Strict In-Place Text Only)
+        # -------------------------------------------------------------
+        nav_categories = []
+        if services:
+            for s in services:
+                if s.get('tag') and s['tag'] not in nav_categories:
+                    nav_categories.append(s['tag'])
+                if s.get('title') and s['title'] not in nav_categories:
+                    nav_categories.append(s['title'])
+        if not nav_categories:
+            nav_categories = ["Specialties", "Featured", "Best Sellers", "Collections", "Signature Offerings", "Our Services"]
+
+        nav_idx = 0
+        for nav_a in soup.select('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a, nav a'):
+            # Protect icon-only links (cart, wishlist, search, profile buttons)
+            if nav_a.find(['svg', 'img', 'i']) and len(nav_a.get_text(strip=True)) <= 1:
+                continue
+            txt = nav_a.get_text(strip=True)
+            if not txt or len(txt) < 2:
+                continue
+            lower = txt.lower()
+
+            if lower in ['home', 'index', 'main']:
+                nav_a.string = "HOME" if txt.isupper() else "Home"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['contact', 'contact us', 'get in touch', 'reach us']:
+                nav_a.string = "CONTACT" if txt.isupper() else "Contact"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['about', 'about us', 'our story', 'story', 'who we are']:
+                nav_a.string = "OUR STORY" if txt.isupper() else "Our Story"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['shop all', 'all products', 'all items', 'view all', 'collection', 'collections']:
+                nav_a.string = "OFFERINGS" if txt.isupper() else "Offerings"
+                processed_nodes.add(id(nav_a))
+                continue
+
+            target_cat = nav_categories[nav_idx % len(nav_categories)]
+            nav_idx += 1
+            nav_a.string = target_cat.upper() if txt.isupper() else target_cat
             processed_nodes.add(id(nav_a))
 
         # -------------------------------------------------------------

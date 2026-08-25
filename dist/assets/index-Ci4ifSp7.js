@@ -72,105 +72,178 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             ];
           }
 
-          function patchGlobalData() {
-            try {
-              if (typeof window.MOCK_DATA !== 'undefined' && window.MOCK_DATA) {
-                if (busTitle) {
-                  // In-place update existing announcements without adding or removing items
-                  if (Array.isArray(window.MOCK_DATA.announcements)) {
-                    window.MOCK_DATA.announcements.forEach(function(a, idx) {
-                      if (idx === 0) {
-                        a.text = "WELCOME TO " + busTitle.toUpperCase() + (busTagline ? " — " + busTagline.toUpperCase() : "");
-                      } else if (idx === 1) {
-                        a.text = "PREMIER QUALITY & DEDICATED CUSTOMER SERVICE";
-                      } else {
-                        a.text = "SPECIAL SEASONAL OFFERS & WORLDWIDE SHIPPING";
-                      }
-                    });
-                  }
+          var announcementText = (aiContent && aiContent.tagline) || busTagline || ("WELCOME TO " + (busTitle ? busTitle.toUpperCase() : "OUR STORE") + " — PREMIER QUALITY & DEDICATED SERVICE");
 
-                  // In-place update existing categories without adding extra menu items or altering navbar flags
-                  if (Array.isArray(window.MOCK_DATA.categories)) {
-                    var catNames = [];
-                    if (servicesArr && servicesArr.length > 0) {
-                      servicesArr.forEach(function(s) {
-                        if (s.tag && catNames.indexOf(s.tag.toUpperCase()) === -1) catNames.push(s.tag.toUpperCase());
-                        if (s.title && catNames.indexOf(s.title.toUpperCase()) === -1) catNames.push(s.title.toUpperCase());
-                      });
-                    }
-                    if (catNames.length === 0) {
-                      catNames = ["FEATURED", "SPECIALTIES", "BESTSELLERS", "COLLECTIONS", "OFFERINGS"];
-                    }
-                    window.MOCK_DATA.categories.forEach(function(c, cIdx) {
-                      c.name = catNames[cIdx % catNames.length];
-                    });
-                  }
+          var catList = [];
+          servicesArr.forEach(function(s) {
+            if (s.tag && catList.indexOf(s.tag.toUpperCase()) === -1) catList.push(s.tag.toUpperCase());
+            if (s.title && catList.indexOf(s.title.toUpperCase()) === -1) catList.push(s.title.toUpperCase());
+          });
+          if (catList.length === 0) catList = ["FEATURED", "SPECIALTIES", "BESTSELLERS", "COLLECTIONS", "OFFERINGS"];
 
-                  if (window.MOCK_DATA.comfortBeyondTime) {
-                    window.MOCK_DATA.comfortBeyondTime.title = (aiContent && aiContent.about && aiContent.about.title) || ("About " + busTitle);
-                    window.MOCK_DATA.comfortBeyondTime.subtitle = busTitle.toUpperCase();
-                    window.MOCK_DATA.comfortBeyondTime.description = "<p>" + ((aiContent && aiContent.about && aiContent.about.story) || (busTitle + " offers premier quality and craftsmanship tailored to your exact needs.")) + "</p>";
-                    if (poolUrls.length > 1) window.MOCK_DATA.comfortBeyondTime.image1 = poolUrls[1];
-                    if (poolUrls.length > 2) window.MOCK_DATA.comfortBeyondTime.image2 = poolUrls[2];
-                  }
-                  if (window.MOCK_DATA.footerData && window.MOCK_DATA.footerData.section) {
-                    window.MOCK_DATA.footerData.section.newsletter_text = "Subscribe to get exclusive updates, seasonal specials, and announcements from " + busTitle + ".";
-                  }
-                }
-                if (poolUrls.length > 0 && Array.isArray(window.MOCK_DATA.slides)) {
-                  window.MOCK_DATA.slides.forEach(function(sl, sIdx) {
-                    sl.image = poolUrls[sIdx % poolUrls.length];
-                    sl.mobile_image = poolUrls[sIdx % poolUrls.length];
-                    sl.button_text = "EXPLORE NOW";
-                  });
-                }
-                if (servicesArr.length > 0 && Array.isArray(window.MOCK_DATA.products)) {
-                  window.MOCK_DATA.products.forEach(function(prod, pIdx) {
-                    var ap = servicesArr[pIdx % servicesArr.length];
-                    prod.name = ap.title || prod.name;
-                    prod.description = ap.desc || ap.description || prod.description;
-                    var cleanPrice = ap.price ? String(ap.price).replace(/[^0-9.]/g, '') : null;
-                    if (cleanPrice) {
-                      prod.price = cleanPrice;
-                      prod.originalPrice = String(Math.round(Number(cleanPrice) * 1.25));
-                    }
-                    if (cardImgUrls.length > 0) {
-                      var cImg = cardImgUrls[pIdx % cardImgUrls.length];
-                      prod.image = cImg;
-                      prod.hoverImage = cImg;
-                      prod.detail_image_1 = cImg;
-                      prod.detail_image_2 = cImg;
-                    }
-                  });
-                }
-              }
-            } catch(e) {}
-          }
+          var customCategories = [
+            { id: 1, name: catList[0] || "FEATURED", show_on_navbar: true },
+            { id: 2, name: catList[1] || "SPECIALTIES", show_on_navbar: true },
+            { id: 3, name: catList[2] || "BESTSELLERS", show_on_navbar: true },
+            { id: 4, name: catList[3] || "COLLECTIONS", show_on_navbar: true },
+            { id: 5, name: catList[4] || "SIGNATURE", show_on_navbar: true },
+            { id: 6, name: "EXCLUSIVE", show_on_navbar: false },
+            { id: 7, name: "OFFERINGS", show_on_navbar: false }
+          ];
 
-          var origFetch = window.fetchAPI;
-          window.fetchAPI = async function(endpoint) {
-            patchGlobalData();
-            if (typeof window.MOCK_DATA !== 'undefined' && window.MOCK_DATA) {
-              if (endpoint.startsWith('announcements')) return window.MOCK_DATA.announcements;
-              if (endpoint.startsWith('categories')) return window.MOCK_DATA.categories;
-              if (endpoint.startsWith('slides')) return window.MOCK_DATA.slides;
-              if (endpoint.startsWith('comfort-beyond-time-section')) return window.MOCK_DATA.comfortBeyondTime;
-              if (endpoint.startsWith('blogs/')) return (window.MOCK_DATA.blogs && window.MOCK_DATA.blogs[0]) || null;
-              if (endpoint.startsWith('blogs')) return window.MOCK_DATA.blogs;
-              if (endpoint.startsWith('stores')) return window.MOCK_DATA.stores;
-              if (endpoint.startsWith('features')) return window.MOCK_DATA.features;
-              if (endpoint.startsWith('footer-data')) return window.MOCK_DATA.footerData;
-              if (endpoint.startsWith('products')) return window.MOCK_DATA.products;
+          var customAnnouncements = [
+            { id: 1, text: announcementText.toUpperCase() },
+            { id: 2, text: "PREMIER QUALITY & DEDICATED CUSTOMER SERVICE" },
+            { id: 3, text: "SPECIAL OFFERS & PROMPT DELIVERY" }
+          ];
+
+          var customSlides = [
+            {
+              id: 1,
+              image: heroImgUrl || poolUrls[0] || "",
+              mobile_image: heroImgUrl || poolUrls[0] || "",
+              button_text: "EXPLORE NOW",
+              button_link: "collection.html?category=all",
+              button_alignment: "center"
+            },
+            {
+              id: 2,
+              image: poolUrls[1 % poolUrls.length] || heroImgUrl || "",
+              mobile_image: poolUrls[1 % poolUrls.length] || heroImgUrl || "",
+              button_text: "VIEW OFFERINGS",
+              button_link: "collection.html?category=all",
+              button_alignment: "center"
             }
-            if (typeof origFetch === 'function') {
-              try { return await origFetch(endpoint); } catch(e) {}
-            }
-            return null;
+          ];
+
+          var customAbout = {
+            title: (aiContent && aiContent.about && aiContent.about.title) || ("About " + busTitle),
+            subtitle: busTitle.toUpperCase(),
+            description: "<p>" + ((aiContent && aiContent.about && aiContent.about.story) || (busTitle + " offers premier quality and craftsmanship tailored to your exact needs.")) + "</p>",
+            image1: poolUrls[1 % poolUrls.length] || heroImgUrl || "",
+            image2: poolUrls[2 % poolUrls.length] || heroImgUrl || ""
           };
 
-          window.patchGlobalData = patchGlobalData;
-          document.addEventListener('DOMContentLoaded', patchGlobalData);
-          window.addEventListener('load', patchGlobalData);
+          var customProducts = servicesArr.map(function(s, idx) {
+            var cImg = cardImgUrls[idx % cardImgUrls.length] || heroImgUrl || "";
+            var cleanPrice = s.price ? String(s.price).replace(/[^0-9.]/g, '') : "29.00";
+            return {
+              id: idx + 1,
+              name: s.title,
+              description: s.desc || s.description || "Crafted with highest quality standards.",
+              price: cleanPrice,
+              originalPrice: String(Math.round(Number(cleanPrice) * 1.25)),
+              category: (s.tag || catList[idx % catList.length] || "Featured").toLowerCase().replace(/ /g, '-'),
+              image: cImg,
+              hoverImage: cImg,
+              detail_image_1: cImg,
+              detail_image_2: cImg
+            };
+          });
+
+          var customBlogs = [
+            {
+              id: 1,
+              title: "Discover the Craft Behind " + busTitle,
+              slug: "craft-behind-" + (busTitle || "our-brand").toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+              summary: "An inside look into our dedication to artisan quality and excellence.",
+              date: "AUGUST 2026",
+              image: poolUrls[1 % poolUrls.length] || heroImgUrl || "",
+              content: "<p>" + ((aiContent && aiContent.about && aiContent.about.story) || "Experience unparalleled quality and dedication.") + "</p>"
+            },
+            {
+              id: 2,
+              title: "Our Guide to Premium Selection",
+              slug: "guide-to-premium-selection",
+              summary: "How to choose the perfect offerings crafted for your lifestyle.",
+              date: "AUGUST 2026",
+              image: poolUrls[2 % poolUrls.length] || heroImgUrl || "",
+              content: "<p>Explore our curated collections designed with passion and expertise.</p>"
+            }
+          ];
+
+          var customFeatures = [
+            { id: 1, title: "Artisan Quality", subtitle: "Crafted with excellence and care", icon: "shield" },
+            { id: 2, title: "Prompt Service", subtitle: "Fast, reliable & dedicated support", icon: "truck" },
+            { id: 3, title: "100% Satisfaction", subtitle: "Guaranteed satisfaction on all orders", icon: "smile" },
+            { id: 4, title: "Secure Checkout", subtitle: "Safe and protected transactions", icon: "lock" }
+          ];
+
+          var customStores = [
+            { id: 1, name: busTitle + " Flagship", address: "Downtown Premier Center", phone: contactPhone || "+1 (555) 123-4567", hours: "Mon - Sun: 10:00 AM - 9:00 PM" }
+          ];
+
+          var customFooter = {
+            section: {
+              newsletter_text: "Subscribe to get exclusive updates, seasonal specials, and announcements from " + busTitle + ".",
+              email: contactEmail || "hello@" + (busTitle || "brand").toLowerCase().replace(/[^a-z0-9]/g, '') + ".com",
+              phone: contactPhone || "+1 (555) 123-4567"
+            }
+          };
+
+          // Intercept native fetch so ANY API call to pindhni or external endpoints instantly returns our custom business data
+          var origNativeFetch = window.fetch;
+          window.fetch = async function(url, opts) {
+            var urlStr = String(url || '');
+            if (urlStr.indexOf('/api/announcements') !== -1 || urlStr.indexOf('announcements/') !== -1) {
+              return new Response(JSON.stringify(customAnnouncements), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (urlStr.indexOf('/api/categories') !== -1 || urlStr.indexOf('categories/') !== -1) {
+              return new Response(JSON.stringify(customCategories), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (urlStr.indexOf('/api/slides') !== -1 || urlStr.indexOf('slides/') !== -1) {
+              return new Response(JSON.stringify(customSlides), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (urlStr.indexOf('comfort-beyond-time') !== -1) {
+              return new Response(JSON.stringify(customAbout), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (urlStr.indexOf('/api/products') !== -1 || urlStr.indexOf('products/') !== -1) {
+              return new Response(JSON.stringify(customProducts), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (urlStr.indexOf('/api/blogs') !== -1 || urlStr.indexOf('blogs/') !== -1) {
+              return new Response(JSON.stringify(customBlogs), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (urlStr.indexOf('/api/features') !== -1 || urlStr.indexOf('features/') !== -1) {
+              return new Response(JSON.stringify(customFeatures), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (urlStr.indexOf('/api/stores') !== -1 || urlStr.indexOf('stores/') !== -1) {
+              return new Response(JSON.stringify(customStores), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (urlStr.indexOf('/api/footer-data') !== -1 || urlStr.indexOf('footer-data/') !== -1) {
+              return new Response(JSON.stringify(customFooter), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }
+            if (origNativeFetch) {
+              return origNativeFetch.apply(this, arguments);
+            }
+            return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          };
+
+          // Define window.fetchAPI helper
+          window.fetchAPI = async function(endpoint) {
+            var ep = String(endpoint || '');
+            if (ep.startsWith('announcements')) return customAnnouncements;
+            if (ep.startsWith('categories')) return customCategories;
+            if (ep.startsWith('slides')) return customSlides;
+            if (ep.startsWith('comfort-beyond-time')) return customAbout;
+            if (ep.startsWith('products')) return customProducts;
+            if (ep.startsWith('blogs')) return customBlogs;
+            if (ep.startsWith('features')) return customFeatures;
+            if (ep.startsWith('stores')) return customStores;
+            if (ep.startsWith('footer-data')) return customFooter;
+            return [];
+          };
+
+          window.MOCK_DATA = {
+            announcements: customAnnouncements,
+            categories: customCategories,
+            slides: customSlides,
+            comfortBeyondTime: customAbout,
+            products: customProducts,
+            blogs: customBlogs,
+            features: customFeatures,
+            stores: customStores,
+            footerData: customFooter
+          };
         })();
       <\/script>
       <style>
@@ -1014,18 +1087,97 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
             });
 
-            // Step 5: Navigation Menu Sanitizer (Strict In-Place Text Replacement Only)
-            var navLabels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"];
-            var navIdx = 0;
-            document.querySelectorAll('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a').forEach(function(na) {
-              // Protect icon-only links (cart, wishlist, search, profile buttons)
-              if (na.querySelector('svg, img') && na.textContent.trim().length <= 1) return;
-              var txt = (na.textContent || '').toLowerCase();
-              if (/(?:flower|cake|pet|dog|cloth|saree|museum|repair|mechanic|jewelry|boutique|bakery|bread|car-service)/i.test(txt)) {
-                na.textContent = navLabels[navIdx % navLabels.length];
-                navIdx++;
+            // 4.9. Announcement Bar Text Replacement (In-Place Text Only - Strict Layout & Icon Protection)
+            var announcementText = (aiContent && aiContent.tagline) || busTagline || ("WELCOME TO " + (busTitle ? busTitle.toUpperCase() : "OUR STORE") + " — PREMIER QUALITY & DEDICATED SERVICE");
+            document.querySelectorAll('#announcement-text, .announcement-text, aside p, .announcement-bar p, .top-bar p, .top-banner p, [class*="announcement"] p, [id*="announcement"] p').forEach(function(ap) {
+              if (ap.closest('#header-container, #navbar-container, nav, .navbar')) return;
+              if (ap.querySelector('button, svg, img')) return;
+              ap.textContent = announcementText.toUpperCase();
+              processedDOMElements.add(ap);
+            });
+
+            // Step 5: Navigation Menu Sanitizer (Strict In-Place Text Replacement Only - No New Elements Created)
+            var customNavCategories = [];
+            if (servicesArr && servicesArr.length > 0) {
+              servicesArr.forEach(function(s) {
+                if (s.tag && customNavCategories.indexOf(s.tag) === -1) customNavCategories.push(s.tag);
+                if (s.title && customNavCategories.indexOf(s.title) === -1) customNavCategories.push(s.title);
+              });
+            }
+            if (customNavCategories.length === 0) {
+              customNavCategories = ["Specialties", "Featured", "Best Sellers", "Collections", "Signature Offerings", "Our Services"];
+            }
+            var navCategoryIdx = 0;
+            document.querySelectorAll(
+              'nav a, header nav a, .navbar-nav a, .main-menu a, .navigation a, header ul.menu a, ' +
+              '.dropdown-menu a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a, #navbar-container nav a'
+            ).forEach(function(na) {
+              // Protect icon-only links & buttons (cart, wishlist, search, profile buttons, hamburger toggle)
+              if (na.querySelector('svg, img, i') && na.textContent.trim().length <= 1) return;
+              var txt = (na.textContent || '').trim();
+              if (!txt || txt.length < 2) return;
+              var lower = txt.toLowerCase();
+
+              // Preserve standard navigation anchors with clean names
+              if (/^(?:home|index|main)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "HOME" : "Home";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:contact|contact us|get in touch|reach us)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "CONTACT" : "Contact";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:about|about us|our story|story|who we are)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "OUR STORY" : "Our Story";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:shop all|all products|all items|view all|collection|collections)$/i.test(lower)) {
+                var arrowSvg = na.querySelector('svg');
+                var labelText = txt === txt.toUpperCase() ? "OFFERINGS" : "Offerings";
+                if (arrowSvg) {
+                  na.innerHTML = labelText + ' ' + arrowSvg.outerHTML;
+                } else {
+                  na.textContent = labelText;
+                }
+                processedDOMElements.add(na);
+                return;
+              }
+
+              // Replace all category & departmental links in-place
+              var targetCat = customNavCategories[navCategoryIdx % customNavCategories.length];
+              navCategoryIdx++;
+              var arrowSvg = na.querySelector('svg');
+              var finalCatText = txt === txt.toUpperCase() ? targetCat.toUpperCase() : targetCat;
+              if (arrowSvg) {
+                na.innerHTML = finalCatText + ' ' + arrowSvg.outerHTML;
+              } else {
+                na.textContent = finalCatText;
               }
               processedDOMElements.add(na);
+            });
+
+            // Step 5.5: Feature, Benefit & Trust Cards Updater
+            var trustBenefits = [
+              { title: "Artisan Quality", desc: "Crafted with highest standards & premium ingredients." },
+              { title: "Prompt Service", desc: "Dedicated fast delivery and dedicated customer support." },
+              { title: "100% Satisfaction", desc: "Guaranteed satisfaction on every single order." },
+              { title: "Secure Transactions", desc: "Safe, encrypted and seamless ordering experience." }
+            ];
+            document.querySelectorAll('#home-features-container .feature, #home-features-container .feature-box, .features .feature, .features .feature-box, .service-box, .feature-card, [class*="feature-box"], [class*="features-box"]').forEach(function(fc, fIdx) {
+              var tBenefit = trustBenefits[fIdx % trustBenefits.length];
+              var hEl = fc.querySelector('h3, h4, h5, h6, .title, strong');
+              var pEl = fc.querySelector('p, .desc, .text, span');
+              if (hEl && !processedDOMElements.has(hEl)) {
+                hEl.textContent = tBenefit.title;
+                processedDOMElements.add(hEl);
+              }
+              if (pEl && !processedDOMElements.has(pEl) && pEl !== hEl) {
+                pEl.textContent = tBenefit.desc;
+                processedDOMElements.add(pEl);
+              }
             });
 
             // Step 6: Remaining Headings & Title Elements (Length-Aware)
