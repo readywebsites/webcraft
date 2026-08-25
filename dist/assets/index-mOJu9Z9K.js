@@ -48,6 +48,106 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
       <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"><\/script>
       <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"><\/script>
       <script src="https://cdn.tailwindcss.com"><\/script>
+      <script id="webcraft-data-interceptor">
+        (function() {
+          var busTitle = ${JSON.stringify(r.business_name||``)};
+          var busTagline = ${JSON.stringify(r.tagline||``)};
+          var logoUrl = ${JSON.stringify(r.logo_url||``)};
+          var heroImgUrl = ${JSON.stringify(r.hero_image_url||``)};
+          var contactEmail = ${JSON.stringify(r.contact_email||``)};
+          var contactPhone = ${JSON.stringify(r.contact_phone||``)};
+          var aiContent = ${JSON.stringify(r.ai_content||null)};
+          var poolUrls = ${JSON.stringify((r.image_pool||[]).map(e=>e&&e.url?e.url:e).filter(Boolean))};
+          if (poolUrls.length === 0 && heroImgUrl) poolUrls = [heroImgUrl];
+          if (poolUrls.length === 0 && content.images) poolUrls = Object.values(content.images).filter(Boolean);
+          var cardImgUrls = poolUrls.length > 1 ? poolUrls.slice(1) : poolUrls;
+
+          var servicesArr = (aiContent && (aiContent.services_or_products || aiContent.services)) || ${JSON.stringify(r.services||[])} || [];
+          if (servicesArr.length === 0) {
+            servicesArr = [
+              { title: "Signature Specialty", desc: "Crafted with highest quality standards.", price: "$29.00", tag: "Signature" },
+              { title: "Premium Collection", desc: "Exceptional design and unmatched quality.", price: "$49.00", tag: "Best Seller" },
+              { title: "Artisan Selection", desc: "Pure craftsmanship and attention to detail.", price: "$39.00", tag: "Popular" },
+              { title: "Boutique Special", desc: "Exclusive seasonal handcrafted offering.", price: "$59.00", tag: "Featured" }
+            ];
+          }
+
+          function patchGlobalData() {
+            try {
+              if (typeof window.MOCK_DATA !== 'undefined' && window.MOCK_DATA) {
+                if (busTitle) {
+                  window.MOCK_DATA.announcements = [
+                    { id: 1, text: "WELCOME TO " + busTitle.toUpperCase() + (busTagline ? " - " + busTagline.toUpperCase() : "") },
+                    { id: 2, text: "PREMIER QUALITY & DEDICATED SERVICE" },
+                    { id: 3, text: "FREE EXPRESS SHIPPING & DEDICATED SUPPORT" }
+                  ];
+                  if (window.MOCK_DATA.comfortBeyondTime) {
+                    window.MOCK_DATA.comfortBeyondTime.title = (aiContent && aiContent.about && aiContent.about.title) || ("About " + busTitle);
+                    window.MOCK_DATA.comfortBeyondTime.subtitle = busTitle.toUpperCase();
+                    window.MOCK_DATA.comfortBeyondTime.description = "<p>" + ((aiContent && aiContent.about && aiContent.about.story) || (busTitle + " offers premier quality and craftsmanship tailored to your exact needs.")) + "</p>";
+                    if (poolUrls.length > 1) window.MOCK_DATA.comfortBeyondTime.image1 = poolUrls[1];
+                    if (poolUrls.length > 2) window.MOCK_DATA.comfortBeyondTime.image2 = poolUrls[2];
+                  }
+                  if (window.MOCK_DATA.footerData && window.MOCK_DATA.footerData.section) {
+                    window.MOCK_DATA.footerData.section.newsletter_text = "Subscribe to get exclusive updates, seasonal specials, and announcements from " + busTitle + ".";
+                  }
+                }
+                if (poolUrls.length > 0 && Array.isArray(window.MOCK_DATA.slides)) {
+                  window.MOCK_DATA.slides.forEach(function(sl, sIdx) {
+                    sl.image = poolUrls[sIdx % poolUrls.length];
+                    sl.mobile_image = poolUrls[sIdx % poolUrls.length];
+                    sl.button_text = "EXPLORE NOW";
+                  });
+                }
+                if (servicesArr.length > 0 && Array.isArray(window.MOCK_DATA.products)) {
+                  window.MOCK_DATA.products.forEach(function(prod, pIdx) {
+                    var ap = servicesArr[pIdx % servicesArr.length];
+                    prod.name = ap.title || prod.name;
+                    prod.description = ap.desc || ap.description || prod.description;
+                    var cleanPrice = ap.price ? String(ap.price).replace(/[^0-9.]/g, '') : null;
+                    if (cleanPrice) {
+                      prod.price = cleanPrice;
+                      prod.originalPrice = String(Math.round(Number(cleanPrice) * 1.25));
+                    }
+                    if (cardImgUrls.length > 0) {
+                      var cImg = cardImgUrls[pIdx % cardImgUrls.length];
+                      prod.image = cImg;
+                      prod.hoverImage = cImg;
+                      prod.detail_image_1 = cImg;
+                      prod.detail_image_2 = cImg;
+                    }
+                  });
+                }
+              }
+            } catch(e) {}
+          }
+
+          var origFetch = window.fetchAPI;
+          window.fetchAPI = async function(endpoint) {
+            patchGlobalData();
+            if (typeof window.MOCK_DATA !== 'undefined' && window.MOCK_DATA) {
+              if (endpoint.startsWith('announcements')) return window.MOCK_DATA.announcements;
+              if (endpoint.startsWith('categories')) return window.MOCK_DATA.categories;
+              if (endpoint.startsWith('slides')) return window.MOCK_DATA.slides;
+              if (endpoint.startsWith('comfort-beyond-time-section')) return window.MOCK_DATA.comfortBeyondTime;
+              if (endpoint.startsWith('blogs/')) return (window.MOCK_DATA.blogs && window.MOCK_DATA.blogs[0]) || null;
+              if (endpoint.startsWith('blogs')) return window.MOCK_DATA.blogs;
+              if (endpoint.startsWith('stores')) return window.MOCK_DATA.stores;
+              if (endpoint.startsWith('features')) return window.MOCK_DATA.features;
+              if (endpoint.startsWith('footer-data')) return window.MOCK_DATA.footerData;
+              if (endpoint.startsWith('products')) return window.MOCK_DATA.products;
+            }
+            if (typeof origFetch === 'function') {
+              try { return await origFetch(endpoint); } catch(e) {}
+            }
+            return null;
+          };
+
+          window.patchGlobalData = patchGlobalData;
+          document.addEventListener('DOMContentLoaded', patchGlobalData);
+          window.addEventListener('load', patchGlobalData);
+        })();
+      <\/script>
       <style>
         @font-face {
           font-family: 'Linearicons-Free';
@@ -1024,11 +1124,36 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           } catch(err) {}
         }
 
+        // 1. Initial Immediate & DOMContentLoaded Driver Runs
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', runWebcraftDriver);
         } else {
           runWebcraftDriver();
         }
+
+        // 2. Staged Multi-Interval Execution for Client-Rendered SPAs & Data-Driven Templates
+        [30, 100, 250, 600, 1200, 2200, 3600, 5000].forEach(function(delay) {
+          setTimeout(runWebcraftDriver, delay);
+        });
+
+        // 3. Reactive MutationObserver for Real-Time DOM Updates
+        try {
+          var webcraftDebounceTimer = null;
+          var observer = new MutationObserver(function(mutations) {
+            var hasNewNodes = false;
+            for (var i = 0; i < mutations.length; i++) {
+              if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
+                hasNewNodes = true;
+                break;
+              }
+            }
+            if (hasNewNodes) {
+              if (webcraftDebounceTimer) clearTimeout(webcraftDebounceTimer);
+              webcraftDebounceTimer = setTimeout(runWebcraftDriver, 40);
+            }
+          });
+          observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
+        } catch(obsErr) {}
 
       <\/script>
     `;return y&&b?(x=i.replace(/(<head[^>]*>)/i,`$1\n${ee}`),x=x.replace(/<\/body>/i,`${S}\n</body>`)):x=b?`<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>${l}</title>\n${ee}\n</head>\n${i.replace(/<\/body>/i,`${S}\n</body>`)}`:`
