@@ -195,15 +195,14 @@ You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks,
 """
 
     models_to_try = [
-        "gemini-3.5-flash",
-        "gemini-3.6-flash",
-        "gemini-3.1-flash-lite",
-        "gemini-flash-lite-latest",
-        "gemma-4-26b-a4b-it"
+        "gemini-1.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash-latest"
     ]
 
     for model in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key.strip()}"
         payload = {
             "contents": [
                 {
@@ -226,7 +225,7 @@ You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks,
             headers={"Content-Type": "application/json"}
         )
         try:
-            with urllib.request.urlopen(req, timeout=12.0) as response:
+            with urllib.request.urlopen(req, timeout=4.0) as response:
                 if response.status == 200:
                     resp_json = json.loads(response.read().decode('utf-8'))
                     candidates = resp_json.get('candidates', [])

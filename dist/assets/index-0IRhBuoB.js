@@ -258,7 +258,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               if (!targetUrl || !imgEl) return;
               imgEl.src = targetUrl;
               imgEl.srcset = targetUrl;
-              ['data-src', 'data-original', 'data-lazy', 'data-lazy-src', 'data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina'].forEach(function(attr) {
+              ['data-src', 'data-original', 'data-lazy', 'data-lazy-src', 'data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina', 'data-srcset', 'data-lazyload'].forEach(function(attr) {
                 if (imgEl.hasAttribute(attr)) imgEl.setAttribute(attr, targetUrl);
               });
             }
@@ -271,9 +271,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
               var currentSt = el.getAttribute('style') || '';
               var cleaned = currentSt.replace(/background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?/gi, '').replace(/;\s*$/, '');
-              el.style.backgroundImage = "url('" + targetUrl + "')";
-              el.style.backgroundSize = 'cover';
-              el.style.backgroundPosition = 'center';
+              el.style.setProperty('background-image', "url('" + targetUrl + "')", 'important');
+              el.style.setProperty('background-size', 'cover', 'important');
+              el.style.setProperty('background-position', 'center', 'important');
             }
 
             // 2. User Logo Replacement (Image Mode vs Text Mode across ALL templates)
@@ -281,7 +281,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               'header .navbar-brand, nav .navbar-brand, .navbar-brand, header .logo, nav .logo, ' +
               '.site-logo, .header-logo, .brand-logo, .brand, .logo, .site-branding, .logo-box, ' +
               '.logo-area, .logo-holder, .custom-logo-link, span.logo, span.business-logo, ' +
-              '.business-logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]'
+              '.business-logo, .header__logo, .header_logo, .brand-area, .footer-logo, .footer__logo, ' +
+              '.main-logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]'
             );
 
             if (logoUrl) {
@@ -290,11 +291,12 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 if (img) {
                   setImgAllAttrs(img, logoUrl);
                   img.alt = busTitle || 'Logo';
-                  img.style.maxHeight = '60px';
-                  img.style.maxWidth = '280px';
-                  img.style.objectFit = 'contain';
+                  img.style.setProperty('max-height', '52px', 'important');
+                  img.style.setProperty('max-width', '260px', 'important');
+                  img.style.setProperty('object-fit', 'contain', 'important');
+                  img.style.setProperty('width', 'auto', 'important');
                 } else if (['IMG', 'SVG'].indexOf(el.tagName) === -1) {
-                  el.innerHTML = '<img src="' + logoUrl + '" alt="' + (busTitle || 'Logo') + '" style="max-height:60px;max-width:280px;object-fit:contain;" />';
+                  el.innerHTML = '<img src="' + logoUrl + '" alt="' + (busTitle || 'Logo') + '" style="max-height:52px;max-width:260px;object-fit:contain;width:auto;" />';
                 }
               });
 
@@ -302,12 +304,13 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               logoImgs.forEach(function(img) {
                 if (img.getAttribute('data-image')) return;
                 setImgAllAttrs(img, logoUrl);
-                img.style.maxHeight = '60px';
-                img.style.maxWidth = '280px';
-                img.style.objectFit = 'contain';
+                img.style.setProperty('max-height', '52px', 'important');
+                img.style.setProperty('max-width', '260px', 'important');
+                img.style.setProperty('object-fit', 'contain', 'important');
+                img.style.setProperty('width', 'auto', 'important');
               });
             } else if (busTitle) {
-              // In text logo mode: Replace template logo image with bold text brand name
+              // Text logo mode: Replace template logo image with bold text brand name
               logoContainers.forEach(function(el) {
                 var img = el.tagName === 'IMG' ? el : el.querySelector('img');
                 if (img) {
@@ -316,6 +319,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                   span.textContent = busTitle;
                   span.style.fontSize = '1.45rem';
                   span.style.fontWeight = '800';
+                  span.style.letterSpacing = '-0.02em';
                   span.style.color = 'inherit';
                   span.style.textDecoration = 'none';
                   span.style.display = 'inline-block';
@@ -342,6 +346,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             if (poolUrls.length === 0 && heroImgUrl) {
               poolUrls = [heroImgUrl];
             }
+
+            var cardImgUrls = poolUrls.length > 1 ? poolUrls.slice(1) : poolUrls;
 
             if (poolUrls.length > 0) {
               var livePoolIdx = 1; // poolUrls[0] is hero / slide 1 banner
@@ -453,7 +459,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
                 if (validSlides.length > 0) {
                   validSlides.forEach(function(slideEl) {
-                    // Distinct banner image for this slide across all sliders
                     var slideBannerUrl = "";
                     if (globalSlideIdx === 0) {
                       slideBannerUrl = heroImgUrl || poolUrls[0] || "";
@@ -463,12 +468,10 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                     }
                     globalSlideIdx++;
 
-                    // Find images inside this slide (excluding logos)
                     var slideImgs = Array.from(slideEl.querySelectorAll('img')).filter(function(img) {
                       return !processedImgs.has(img);
                     });
 
-                    // Detect slide background element
                     var bgImgEl = null;
                     for (var i = 0; i < slideImgs.length; i++) {
                       var sCls = (slideImgs[i].className || '').toLowerCase();
@@ -486,7 +489,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                       processedImgs.add(bgImgEl);
                     }
 
-                    // Check container background
                     setContainerBgAttrs(slideEl, slideBannerUrl);
                     processedBgs.add(slideEl);
 
@@ -497,7 +499,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                       }
                     });
 
-                    // Multi-Image in slide / Side-by-Side in slide: ensure each layer gets a distinct image!
                     slideImgs.forEach(function(otherImg) {
                       if (processedImgs.has(otherImg)) return;
                       var layerUrl = poolUrls[livePoolIdx % poolUrls.length];
@@ -536,7 +537,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 }
               });
 
-              // Step C: All remaining images across the entire page (cards, products, services, galleries)
+              // Step C: All remaining images across the entire page
               document.querySelectorAll('img').forEach(function(img) {
                 if (processedImgs.has(img)) return;
                 var pClasses = (img.parentElement ? img.parentElement.className : '').toLowerCase();
@@ -686,24 +687,47 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
             });
 
-            // Step 2: Card-Level Unified Semantic Replacement (Title + Desc + Tag + Price)
+            // Step 2: Card-Level Unified Semantic Replacement (Title + Desc + Tag + Price + Image)
             var cardSelectors = (
-              '.card, .product, .service, .item, .feature, .portfolio-item, .team-member, .timeline-panel, ' +
-              '.box, .service-box, .service-block, .feature-box, .single-item, .pricing-card, .portfolio-modal, .modal-body, ' +
-              '[class*="service-item"], [class*="product-item"], [class*="feature-box"], [class*="portfolio-item"], ' +
-              '[class*="portfolio-modal"], [class*="ps-product"], [class*="pricing-card"], [class*="service-block"], [class*="single-service"]'
+              'article, .short-item, [class*="short-item"], ' +
+              '.single-product, .product-card, .product-item, .product__item, .product-wrap, .product-box, .single_product, .shop-item, .shop-card, ' +
+              '.single-service, .service-card, .service-item, .service_item, .service-box, .service-block, .single-item, ' +
+              '.menu-item, .single-menu-item, .dish-card, .dish-item, .food-card, .food-item, ' +
+              '.tour-item, .package-card, .room-item, .hotel-card, .listing-item, .property-card, ' +
+              '.portfolio-item, .portfolio-card, .team-card, .team-item, .member-item, ' +
+              '.pricing-card, .pricing-box, .feature-box, .feature-card, .feature-item, .card, ' +
+              '[class*="product-item"], [class*="product-card"], [class*="single-product"], [class*="product__"], ' +
+              '[class*="service-item"], [class*="service-card"], [class*="service-box"], [class*="single-service"], [class*="services_item"], ' +
+              '[class*="ak-service"], [class*="menu-item"], [class*="dish-item"], [class*="food-item"], [class*="pricing-card"], [class*="feature-box"]'
             );
-            var rawCards = document.querySelectorAll(cardSelectors);
+            var rawCards = Array.from(document.querySelectorAll(cardSelectors));
+
+            // Add grid columns and article/div blocks that contain image/icon + heading
+            document.querySelectorAll('article, div, li').forEach(function(el) {
+              if (rawCards.indexOf(el) !== -1) return;
+              if (el.closest('nav, footer, header') || /(?:header|footer|slider|banner|hero|nav|menu-bar|modal)/i.test(el.className || '')) return;
+              if (el.querySelector('h2, h3, h4, h5, h6') && (el.querySelector('img') || el.querySelector('[class*="price"], [class*="cost"], [class*="badge"], [class*="tag"], [class*="icon"]'))) {
+                var subH = el.querySelectorAll('h2, h3, h4, h5, h6');
+                var subI = el.querySelectorAll('img');
+                if (subH.length >= 1 && subH.length <= 3 && subI.length <= 2) {
+                  rawCards.push(el);
+                }
+              }
+            });
+
+            // Retain leaf card elements (exclude outer grid/section wrappers that contain child cards)
             var topCards = [];
             rawCards.forEach(function(c) {
-              var isNested = false;
+              var hasChildCard = false;
               for (var i = 0; i < rawCards.length; i++) {
-                if (rawCards[i] !== c && rawCards[i].contains(c)) {
-                  isNested = true;
+                if (rawCards[i] !== c && c.contains(rawCards[i])) {
+                  hasChildCard = true;
                   break;
                 }
               }
-              if (!isNested && topFaqCards.indexOf(c) === -1) topCards.push(c);
+              if (!hasChildCard && topFaqCards.indexOf(c) === -1 && !/(?:hero|main-slider|rev_slider|home-slider|header|nav|footer)/i.test(c.className || '')) {
+                topCards.push(c);
+              }
             });
 
             topCards.forEach(function(cardEl, cIdx) {
@@ -749,8 +773,24 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 processedDOMElements.add(descEl);
               }
 
+              // Card Image Replacement
+              if (cardImgUrls.length > 0) {
+                var tCardImg = cardImgUrls[cIdx % cardImgUrls.length];
+                cardEl.querySelectorAll('img').forEach(function(cimg) {
+                  setImgAllAttrs(cimg, tCardImg);
+                  cimg.alt = itmData.title;
+                  processedImgs.add(cimg);
+                });
+                cardEl.querySelectorAll('[data-background], [data-bg], [data-bg-image], [style*="background"], [style*="url("]').forEach(function(cbg) {
+                  if (cbg.tagName !== 'IMG') {
+                    setContainerBgAttrs(cbg, tCardImg);
+                    processedBgs.add(cbg);
+                  }
+                });
+              }
+
               // Button in Card
-              var btnEl = cardEl.querySelector('button, a.btn, a[class*="btn"], a.cta');
+              var btnEl = cardEl.querySelector('button, a.btn, a[class*="btn"], a.cta, .add-to-cart, .btn-cart');
               if (btnEl && !processedDOMElements.has(btnEl)) {
                 var bTxt = (btnEl.textContent || '').trim();
                 if (bTxt.length <= 25) {
@@ -760,7 +800,62 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
             });
 
-            // Step 3: Stats & Counters (Number + Short 1-3 Word Label)
+            // Step 3: Hero & Masthead & Slider Headline Replacement
+            var heroHeadlinePool = [(heroObj && heroObj.headline) || busTitle, busTagline || "Exceptional Quality", "Premier Quality & Dedicated Service", (heroObj && heroObj.headline) || busTitle];
+            var heroHeadIdx = 0;
+
+            document.querySelectorAll(
+              '.hero, .hero-section, .hero-area, .banner, .banner-section, .banner-area, ' +
+              '.slider, .slider-area, .main-slider, .home-slider, .masthead, .intro, .intro-section, ' +
+              '.showcase, .welcome-section, .rev_slider, .swiper-container, .swiper, .carousel, ' +
+              '#hero, #banner, #home, #intro, [class*="hero"], [class*="banner"], [class*="slider"], ' +
+              '[class*="masthead"], [class*="intro"], header + section, header + div, nav + section, ' +
+              'nav + div, main > section:first-child, body > section:first-child, body > div:first-child'
+            ).forEach(function(hSec) {
+              if (hSec.closest('nav, footer') || /(?:footer|sidebar|client|partner)/i.test(hSec.className || '')) return;
+
+              hSec.querySelectorAll('h1, h2, h3, div, span').forEach(function(ht) {
+                if (processedDOMElements.has(ht) || ht.closest('nav, footer')) return;
+                var cls = (ht.className || '').toLowerCase();
+                var tag = ht.tagName;
+                if (tag === 'H1' || /(?:title|heading|caption|lead-in)/i.test(cls)) {
+                  var targetH = heroHeadlinePool[heroHeadIdx % heroHeadlinePool.length];
+                  heroHeadIdx++;
+                  var inA = ht.querySelector('a');
+                  if (inA) {
+                    inA.textContent = targetH;
+                    processedDOMElements.add(inA);
+                  } else {
+                    ht.textContent = targetH;
+                  }
+                  processedDOMElements.add(ht);
+                }
+              });
+
+              var heroSub = hSec.querySelector('p, div.subtitle, span.subtitle, .hero-text, .lead');
+              if (heroSub && !processedDOMElements.has(heroSub) && !heroSub.closest('nav, footer')) {
+                heroSub.textContent = (heroObj && heroObj.subheadline) || busTagline || "";
+                processedDOMElements.add(heroSub);
+              }
+
+              var heroBadge = hSec.querySelector('.badge, .tag, .pill, .kicker, .hero-badge, [class*="badge"]');
+              if (heroBadge && !processedDOMElements.has(heroBadge)) {
+                heroBadge.textContent = (heroObj && heroObj.badge_text) || "PREMIUM QUALITY";
+                processedDOMElements.add(heroBadge);
+              }
+
+              var heroBtns = hSec.querySelectorAll('a.btn, button, a[class*="btn"], a.cta');
+              if (heroBtns.length >= 1 && !processedDOMElements.has(heroBtns[0])) {
+                heroBtns[0].textContent = (heroObj && heroObj.cta_primary) || "Get Started";
+                processedDOMElements.add(heroBtns[0]);
+              }
+              if (heroBtns.length >= 2 && !processedDOMElements.has(heroBtns[1])) {
+                heroBtns[1].textContent = (heroObj && heroObj.cta_secondary) || "Explore Offerings";
+                processedDOMElements.add(heroBtns[1]);
+              }
+            });
+
+            // Step 4: Stats & Counters (Number + Short 1-3 Word Label)
             var statBlocks = document.querySelectorAll('.stat, .counter, .funfact, .achievement, .count-box, [class*="stat"], [class*="counter"]');
             var topStats = [];
             statBlocks.forEach(function(sb) {
@@ -789,19 +884,19 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
             });
 
-            // Step 4: Navigation Menu Sanitizer
+            // Step 5: Navigation Menu Sanitizer
             var navLabels = ["Home", "About Us", "Our Offerings", "Specialties", "Testimonials", "Contact"];
             var navIdx = 0;
             document.querySelectorAll('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a').forEach(function(na) {
               var txt = (na.textContent || '').toLowerCase();
-              if (/(?:flower|cake|pet|dog|cloth|saree|museum|repair|mechanic|jewelry|boutique|bakery|bread)/i.test(txt)) {
+              if (/(?:flower|cake|pet|dog|cloth|saree|museum|repair|mechanic|jewelry|boutique|bakery|bread|car-service)/i.test(txt)) {
                 na.textContent = navLabels[navIdx % navLabels.length];
                 navIdx++;
               }
               processedDOMElements.add(na);
             });
 
-            // Step 5: Remaining Headings & Title Elements (Length-Aware)
+            // Step 6: Remaining Headings & Title Elements (Length-Aware)
             var titleSelectors = (
               'h1, h2, h3, h4, h5, h6, .title, .sub-title, .subtitle, .section-title, .heading, .subheading, ' +
               '.portfolio-caption-heading, .portfolio-caption-subheading, .timeline-heading, .tp-caption, .slide-title, .banner-title, [class*="title"], [class*="heading"]'
@@ -846,7 +941,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               processedDOMElements.add(h);
             });
 
-            // Step 6: Remaining Paragraphs (<p>) (Strict Length Budgeting)
+            // Step 7: Remaining Paragraphs (<p>) (Strict Length Budgeting)
             var allP = document.querySelectorAll('p');
             var pIdx = 0;
             allP.forEach(function(p) {
@@ -861,23 +956,19 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               var oLen = oTxt.length;
 
               if (oWords <= 3 || oLen <= 25) {
-                // Tier 1: 1-3 words micro label (NEVER a long sentence!)
                 p.textContent = microTagsArr[pIdx % microTagsArr.length];
               } else if (oWords <= 8 || oLen <= 65) {
-                // Tier 2: 4-8 words short subtitle / lead phrase
                 p.textContent = mediumPhrases[pIdx % mediumPhrases.length];
               } else if (oWords <= 20 || oLen <= 140) {
-                // Tier 3: Medium sentence
                 p.textContent = (servicesArr.length > 0 ? servicesArr[pIdx % servicesArr.length].desc : mediumPhrases[pIdx % mediumPhrases.length]) || "";
               } else {
-                // Tier 4: Genuine narrative paragraph
                 p.textContent = domainParas[pIdx % domainParas.length];
               }
               pIdx++;
               processedDOMElements.add(p);
             });
 
-            // Step 7: Testimonials & Reviews
+            // Step 8: Testimonials & Reviews
             if (testimonialsArr && testimonialsArr.length > 0) {
               var tCards = document.querySelectorAll('.testimonial, .testimonial-item, .quote-item, .review, blockquote');
               tCards.forEach(function(tc, idx) {
@@ -893,7 +984,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // Step 8: Action Buttons & CTAs (Concise 1-3 Words)
+            // Step 9: Action Buttons & CTAs (Concise 1-3 Words)
             var ctaBtns = document.querySelectorAll('button, a.btn, a[class*="btn"], a[class*="button"], a.cta');
             var ctaLabels = [(heroObj && heroObj.cta_primary) || "Get Started", (heroObj && heroObj.cta_secondary) || "Explore More", "Order Online", "Book Now", "View Details"];
             var ctaIdx = 0;

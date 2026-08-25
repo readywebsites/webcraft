@@ -76,7 +76,14 @@ def apply_user_details_to_template(raw_html, raw_css, details):
 
     if ai_content and isinstance(ai_content, dict):
         from .content_injector import inject_business_content_into_html
-        html = inject_business_content_into_html(html, ai_content)
+        html = inject_business_content_into_html(
+            raw_html=html,
+            content=ai_content,
+            images_by_role=images,
+            image_pool=image_pool,
+            logo_url=logo_url,
+            logo_type=details.get('logo_type', 'both')
+        )
 
     css = raw_css or ''
 
