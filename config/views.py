@@ -1006,7 +1006,7 @@ def generate_website(request):
                 "category_price": cat_price,
                 "price": cat_price,
                 "template_id": f"gh-{tpl.owner or 'readywebsites'}-{tpl.repo_name or 'template'}",
-                "template_name": tpl.title or f"Option {len(previews_list) + 1}",
+                "template_name": f"Template {len(previews_list) + 1}",
                 "thumbnail_url": tpl.thumbnail_url or "",
                 "logo_type": t_logo_type,
                 "image_pool": image_pool,
