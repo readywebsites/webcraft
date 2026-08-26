@@ -280,11 +280,27 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           font-weight: normal;
           font-style: normal;
         }
-        html, body {
+        /* Enable Butter-Smooth Native GPU-Accelerated Scrolling */
+        html {
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-y: contain;
+          overflow-x: hidden;
+          overflow-y: auto !important;
+          height: auto !important;
+        }
+        body {
           width: 100%;
-          min-height: 100%;
+          min-height: 100vh;
           margin: 0;
           padding: 0;
+          overflow-x: hidden !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+          position: relative !important;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
         }
         /* Constrain Header/Navbar and Footer Branding Logos to standard navbar heights */
         header .navbar-brand img, header .header-logo img, header .site-logo img, header .logo img, header .brand img,
@@ -315,17 +331,37 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           scrollbar-width: thin !important;
           scrollbar-color: rgba(100, 116, 139, 0.35) transparent !important;
         }
-        /* Ensure AOS (Animate On Scroll) animated elements are visible in desktop preview */
+        /* Ensure AOS (Animate On Scroll) animated elements are visible and hardware-accelerated */
         [data-aos] {
           opacity: 1 !important;
           transform: none !important;
           visibility: visible !important;
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+        }
+        /* Neutralize lagging scroll-jacking & blocking overlays */
+        .preloader, #preloader, .page-loader, #page-loader, .loader-wrap, .loader-holder, .ps-loading, .is-loading {
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
         }
         :root { --primary-color: ${d}; }
         ${_}
       </style>
     `,w=`
-      <script src="https://cdn.jsdelivr.net/npm/framework7@8/framework7-bundle.min.js"><\/script>
+      <script>
+        // Neutralize legacy scroll-hijackers & wheel event blockers
+        (function() {
+          try {
+            if (window.jQuery && window.jQuery.fn) {
+              window.jQuery.fn.niceScroll = function() { return this; };
+              window.jQuery.fn.getNiceScroll = function() { return { remove: function(){}, resize: function(){}, hide: function(){}, show: function(){} }; };
+            }
+            window.SmoothScroll = undefined;
+          } catch(e) {}
+        })();
+      <\/script>
       <script>
         (function() {
           var rawJs = ${JSON.stringify(n||``)};
@@ -400,18 +436,23 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           }
         })();
 
+        var isWebcraftRunning = false;
+        var isUserScrolling = false;
+        var scrollDebounceTimer = null;
+
+        window.addEventListener('scroll', function() {
+          isUserScrolling = true;
+          if (scrollDebounceTimer) clearTimeout(scrollDebounceTimer);
+          scrollDebounceTimer = setTimeout(function() {
+            isUserScrolling = false;
+          }, 150);
+        }, { passive: true });
+
         function runWebcraftDriver() {
-          if (typeof Framework7 !== 'undefined' && !window.f7App && document.querySelector('#app')) {
-            try {
-              window.f7App = new Framework7({
-                el: '#app',
-                name: '${l.replace(/'/g,`\\'`)}',
-                theme: 'ios'
-              });
-            } catch(e) {}
-          }
+          if (isUserScrolling || isWebcraftRunning) return;
+          isWebcraftRunning = true;
           if (typeof AOS !== 'undefined') {
-            try { AOS.init({ duration: 800, once: true }); } catch(e) {}
+            try { AOS.init({ duration: 600, once: true }); } catch(e) {}
           }
 
           // Inside-iframe Native DOM Post-Processing Driver (Zero Cross-Origin SecurityErrors)
@@ -1311,38 +1352,55 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-          } catch(err) {}
+          } catch(err) {
+          } finally {
+            isWebcraftRunning = false;
+          }
         }
 
         // 1. Initial Immediate & DOMContentLoaded Driver Runs
         if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', runWebcraftDriver);
+          document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(runWebcraftDriver, 20);
+          });
         } else {
           runWebcraftDriver();
         }
 
-        // 2. Staged Multi-Interval Execution for Client-Rendered SPAs & Data-Driven Templates
-        [30, 100, 250, 600, 1200, 2200, 3600, 5000].forEach(function(delay) {
+        // 2. Controlled Staged Multi-Interval Execution during page load
+        [60, 250, 800, 2000].forEach(function(delay) {
           setTimeout(runWebcraftDriver, delay);
         });
 
-        // 3. Reactive MutationObserver for Real-Time DOM Updates
+        // 3. Ultra-Lightweight MutationObserver that automatically disconnects after 4.5s
         try {
           var webcraftDebounceTimer = null;
           var observer = new MutationObserver(function(mutations) {
-            var hasNewNodes = false;
+            if (isUserScrolling || isWebcraftRunning) return;
+            var hasSignificantNodes = false;
             for (var i = 0; i < mutations.length; i++) {
               if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
-                hasNewNodes = true;
-                break;
+                for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+                  var node = mutations[i].addedNodes[j];
+                  if (node.nodeType === 1 && (node.tagName === 'DIV' || node.tagName === 'SECTION' || node.tagName === 'ARTICLE' || node.tagName === 'MAIN')) {
+                    hasSignificantNodes = true;
+                    break;
+                  }
+                }
               }
+              if (hasSignificantNodes) break;
             }
-            if (hasNewNodes) {
+            if (hasSignificantNodes) {
               if (webcraftDebounceTimer) clearTimeout(webcraftDebounceTimer);
-              webcraftDebounceTimer = setTimeout(runWebcraftDriver, 40);
+              webcraftDebounceTimer = setTimeout(runWebcraftDriver, 100);
             }
           });
-          observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
+          observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
+          // Disconnect observer after 4.5s to completely eliminate background CPU overhead during scrolling
+          setTimeout(function() {
+            try { observer.disconnect(); } catch(e) {}
+          }, 4500);
         } catch(obsErr) {}
 
       <\/script>
