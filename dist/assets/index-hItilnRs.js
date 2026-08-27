@@ -392,6 +392,21 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         // Neutralize legacy scroll-hijackers & wheel event blockers
         (function() {
           try {
+            // Force passive event listeners for wheel/mousewheel/touchmove so scrolling is NEVER blocked or stuck
+            var _origAddEventListener = EventTarget.prototype.addEventListener;
+            EventTarget.prototype.addEventListener = function(type, listener, options) {
+              if (type === 'wheel' || type === 'mousewheel' || type === 'touchmove') {
+                if (typeof options === 'boolean') {
+                  options = { capture: options, passive: true };
+                } else if (typeof options === 'object' && options !== null) {
+                  options = Object.assign({}, options, { passive: true });
+                } else {
+                  options = { passive: true };
+                }
+              }
+              return _origAddEventListener.call(this, type, listener, options);
+            };
+
             if (window.jQuery && window.jQuery.fn) {
               window.jQuery.fn.niceScroll = function() { return this; };
               window.jQuery.fn.getNiceScroll = function() { return { remove: function(){}, resize: function(){}, hide: function(){}, show: function(){} }; };
@@ -477,6 +492,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         var isWebcraftRunning = false;
         var isUserScrolling = false;
         var scrollDebounceTimer = null;
+        var totalDriverRuns = 0;
+        var MAX_DRIVER_RUNS = 4;
+        var observerInstance = null;
 
         window.addEventListener('scroll', function() {
           isUserScrolling = true;
@@ -487,8 +505,14 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         }, { passive: true });
 
         function runWebcraftDriver() {
-          if (isUserScrolling || isWebcraftRunning) return;
+          if (totalDriverRuns >= MAX_DRIVER_RUNS || isUserScrolling || isWebcraftRunning) return;
           isWebcraftRunning = true;
+          totalDriverRuns++;
+
+          if (observerInstance) {
+            try { observerInstance.disconnect(); } catch(e) {}
+          }
+
           if (typeof AOS !== 'undefined') {
             try { AOS.init({ duration: 600, once: true }); } catch(e) {}
           }
@@ -1465,6 +1489,11 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           } catch(err) {
           } finally {
             isWebcraftRunning = false;
+            if (observerInstance && totalDriverRuns < MAX_DRIVER_RUNS) {
+              try {
+                observerInstance.observe(document.body || document.documentElement, { childList: true, subtree: true });
+              } catch(e) {}
+            }
           }
         }
 
@@ -1478,15 +1507,15 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         }
 
         // 2. Controlled Staged Multi-Interval Execution during page load
-        [60, 250, 800, 2000].forEach(function(delay) {
+        [80, 400, 1500].forEach(function(delay) {
           setTimeout(runWebcraftDriver, delay);
         });
 
-        // 3. Ultra-Lightweight MutationObserver that automatically disconnects after 4.5s
+        // 3. Ultra-Lightweight MutationObserver with automatic disconnect after 3.5s
         try {
           var webcraftDebounceTimer = null;
-          var observer = new MutationObserver(function(mutations) {
-            if (isUserScrolling || isWebcraftRunning) return;
+          observerInstance = new MutationObserver(function(mutations) {
+            if (isUserScrolling || isWebcraftRunning || totalDriverRuns >= MAX_DRIVER_RUNS) return;
             var hasSignificantNodes = false;
             for (var i = 0; i < mutations.length; i++) {
               if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
@@ -1502,15 +1531,15 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             }
             if (hasSignificantNodes) {
               if (webcraftDebounceTimer) clearTimeout(webcraftDebounceTimer);
-              webcraftDebounceTimer = setTimeout(runWebcraftDriver, 100);
+              webcraftDebounceTimer = setTimeout(runWebcraftDriver, 120);
             }
           });
-          observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+          observerInstance.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
-          // Disconnect observer after 4.5s to completely eliminate background CPU overhead during scrolling
+          // Disconnect observer after 3.5s to eliminate all background CPU overhead
           setTimeout(function() {
-            try { observer.disconnect(); } catch(e) {}
-          }, 4500);
+            try { observerInstance.disconnect(); } catch(e) {}
+          }, 3500);
         } catch(obsErr) {}
 
       <\/script>
