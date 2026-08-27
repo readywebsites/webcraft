@@ -910,8 +910,7 @@ def generate_website(request):
                 logo_url = ""
         elif isinstance(logo_file, str) and logo_file.startswith('http'):
             logo_url = logo_file
-        elif logo_mode == 'image':
-            logo_url = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&q=80"
+        # When logo is not uploaded, logo_url remains empty ("") so templates render the business name as a text logo
 
         # Handle Uploaded Hero Banner (Only set hero_image_url if user explicitly uploaded a hero image)
         hero_image_url = ""
