@@ -34,7 +34,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         })();
       <\/script>
       <style id="webcraft-visibility-fix">
-        body, html, #app-root, #wrapper, #main, .wrapper, .main-wrapper, #content, .content {
+        body, html, #app-root, #wrapper, #main, .wrapper, .main-wrapper, #content, .content, section, [id^="section-"] {
           display: block !important;
           opacity: 1 !important;
           visibility: visible !important;
@@ -44,6 +44,50 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           opacity: 0 !important;
           visibility: hidden !important;
           pointer-events: none !important;
+        }
+        /* Reveal Owl Carousel items and WOW animation elements unconditionally */
+        .owl-carousel {
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        .owl-carousel:not(.owl-loaded) {
+          display: flex !important;
+          flex-wrap: wrap !important;
+          gap: 1.5rem !important;
+          justify-content: center !important;
+        }
+        .owl-carousel:not(.owl-loaded) > * {
+          display: block !important;
+          width: 100% !important;
+          max-width: 650px !important;
+          margin: 0 auto 1.5rem auto !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        .wow {
+          visibility: visible !important;
+          opacity: 1 !important;
+          animation: none !important;
+          transform: none !important;
+        }
+        .jarallax {
+          position: relative !important;
+          background-size: cover !important;
+          background-position: center !important;
+          overflow: hidden !important;
+        }
+        .jarallax > .jarallax-img {
+          position: absolute !important;
+          inset: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: cover !important;
+          z-index: 0 !important;
+        }
+        .jarallax > .container {
+          position: relative !important;
+          z-index: 2 !important;
         }
       </style>
       <link rel="preconnect" href="https://fonts.googleapis.com">
