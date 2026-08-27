@@ -78,10 +78,35 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
           var announcementText = (aiContent && aiContent.tagline) || busTagline || ("WELCOME TO " + (busTitle ? busTitle.toUpperCase() : "OUR STORE") + " — PREMIER QUALITY & DEDICATED SERVICE");
 
+          function sanitizeNavItem(text, maxChars) {
+            if (!text) return "Featured";
+            var maxLen = maxChars || 14;
+            var clean = String(text).replace(/[\r\n\t]+/g, ' ').replace(/["'\`_#*~]+/g, '').trim();
+            if (clean.length <= maxLen) return clean;
+            var words = clean.split(/\s+/);
+            if (words.length >= 2) {
+              var two = words[0] + ' ' + words[1];
+              if (two.length <= maxLen) return two;
+            }
+            if (words.length >= 1 && words[0].length <= maxLen) return words[0];
+            return clean.substring(0, maxLen).trim();
+          }
+
+          var rawNavItems = (aiContent && (aiContent.navbar_items || aiContent.micro_tags)) || [];
           var catList = [];
+          rawNavItems.forEach(function(item) {
+            var sItem = sanitizeNavItem(item, 14).toUpperCase();
+            if (sItem && catList.indexOf(sItem) === -1) catList.push(sItem);
+          });
           servicesArr.forEach(function(s) {
-            if (s.tag && catList.indexOf(s.tag.toUpperCase()) === -1) catList.push(s.tag.toUpperCase());
-            if (s.title && catList.indexOf(s.title.toUpperCase()) === -1) catList.push(s.title.toUpperCase());
+            if (s.tag) {
+              var sTag = sanitizeNavItem(s.tag, 14).toUpperCase();
+              if (sTag && catList.indexOf(sTag) === -1) catList.push(sTag);
+            }
+            if (s.title) {
+              var sTitle = sanitizeNavItem(s.title, 14).toUpperCase();
+              if (sTitle && catList.indexOf(sTitle) === -1) catList.push(sTitle);
+            }
           });
           if (catList.length === 0) catList = ["FEATURED", "SPECIALTIES", "BESTSELLERS", "COLLECTIONS", "OFFERINGS"];
 
@@ -1141,16 +1166,42 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               processedDOMElements.add(ap);
             });
 
-            // Step 5: Navigation Menu Sanitizer (Strict In-Place Text Replacement Only - No New Elements Created)
+            // Helper for ultra-clean, length-limited navbar item names (max 14 chars)
+            function sanitizeNavItem(text, maxChars) {
+              if (!text) return "Featured";
+              var maxLen = maxChars || 14;
+              var clean = String(text).replace(/[\r\n\t]+/g, ' ').replace(/["'\`_#*~]+/g, '').trim();
+              if (clean.length <= maxLen) return clean;
+              var words = clean.split(/\s+/);
+              if (words.length >= 2) {
+                var two = words[0] + ' ' + words[1];
+                if (two.length <= maxLen) return two;
+              }
+              if (words.length >= 1 && words[0].length <= maxLen) return words[0];
+              return clean.substring(0, maxLen).trim();
+            }
+
+            // Step 5: Navigation Menu Sanitizer (Strict In-Place Text Replacement Only - Limited Characters)
             var customNavCategories = [];
+            var rawNavList = (aiContent && (aiContent.navbar_items || aiContent.micro_tags)) || [];
+            rawNavList.forEach(function(item) {
+              var s = sanitizeNavItem(item, 14);
+              if (s && customNavCategories.indexOf(s) === -1) customNavCategories.push(s);
+            });
             if (servicesArr && servicesArr.length > 0) {
               servicesArr.forEach(function(s) {
-                if (s.tag && customNavCategories.indexOf(s.tag) === -1) customNavCategories.push(s.tag);
-                if (s.title && customNavCategories.indexOf(s.title) === -1) customNavCategories.push(s.title);
+                if (s.tag) {
+                  var sTag = sanitizeNavItem(s.tag, 14);
+                  if (sTag && customNavCategories.indexOf(sTag) === -1) customNavCategories.push(sTag);
+                }
+                if (s.title) {
+                  var sTitle = sanitizeNavItem(s.title, 14);
+                  if (sTitle && customNavCategories.indexOf(sTitle) === -1) customNavCategories.push(sTitle);
+                }
               });
             }
             if (customNavCategories.length === 0) {
-              customNavCategories = ["Specialties", "Featured", "Best Sellers", "Collections", "Signature Offerings", "Our Services"];
+              customNavCategories = ["Featured", "Specialties", "Best Sellers", "Collections", "Services", "Offerings"];
             }
             var navCategoryIdx = 0;
             document.querySelectorAll(
@@ -1163,7 +1214,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               if (!txt || txt.length < 2) return;
               var lower = txt.toLowerCase();
 
-              // Preserve standard navigation anchors with clean names
+              // Preserve standard navigation anchors with clean, concise names (no excessive characters)
               if (/^(?:home|index|main)$/i.test(lower)) {
                 na.textContent = txt === txt.toUpperCase() ? "HOME" : "Home";
                 processedDOMElements.add(na);
@@ -1174,14 +1225,14 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 processedDOMElements.add(na);
                 return;
               }
-              if (/^(?:about|about us|our story|story|who we are)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "OUR STORY" : "Our Story";
+              if (/^(?:about|about us|our story|story|who we are|company)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? (txt.length <= 5 ? "ABOUT" : "OUR STORY") : (txt.length <= 5 ? "About" : "Our Story");
                 processedDOMElements.add(na);
                 return;
               }
-              if (/^(?:shop all|all products|all items|view all|collection|collections)$/i.test(lower)) {
+              if (/^(?:shop all|all products|all items|view all|collection|collections|shop|store)$/i.test(lower)) {
                 var arrowSvg = na.querySelector('svg');
-                var labelText = txt === txt.toUpperCase() ? "OFFERINGS" : "Offerings";
+                var labelText = (lower === 'shop' || lower === 'store' || txt.length <= 4) ? (txt === txt.toUpperCase() ? "SHOP" : "Shop") : (txt === txt.toUpperCase() ? "OFFERINGS" : "Offerings");
                 if (arrowSvg) {
                   na.innerHTML = labelText + ' ' + arrowSvg.outerHTML;
                 } else {
@@ -1190,10 +1241,56 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 processedDOMElements.add(na);
                 return;
               }
+              if (/^(?:services|our services)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "SERVICES" : "Services";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:menu|our menu|food|dishes)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "MENU" : "Menu";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:pricing|plans|rates|packages)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "PRICING" : "Pricing";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:faq|faqs|f\.a\.q\.|help|q&a)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "FAQ" : "FAQ";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:blog|news|articles|journal)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "BLOG" : "Blog";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:reviews|testimonials|feedback)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "REVIEWS" : "Reviews";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:gallery|portfolio|photos|work)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "GALLERY" : "Gallery";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:team|trainers|chefs|staff)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "TEAM" : "Team";
+                processedDOMElements.add(na);
+                return;
+              }
+              if (/^(?:classes|schedule|timetable)$/i.test(lower)) {
+                na.textContent = txt === txt.toUpperCase() ? "CLASSES" : "Classes";
+                processedDOMElements.add(na);
+                return;
+              }
 
-              // Replace all category & departmental links in-place
-              var targetCat = customNavCategories[navCategoryIdx % customNavCategories.length];
+              // Replace all category & departmental links in-place with length-limited text
+              var rawTargetCat = customNavCategories[navCategoryIdx % customNavCategories.length];
               navCategoryIdx++;
+              var targetCat = sanitizeNavItem(rawTargetCat, 14);
               var arrowSvg = na.querySelector('svg');
               var finalCatText = txt === txt.toUpperCase() ? targetCat.toUpperCase() : targetCat;
               if (arrowSvg) {

@@ -73,15 +73,19 @@ Create a complete, highly engaging, professional website copywriting package for
 
 CRITICAL RULES:
 1. Micro tags, badges, and kickers MUST be 1-3 words only (never sentences).
-2. Card titles and card descriptions MUST be semantically paired and have strong direct meaning together.
-3. FAQ questions and answers MUST be semantically paired with direct, helpful answers.
-4. Keep short phrases concise so they fit template designs without overflowing.
+2. Navbar items (in "navbar_items") MUST be ultra-concise (1-2 words only, maximum 12 characters each, e.g. "Menu", "Story", "Specials", "Services", "Reviews", "Offers", "Contact") so they never overflow navbar headers.
+3. Card titles and card descriptions MUST be semantically paired and have strong direct meaning together.
+4. FAQ questions and answers MUST be semantically paired with direct, helpful answers.
+5. Keep short phrases concise so they fit template designs without overflowing.
 
 You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks, just pure raw JSON) matching this exact schema:
 
 {{
   "brand_name": "{business_name}",
   "tagline": "Short, punchy, memorable 4-6 word brand slogan",
+  "navbar_items": [
+    "Menu", "Specials", "Story", "Reviews", "Contact"
+  ],
   "hero": {{
     "headline": "High-impact, irresistible hero headline (5-8 words) stating core value",
     "subheadline": "Compelling 15-25 word supporting subtitle explaining benefits and uniqueness",
@@ -273,6 +277,7 @@ def generate_fallback_business_content(
         return {
             "brand_name": b_name,
             "tagline": tagline or "Authentic Wood-Fired Neapolitan Pizza & Italian Craft",
+            "navbar_items": ["Menu", "Pizzas", "Story", "Reviews", "Contact"],
             "hero": {
                 "headline": f"Authentic Wood-Fired Pizza by {b_name}",
                 "subheadline": "Slow-fermented 48-hour sourdough, sweet San Marzano tomatoes, and creamy fresh mozzarella baked at 900°F.",
@@ -330,6 +335,7 @@ def generate_fallback_business_content(
         return {
             "brand_name": b_name,
             "tagline": tagline or "Master Certified Auto Repair & Precision Diagnostics",
+            "navbar_items": ["Services", "Repairs", "About", "Reviews", "Contact"],
             "hero": {
                 "headline": f"Certified Master Auto Repair by {b_name}",
                 "subheadline": "Full-service computerized diagnostics, engine performance tuning, brake overhauls, and routine maintenance with guaranteed parts.",
@@ -387,6 +393,7 @@ def generate_fallback_business_content(
         return {
             "brand_name": b_name,
             "tagline": tagline or "Contemporary Luxury Fashion & Sustainable Apparel",
+            "navbar_items": ["Shop", "Collection", "Story", "Reviews", "Contact"],
             "hero": {
                 "headline": f"Elevate Your Signature Style with {b_name}",
                 "subheadline": "Discover seasonal designer apparel crafted from sustainable organic textiles, bespoke tailoring, and timeless silhouettes.",
@@ -444,6 +451,7 @@ def generate_fallback_business_content(
         return {
             "brand_name": b_name,
             "tagline": tagline or "Elite Strength, Functional Fitness & Athlete Training",
+            "navbar_items": ["Classes", "Trainers", "About", "Pricing", "Contact"],
             "hero": {
                 "headline": f"Unlock Your Peak Potential with {b_name}",
                 "subheadline": "State-of-the-art training facilities, expert coaching, high-intensity functional training, and supportive community.",
@@ -501,6 +509,7 @@ def generate_fallback_business_content(
         return {
             "brand_name": b_name,
             "tagline": tagline or "Pure Grass-Fed Dairy & Organic Farm Fresh Produce",
+            "navbar_items": ["Dairy", "Farm", "Story", "Reviews", "Contact"],
             "hero": {
                 "headline": f"100% Organic Farm-Fresh Dairy by {b_name}",
                 "subheadline": "Pasteurized whole milk, golden churned butter, and artisanal cheeses crafted fresh daily from pasture-raised grass-fed cows.",
@@ -558,6 +567,7 @@ def generate_fallback_business_content(
         return {
             "brand_name": b_name,
             "tagline": tagline or "Artisanal Baking, Specialty Coffee & Fresh Pastries",
+            "navbar_items": ["Menu", "Pastries", "Story", "Reviews", "Contact"],
             "hero": {
                 "headline": f"Artisanal Bakery & Specialty Coffee by {b_name}",
                 "subheadline": "Organic slow-fermented sourdough breads, flaky French butter croissants, bespoke celebration cakes, and espresso.",
@@ -617,6 +627,7 @@ def generate_fallback_business_content(
         return {
             "brand_name": b_name,
             "tagline": tagline or f"Authentic Quality & Dedicated Service at {b_name}",
+            "navbar_items": ["Offerings", "Services", "About", "Reviews", "Contact"],
             "hero": {
                 "headline": f"Discover Premium Quality with {b_name}",
                 "subheadline": clean_desc_lead,

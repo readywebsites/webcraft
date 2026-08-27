@@ -9,6 +9,37 @@ def _clean_text(val: Any) -> str:
     return str(val).strip()
 
 
+def _sanitize_nav_item(text: Any, max_chars: int = 14) -> str:
+    """
+    Sanitizes navbar item text to guarantee concise, elegant menu link names
+    with limited characters (default max 14 chars, 1-2 words).
+    Prevents long sentences, repetitive phrases, and layout overflowing in headers.
+    """
+    raw = _clean_text(text)
+    if not raw:
+        return "Offerings"
+    
+    # Remove excessive symbols, quotes, punctuation
+    cleaned = re.sub(r'[\r\n\t]+', ' ', raw)
+    cleaned = re.sub(r'["\'`_#*~]+', '', cleaned).strip()
+    
+    if len(cleaned) <= max_chars:
+        return cleaned
+
+    words = cleaned.split()
+    # Try 1 word or 2 words if within max_chars
+    if len(words) >= 2:
+        two_words = f"{words[0]} {words[1]}"
+        if len(two_words) <= max_chars:
+            return two_words
+    
+    if words and len(words[0]) <= max_chars:
+        return words[0]
+
+    # Fallback to truncated word
+    return cleaned[:max_chars].strip()
+
+
 def inject_business_content_into_html(
     raw_html: str,
     content: Dict[str, Any],
@@ -241,21 +272,40 @@ def inject_business_content_into_html(
             processed_nodes.add(id(ap))
 
         # -------------------------------------------------------------
-        # STEP 2: Dynamic Navigation Menu Category Replacement (Strict In-Place Text Only)
+        # STEP 2: Dynamic Navigation Menu Category Replacement (Strict In-Place Text Only & Limited Characters)
         # -------------------------------------------------------------
+        raw_nav_items = content.get('navbar_items') or []
         nav_categories = []
+        
+        for item in raw_nav_items:
+            sanitized = _sanitize_nav_item(item, max_chars=14)
+            if sanitized and sanitized not in nav_categories:
+                nav_categories.append(sanitized)
+        
+        if micro_tags:
+            for mt in micro_tags:
+                sanitized = _sanitize_nav_item(mt, max_chars=14)
+                if sanitized and sanitized not in nav_categories:
+                    nav_categories.append(sanitized)
+
         if services:
             for s in services:
-                if s.get('tag') and s['tag'] not in nav_categories:
-                    nav_categories.append(s['tag'])
-                if s.get('title') and s['title'] not in nav_categories:
-                    nav_categories.append(s['title'])
+                if isinstance(s, dict):
+                    if s.get('tag'):
+                        sanitized = _sanitize_nav_item(s['tag'], max_chars=14)
+                        if sanitized and sanitized not in nav_categories:
+                            nav_categories.append(sanitized)
+                    if s.get('title'):
+                        sanitized = _sanitize_nav_item(s['title'], max_chars=14)
+                        if sanitized and sanitized not in nav_categories:
+                            nav_categories.append(sanitized)
+
         if not nav_categories:
-            nav_categories = ["Specialties", "Featured", "Best Sellers", "Collections", "Signature Offerings", "Our Services"]
+            nav_categories = ["Featured", "Specialties", "Best Sellers", "Collections", "Services", "Offerings"]
 
         nav_idx = 0
         for nav_a in soup.select('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a, nav a'):
-            # Protect icon-only links (cart, wishlist, search, profile buttons)
+            # Protect icon-only links (cart, wishlist, search, profile buttons, hamburger toggle)
             if nav_a.find(['svg', 'img', 'i']) and len(nav_a.get_text(strip=True)) <= 1:
                 continue
             txt = nav_a.get_text(strip=True)
@@ -263,6 +313,7 @@ def inject_business_content_into_html(
                 continue
             lower = txt.lower()
 
+            # Preserve standard navigation anchors with clean, concise names (no excessive characters)
             if lower in ['home', 'index', 'main']:
                 nav_a.string = "HOME" if txt.isupper() else "Home"
                 processed_nodes.add(id(nav_a))
@@ -271,18 +322,55 @@ def inject_business_content_into_html(
                 nav_a.string = "CONTACT" if txt.isupper() else "Contact"
                 processed_nodes.add(id(nav_a))
                 continue
-            if lower in ['about', 'about us', 'our story', 'story', 'who we are']:
-                nav_a.string = "OUR STORY" if txt.isupper() else "Our Story"
+            if lower in ['about', 'about us', 'our story', 'story', 'who we are', 'company']:
+                nav_a.string = "ABOUT" if (txt.isupper() and len(txt) <= 5) else ("OUR STORY" if txt.isupper() else ("About" if len(txt) <= 5 else "Our Story"))
                 processed_nodes.add(id(nav_a))
                 continue
-            if lower in ['shop all', 'all products', 'all items', 'view all', 'collection', 'collections']:
-                nav_a.string = "OFFERINGS" if txt.isupper() else "Offerings"
+            if lower in ['shop all', 'all products', 'all items', 'view all', 'collection', 'collections', 'shop', 'store']:
+                nav_a.string = "SHOP" if (lower in ['shop', 'store'] or len(txt) <= 4) else ("OFFERINGS" if txt.isupper() else "Offerings")
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['services', 'our services']:
+                nav_a.string = "SERVICES" if txt.isupper() else "Services"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['menu', 'our menu', 'food', 'dishes']:
+                nav_a.string = "MENU" if txt.isupper() else "Menu"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['pricing', 'plans', 'rates', 'packages']:
+                nav_a.string = "PRICING" if txt.isupper() else "Pricing"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['faq', 'faqs', 'f.a.q.', 'help', 'q&a']:
+                nav_a.string = "FAQ" if txt.isupper() else "FAQ"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['blog', 'news', 'articles', 'journal']:
+                nav_a.string = "BLOG" if txt.isupper() else "Blog"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['reviews', 'testimonials', 'feedback']:
+                nav_a.string = "REVIEWS" if txt.isupper() else "Reviews"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['gallery', 'portfolio', 'photos', 'work']:
+                nav_a.string = "GALLERY" if txt.isupper() else "Gallery"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['team', 'trainers', 'chefs', 'staff']:
+                nav_a.string = "TEAM" if txt.isupper() else "Team"
+                processed_nodes.add(id(nav_a))
+                continue
+            if lower in ['classes', 'schedule', 'timetable']:
+                nav_a.string = "CLASSES" if txt.isupper() else "Classes"
                 processed_nodes.add(id(nav_a))
                 continue
 
             target_cat = nav_categories[nav_idx % len(nav_categories)]
             nav_idx += 1
-            nav_a.string = target_cat.upper() if txt.isupper() else target_cat
+            target_cat_sanitized = _sanitize_nav_item(target_cat, max_chars=14)
+            nav_a.string = target_cat_sanitized.upper() if txt.isupper() else target_cat_sanitized
             processed_nodes.add(id(nav_a))
 
         # -------------------------------------------------------------
