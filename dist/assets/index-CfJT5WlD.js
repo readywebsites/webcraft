@@ -81,9 +81,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           function sanitizeNavItem(text, maxChars) {
             if (!text) return "Featured";
             var maxLen = maxChars || 14;
-            var clean = String(text).replace(/[\r\n\t]+/g, ' ').replace(/["'\`_#*~]+/g, '').trim();
+            var clean = String(text).split(' ').filter(Boolean).join(' ').replace(/["'#*_~]/g, '').trim();
             if (clean.length <= maxLen) return clean;
-            var words = clean.split(/\s+/);
+            var words = clean.split(' ').filter(Boolean);
             if (words.length >= 2) {
               var two = words[0] + ' ' + words[1];
               if (two.length <= maxLen) return two;
@@ -1170,9 +1170,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             function sanitizeNavItem(text, maxChars) {
               if (!text) return "Featured";
               var maxLen = maxChars || 14;
-              var clean = String(text).replace(/[\r\n\t]+/g, ' ').replace(/["'\`_#*~]+/g, '').trim();
+              var clean = String(text).split(' ').filter(Boolean).join(' ').replace(/["'#*_~]/g, '').trim();
               if (clean.length <= maxLen) return clean;
-              var words = clean.split(/\s+/);
+              var words = clean.split(' ').filter(Boolean);
               if (words.length >= 2) {
                 var two = words[0] + ' ' + words[1];
                 if (two.length <= maxLen) return two;
@@ -1338,7 +1338,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
               var oTxt = (h.textContent || '').trim();
               if (!oTxt || oTxt.length < 2) return;
-              var oWords = oTxt.split(/\s+/).length;
+              var oWords = oTxt.split(' ').filter(Boolean).length;
               var oLen = oTxt.length;
 
               var targetHText = "";
@@ -1378,7 +1378,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
               var oTxt = (p.textContent || '').trim();
               if (!oTxt || oTxt.length < 2) return;
-              var oWords = oTxt.split(/\s+/).length;
+              var oWords = oTxt.split(' ').filter(Boolean).length;
               var oLen = oTxt.length;
 
               if (oWords <= 3 || oLen <= 25) {
