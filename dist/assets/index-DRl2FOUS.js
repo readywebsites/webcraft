@@ -33,6 +33,19 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           };
         })();
       <\/script>
+      <style id="webcraft-visibility-fix">
+        body, html, #app-root, #wrapper, #main, .wrapper, .main-wrapper, #content, .content {
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        .ps-loading, .loading, .is-loading, .preloader, .page-loader, #preloader, #page-loader, .site-preloader, #de-preloader, .de-preloader {
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+      </style>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Montserrat:wght@400;600;700;800&family=Outfit:wght@400;600;700;800&family=Playfair+Display:wght@400;700;900&family=Poppins:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
