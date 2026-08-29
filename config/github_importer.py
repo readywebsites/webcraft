@@ -618,7 +618,7 @@ def auto_tag_github_html(html_code: str) -> str:
         return f'<img {attrs} data-logo="business_logo" data-editable="logo"'
     html_code = re.sub(r'<img\s+([^>]*?(?:class|id|alt|src)=["\'][^"\']*(?:logo|brand)[^"\']*["\'][^>]*)', tag_logo_img, html_code, flags=re.IGNORECASE)
 
-    # 2. Tag Main Title Elements (h1, span.business-name, site-title, brand-text, company-name)
+    # 2. Tag Main Title Elements (h1 -> hero_title, span.business-name, site-title, brand-text, company-name -> title)
     def tag_title_h1(match):
         full_tag = match.group(0)
         if 'data-editable' in full_tag.lower():
@@ -628,9 +628,9 @@ def auto_tag_github_html(html_code: str) -> str:
         tag_close = match.group(3)
         tag_name_end = tag_open.find(' ')
         if tag_name_end != -1:
-            new_open = tag_open[:tag_name_end] + ' data-editable="title"' + tag_open[tag_name_end:]
+            new_open = tag_open[:tag_name_end] + ' data-editable="hero_title"' + tag_open[tag_name_end:]
         else:
-            new_open = tag_open[:-1] + ' data-editable="title">'
+            new_open = tag_open[:-1] + ' data-editable="hero_title">'
         return f'{new_open}{tag_content}{tag_close}'
     html_code = re.sub(r'(<h1[^>]*>)(.*?)(<\/h1>)', tag_title_h1, html_code, count=1, flags=re.IGNORECASE | re.DOTALL)
 

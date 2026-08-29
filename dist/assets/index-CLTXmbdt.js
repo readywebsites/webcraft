@@ -572,9 +572,10 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var contactEmail = ${JSON.stringify(r.contact_email||``)};
             var contactPhone = ${JSON.stringify(r.contact_phone||``)};
 
-            // 1. Direct Span Class Targets & Placeholders
+            // 1. Direct Span Class Targets & Placeholders (Header & Footer brand text only)
             if (busTitle) {
-              document.querySelectorAll('span.business-name, .business-name, span.site-name, .site-name, span.site-title, .site-title, span.brand-name, .brand-name, span.company-name, .company-name, [data-editable="title"]').forEach(function(el) {
+              document.querySelectorAll('header .navbar-brand, nav .navbar-brand, span.business-name, .business-name, span.site-name, .site-name, span.site-title, .site-title, span.brand-name, .brand-name, span.company-name, .company-name, header [data-editable="title"], nav [data-editable="title"], footer [data-editable="title"]').forEach(function(el) {
+                if (el.closest('.hero, .hero-section, .hero-area, .main-slider, .home-slider, #hero, #home')) return;
                 el.textContent = busTitle;
               });
             }
@@ -1150,7 +1151,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             });
 
             // Step 3: Hero & Masthead & Slider Headline Replacement
-            var heroHeadlinePool = [(heroObj && heroObj.headline) || busTitle, busTagline || "Exceptional Quality", "Premier Quality & Dedicated Service", (heroObj && heroObj.headline) || busTitle];
+            // Strictly replaces text only without modifying text size, alignment, fonts, colors, or inline styles
+            var heroHeadlinePool = [(heroObj && heroObj.headline) || busTitle, busTagline || "Exceptional Quality", (heroObj && heroObj.headline) || busTitle];
             var heroHeadIdx = 0;
 
             document.querySelectorAll(
@@ -1162,37 +1164,65 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               if (hSec.closest('header, nav, footer, aside, [id*="banner-container"], [id*="header-container"], [id*="navbar-container"], [class*="announcement"], [class*="top-bar"], [class*="header"]') || /(?:footer|sidebar|client|partner|announcement|header|navbar|top-bar)/i.test(hSec.className || '')) return;
               if (/(?:banner-container|header-container|navbar-container|announcement)/i.test(hSec.id || '')) return;
 
-              hSec.querySelectorAll('h1, h2, h3, div, span').forEach(function(ht) {
-                if (processedDOMElements.has(ht) || ht.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container')) return;
-                var cls = (ht.className || '').toLowerCase();
-                var tag = ht.tagName;
-                if (tag === 'H1' || /(?:title|heading|caption|lead-in)/i.test(cls)) {
-                  var targetH = heroHeadlinePool[heroHeadIdx % heroHeadlinePool.length];
-                  heroHeadIdx++;
-                  var inA = ht.querySelector('a');
-                  if (inA) {
-                    inA.textContent = targetH;
-                    processedDOMElements.add(inA);
-                  } else {
-                    ht.textContent = targetH;
-                  }
-                  processedDOMElements.add(ht);
+              // 1. Target leaf heading elements ONLY (H1 first, then H2/H3, then leaf elements with heading title classes)
+              // Never target container divs (.hero-caption, .tp-caption, .slider-caption, etc.)
+              var heroTitleEls = [];
+              var h1s = Array.from(hSec.querySelectorAll('h1'));
+              if (h1s.length > 0) {
+                heroTitleEls = h1s;
+              } else {
+                var h2h3s = Array.from(hSec.querySelectorAll('h2, h3')).filter(function(h) {
+                  return !h.closest('nav, footer, header, aside');
+                });
+                if (h2h3s.length > 0) {
+                  heroTitleEls = h2h3s;
+                } else {
+                  hSec.querySelectorAll('div, span, h4').forEach(function(cand) {
+                    var cCls = (cand.className || '').toLowerCase();
+                    if (/(?:\btitle\b|\bheading\b|\bmain-title\b|\bbanner-title\b|\bhero-title\b)/i.test(cCls)) {
+                      if (!cand.querySelector('h1, h2, h3, p, div, section, article, ul, ol, form')) {
+                        heroTitleEls.push(cand);
+                      }
+                    }
+                  });
                 }
+              }
+
+              heroTitleEls.forEach(function(ht) {
+                if (processedDOMElements.has(ht) || ht.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container')) return;
+                var targetH = heroHeadlinePool[heroHeadIdx % heroHeadlinePool.length];
+                heroHeadIdx++;
+
+                // Pure in-place text replacement: do not modify style, font size, font family, color, or alignment
+                var innerA = ht.querySelector('a');
+                var childSpans = Array.from(ht.querySelectorAll('span')).filter(function(s) { return s.children.length === 0; });
+                if (innerA) {
+                  innerA.textContent = targetH;
+                  processedDOMElements.add(innerA);
+                } else if (childSpans.length === 1) {
+                  childSpans[0].textContent = targetH;
+                  processedDOMElements.add(childSpans[0]);
+                } else {
+                  ht.textContent = targetH;
+                }
+                processedDOMElements.add(ht);
               });
 
-              var heroSub = hSec.querySelector('p, div.subtitle, span.subtitle, .hero-text, .lead');
-              if (heroSub && !processedDOMElements.has(heroSub) && !heroSub.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container')) {
+              // 2. Subtitle: leaf paragraph or subtitle element only
+              var heroSub = hSec.querySelector('p.subtitle, p.sub-title, p.subheading, p.tagline, p.lead, p.hero-text, p.desc, div.subtitle, span.subtitle, p');
+              if (heroSub && !processedDOMElements.has(heroSub) && !heroSub.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container') && !heroSub.querySelector('h1, h2, h3, div')) {
                 heroSub.textContent = (heroObj && heroObj.subheadline) || busTagline || "";
                 processedDOMElements.add(heroSub);
               }
 
-              var heroBadge = hSec.querySelector('.badge, .tag, .pill, .kicker, .hero-badge, [class*="badge"]');
-              if (heroBadge && !processedDOMElements.has(heroBadge) && !heroBadge.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container')) {
+              // 3. Badge / Kicker (leaf element only)
+              var heroBadge = hSec.querySelector('.badge, .tag, .pill, .kicker, .hero-badge, [class*="badge"], [class*="kicker"]');
+              if (heroBadge && !processedDOMElements.has(heroBadge) && !heroBadge.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container') && !heroBadge.querySelector('h1, h2, h3, p, div')) {
                 heroBadge.textContent = (heroObj && heroObj.badge_text) || "PREMIUM QUALITY";
                 processedDOMElements.add(heroBadge);
               }
 
-              // Only replace hero action buttons that have actual text content and are not icon-only buttons
+              // 4. Hero Action Buttons (Buttons with text only)
               var heroBtns = Array.from(hSec.querySelectorAll('a.btn, button.btn, a[class*="btn"], button[class*="btn"], a.cta, .hero-btn, [class*="hero-btn"]')).filter(function(b) {
                 if (b.closest('nav, header, aside, footer, .announcement-bar, #top-banner-container, #header-container, #navbar-container, .header-tools, .header-right, .nav-right')) return false;
                 if (b.querySelector('svg, img, i') && b.textContent.trim().length <= 1) return false;
@@ -1207,6 +1237,11 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 heroBtns[1].textContent = (heroObj && heroObj.cta_secondary) || "Explore Offerings";
                 processedDOMElements.add(heroBtns[1]);
               }
+
+              // Mark all remaining elements inside hero section as processed so later steps (6 & 7) never overwrite hero text
+              hSec.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, a, button').forEach(function(elInHero) {
+                processedDOMElements.add(elInHero);
+              });
             });
 
             // Step 4: Stats & Counters (Number + Short 1-3 Word Label)
@@ -1406,13 +1441,13 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             // Step 6: Remaining Headings & Title Elements (Length-Aware)
             var titleSelectors = (
               'h1, h2, h3, h4, h5, h6, .title, .sub-title, .subtitle, .section-title, .heading, .subheading, ' +
-              '.portfolio-caption-heading, .portfolio-caption-subheading, .timeline-heading, .tp-caption, .slide-title, .banner-title, [class*="title"], [class*="heading"]'
+              '.portfolio-caption-heading, .portfolio-caption-subheading, .timeline-heading, .slide-title, .banner-title, [class*="title"], [class*="heading"]'
             );
             var allTitles = document.querySelectorAll(titleSelectors);
             var hIdx = 0;
             allTitles.forEach(function(h) {
               if (processedDOMElements.has(h)) return;
-              if (h.closest('script, style, head, nav, footer, .copyright, header, .navbar, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
+              if (h.closest('script, style, head, nav, footer, .copyright, header, .navbar, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container, .hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, .masthead, #hero, #home, #intro')) return;
               if (h.querySelector('img, svg') && !h.textContent.trim()) return;
               var hClasses = (h.className || '').toLowerCase();
               if (/(?:copyright|email|phone|logo|brand|announcement|nav-link|menu-item)/i.test(hClasses)) return;
@@ -1453,7 +1488,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var pIdx = 0;
             allP.forEach(function(p) {
               if (processedDOMElements.has(p)) return;
-              if (p.closest('script, style, head, .copyright, footer, header, nav, .navbar, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
+              if (p.closest('script, style, head, .copyright, footer, header, nav, .navbar, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container, .hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, .masthead, #hero, #home, #intro')) return;
               var pClasses = (p.className || '').toLowerCase();
               if (/(?:copyright|email|phone|logo|brand|price|author|date|time|announcement|nav-link|menu-item)/i.test(pClasses)) return;
 
@@ -1497,7 +1532,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var ctaIdx = 0;
             ctaBtns.forEach(function(btn) {
               if (processedDOMElements.has(btn)) return;
-              if (btn.closest('nav, .navbar-nav, .social, .social-links, header, .navbar, aside, footer, #header-container, #navbar-container, #top-banner-container, #announcement-bar-container, .announcement-bar, .top-bar, .header-tools, .header-right, .nav-right, .header-actions')) return;
+              if (btn.closest('nav, .navbar-nav, .social, .social-links, header, .navbar, aside, footer, #header-container, #navbar-container, #top-banner-container, #announcement-bar-container, .announcement-bar, .top-bar, .header-tools, .header-right, .nav-right, .header-actions, .hero, .hero-section, .main-slider, .home-slider, .hero-slider, .masthead, #hero, #home')) return;
               if (btn.querySelector('img, svg, i') && btn.textContent.trim().length <= 1) return;
 
               var bTxt = (btn.textContent || '').trim();
@@ -1520,7 +1555,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             }
 
             if (busTitle) {
-              var brandTexts = document.querySelectorAll('header .navbar-brand, nav .navbar-brand, footer .footer-logo, .site-logo, [data-editable="title"]');
+              var brandTexts = document.querySelectorAll('header .navbar-brand, nav .navbar-brand, footer .footer-logo, .site-logo, header [data-editable="title"], nav [data-editable="title"], footer [data-editable="title"]');
               brandTexts.forEach(function(el) {
                 if (processedDOMElements.has(el)) return;
                 if (el.tagName !== 'IMG' && !el.querySelector('img, svg, a')) {

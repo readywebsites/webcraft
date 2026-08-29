@@ -74,9 +74,10 @@ Create a complete, highly engaging, professional website copywriting package for
 CRITICAL RULES:
 1. Micro tags, badges, and kickers MUST be 1-3 words only (never sentences).
 2. Navbar items (in "navbar_items") MUST be ultra-concise (1-2 words only, maximum 12 characters each, e.g. "Menu", "Story", "Specials", "Services", "Reviews", "Offers", "Contact") so they never overflow navbar headers.
-3. Card titles and card descriptions MUST be semantically paired and have strong direct meaning together.
-4. FAQ questions and answers MUST be semantically paired with direct, helpful answers.
-5. Keep short phrases concise so they fit template designs without overflowing.
+3. Hero headline MUST be concise (3-6 words only, matching typical template headline sizing without wrapping into huge text blocks, e.g. "Pure Quality & Exceptional Craft" or "Handcrafted Pizza Daily").
+4. Card titles and card descriptions MUST be semantically paired and have strong direct meaning together.
+5. FAQ questions and answers MUST be semantically paired with direct, helpful answers.
+6. Keep short phrases concise so they fit template designs without overflowing.
 
 You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks, just pure raw JSON) matching this exact schema:
 
@@ -87,7 +88,7 @@ You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks,
     "Menu", "Specials", "Story", "Reviews", "Contact"
   ],
   "hero": {{
-    "headline": "High-impact, irresistible hero headline (5-8 words) stating core value",
+    "headline": "Concise, high-impact hero headline (3-6 words only)",
     "subheadline": "Compelling 15-25 word supporting subtitle explaining benefits and uniqueness",
     "badge_text": "Short 1-3 word badge e.g. 'Handcrafted Quality' or 'Top Rated 2026'",
     "cta_primary": "Action button text e.g. 'Order Online' or 'Book Appointment'",

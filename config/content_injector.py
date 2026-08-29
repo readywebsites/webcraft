@@ -211,7 +211,7 @@ def inject_business_content_into_html(
             '.custom-logo-link', 'span.business-name', '.business-name', 'span.site-title',
             '.site-title', 'span.brand-name', '.brand-name', 'span.company-name', '.company-name',
             '.header__logo', '.header_logo', '.brand-area', '.footer-logo', '.footer__logo',
-            '.main-logo', '[data-editable="title"]', '[data-editable="logo"]', '[data-logo="business_logo"]'
+            '.main-logo', 'header [data-editable="title"]', 'nav [data-editable="title"]', 'footer [data-editable="title"]', '[data-editable="logo"]', '[data-logo="business_logo"]'
         ]
 
         for sel in brand_selectors:
@@ -375,6 +375,7 @@ def inject_business_content_into_html(
 
         # -------------------------------------------------------------
         # STEP 3: Hero & Masthead & Main Slider Headline, Subtitles & Badges
+        # Pure in-place text replacement only: preserves text size, alignment, fonts, colors, and layout styles
         # -------------------------------------------------------------
         hero_containers = soup.select(
             '.hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, '
@@ -385,7 +386,7 @@ def inject_business_content_into_html(
         )
 
         hero_headline_set = False
-        hero_headline_pool = [hero_headline, tagline, f"Premier Quality & Dedicated Service by {brand_name}", hero_headline]
+        hero_headline_pool = [hero_headline, tagline, hero_headline]
         h_pool_idx = 0
 
         for h_cont in hero_containers:
@@ -394,41 +395,66 @@ def inject_business_content_into_html(
             if any(k in str(h_cont.get('id', '')).lower() for k in ['banner-container', 'header-container', 'navbar-container', 'announcement']):
                 continue
 
-            # 1. Headline inside hero/slider (Replace across ALL slides / items in slider)
-            hero_title_els = h_cont.find_all(['h1', 'h2', 'h3', 'div', 'span'], class_=re.compile(r'title|heading|caption|lead-in', re.I))
-            if not hero_title_els:
-                hero_title_els = h_cont.find_all(['h1', 'h2', 'h3'])
+            # 1. Headline inside hero/slider: target actual leaf heading tags ONLY (h1, h2, h3, or specific heading title class)
+            # NEVER select container wrapper divs (e.g., .hero-caption, .tp-caption, .slider-caption, or divs with children)
+            hero_title_els = []
+            h1_tags = h_cont.find_all('h1')
+            if h1_tags:
+                hero_title_els = h1_tags
+            else:
+                h2_h3_tags = [h for h in h_cont.find_all(['h2', 'h3']) if not h.find_parent(['nav', 'footer', 'header', 'aside'])]
+                if h2_h3_tags:
+                    hero_title_els = h2_h3_tags
+                else:
+                    for cand in h_cont.find_all(['div', 'span', 'h4'], class_=re.compile(r'\b(?:title|heading|main-title|banner-title|hero-title)\b', re.I)):
+                        if not cand.find(['h1', 'h2', 'h3', 'p', 'div', 'section', 'article', 'ul', 'ol', 'form']):
+                            hero_title_els.append(cand)
 
             for ht in hero_title_els:
                 if id(ht) in processed_nodes or ht.find_parent(['nav', 'footer', 'header', 'aside']):
                     continue
                 target_head = hero_headline_pool[h_pool_idx % len(hero_headline_pool)]
                 h_pool_idx += 1
+
+                # Pure in-place text replacement: do not touch style, class, font, size, color, or alignment
                 inner_a = ht.find('a')
                 if inner_a:
                     inner_a.string = target_head
                     processed_nodes.add(id(inner_a))
                 else:
-                    ht.string = target_head
+                    child_spans = [s for s in ht.find_all('span') if not s.find_all()]
+                    if len(child_spans) == 1:
+                        child_spans[0].string = target_head
+                        processed_nodes.add(id(child_spans[0]))
+                    else:
+                        ht.string = target_head
                 processed_nodes.add(id(ht))
                 hero_headline_set = True
 
-            # 2. Subtitle / Tagline inside hero/slider
-            hero_sub_els = h_cont.find_all(['p', 'div', 'span', 'h4', 'h5'], class_=re.compile(r'subtitle|sub-title|subheading|tagline|lead|hero-text|desc', re.I))
+            # 2. Subtitle / Tagline inside hero/slider: target leaf paragraph or subtitle elements
+            hero_sub_els = []
+            for cand_p in h_cont.find_all(['p', 'h4', 'h5', 'span'], class_=re.compile(r'subtitle|sub-title|subheading|tagline|lead|hero-text|desc', re.I)):
+                if id(cand_p) not in processed_nodes and not cand_p.find(['h1', 'h2', 'h3', 'div', 'p']):
+                    hero_sub_els.append(cand_p)
             if not hero_sub_els:
-                hero_sub_els = [p for p in h_cont.find_all('p') if id(p) not in processed_nodes and not p.find_parent(['nav', 'footer', 'header', 'aside'])]
+                hero_sub_els = [p for p in h_cont.find_all('p') if id(p) not in processed_nodes and not p.find_parent(['nav', 'footer', 'header', 'aside']) and not p.find(['h1', 'h2', 'h3', 'div'])]
 
             for hs in hero_sub_els:
                 if id(hs) in processed_nodes or hs.find_parent(['nav', 'footer', 'header', 'aside']):
                     continue
+                # Pure in-place text replacement: do not touch style, class, font, size, color, or alignment
                 hs.string = hero_subheadline
                 processed_nodes.add(id(hs))
 
-            # 3. Badge / Kicker inside hero
-            hero_badge_els = h_cont.find_all(['span', 'div', 'p'], class_=re.compile(r'badge|tag|pill|kicker|sub-tag|hero-tag', re.I))
+            # 3. Badge / Kicker inside hero (leaf elements only)
+            hero_badge_els = [
+                hb for hb in h_cont.find_all(['span', 'div', 'p'], class_=re.compile(r'badge|tag|pill|kicker|sub-tag|hero-tag', re.I))
+                if id(hb) not in processed_nodes and not hb.find(['h1', 'h2', 'h3', 'p', 'div'])
+            ]
             for hb in hero_badge_els:
                 if id(hb) in processed_nodes or hb.find_parent(['nav', 'footer', 'header', 'aside']):
                     continue
+                # Pure in-place text replacement
                 hb.string = hero_badge
                 processed_nodes.add(id(hb))
 
@@ -444,6 +470,10 @@ def inject_business_content_into_html(
                 if len(hero_btns) >= 2 and id(hero_btns[1]) not in processed_nodes:
                     hero_btns[1].string = cta_sec
                     processed_nodes.add(id(hero_btns[1]))
+
+            # Mark all text elements inside hero container as processed so subsequent generic steps (10 & 11) don't overwrite hero text
+            for el_in_hero in h_cont.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'button']):
+                processed_nodes.add(id(el_in_hero))
 
         # If hero headline was not found via hero containers, find first h1 on page
         if not hero_headline_set:
@@ -712,13 +742,15 @@ def inject_business_content_into_html(
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', '.title', '.sub-title', '.subtitle',
             '.section-title', '.heading', '.subheading', '.portfolio-caption-heading',
             '.portfolio-caption-subheading', '.timeline-heading', '[class*="title"]',
-            '[class*="heading"]', '.tp-caption', '.rs-layer'
+            '[class*="heading"]'
         ]
         h_idx = 0
         for el in soup.select(', '.join(title_selectors)):
             if id(el) in processed_nodes:
                 continue
             if el.find_parent(['script', 'style', 'head', 'footer', 'nav', 'header', '.navbar', '.announcement-bar', '#announcement-bar-container', '#top-banner-container', '#header-container', '#navbar-container']):
+                continue
+            if el.find_parent(class_=re.compile(r'hero|masthead|main-slider|home-slider|hero-slider', re.I)) or el.find_parent(id=re.compile(r'hero|home|intro', re.I)):
                 continue
             if el.find(['img', 'svg']) and not el.get_text(strip=True):
                 continue
@@ -761,6 +793,8 @@ def inject_business_content_into_html(
             if p.name == 'div' and not any(k in ' '.join(p.get('class', [])).lower() for k in ['desc', 'text-muted', 'lead', 'info', 'timeline-body', 'caption-text', 'sub-heading']):
                 continue
             if p.find_parent(['script', 'style', 'head', 'footer', '.copyright', 'nav', 'header', '.navbar', '.announcement-bar', '#announcement-bar-container', '#top-banner-container', '#header-container', '#navbar-container']):
+                continue
+            if p.find_parent(class_=re.compile(r'hero|masthead|main-slider|home-slider|hero-slider', re.I)) or p.find_parent(id=re.compile(r'hero|home|intro', re.I)):
                 continue
             if p.find(['input', 'button', 'select', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'ul', 'ol']):
                 continue

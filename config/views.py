@@ -154,15 +154,15 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', current_st, flags=re.I).strip('; ')
             el['style'] = f"{cleaned}; background-image: url('{target_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
 
-        # B. Business Name: <span class="business-name"> / .business-name / span.site-title / [data-editable="title"]
+        # B. Business Name: <span class="business-name"> / .business-name / span.site-title / [data-editable="title"] (Header & Footer only)
         if b_name:
             bname_els = soup.select(
-                'span.business-name, .business-name, span.site-title, .site-title, '
+                'header .navbar-brand, nav .navbar-brand, span.business-name, .business-name, span.site-title, .site-title, '
                 'span.brand-name, .brand-name, span.company-name, .company-name, '
-                '[data-editable="title"], [data-editable="business-name"]'
+                'header [data-editable="title"], nav [data-editable="title"], footer [data-editable="title"], [data-editable="business-name"]'
             )
             for el in bname_els:
-                if el.parent and el.name not in ['img', 'svg']:
+                if el.parent and el.name not in ['img', 'svg'] and not el.find_parent(class_=re.compile(r'hero|masthead|main-slider|home-slider|hero-slider', re.I)) and not el.find_parent(id=re.compile(r'hero|home|intro', re.I)):
                     inner_img = el.find(['img', 'svg'])
                     if inner_img and inner_img.parent:
                         inner_img.replace_with(soup.new_string(b_name))
