@@ -140,14 +140,9 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                 if img_el.has_attr(attr):
                     img_el[attr] = target_url
 
-        # Helper to set container background attributes & inline style (Only on elements that already have an explicit background image)
+        # Helper to set container background attributes & inline style
         def set_container_bg_attrs(el, target_url):
             if not target_url or not el:
-                return
-            has_bg_attr = any(el.has_attr(attr) for attr in ['data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-bg-img', 'data-background-img'])
-            current_st = str(el.get('style', ''))
-            has_bg_style = bool(re.search(r'background(?:-image)?\s*:\s*url\(', current_st, re.I))
-            if not has_bg_attr and not has_bg_style:
                 return
             for attr in [
                 'data-bg', 'data-background', 'data-bg-image', 'data-background-image',
@@ -155,9 +150,9 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             ]:
                 if el.has_attr(attr):
                     el[attr] = target_url
-            if has_bg_style:
-                cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', current_st, flags=re.I).strip('; ')
-                el['style'] = f"{cleaned}; background-image: url('{target_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+            current_st = str(el.get('style', ''))
+            cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', current_st, flags=re.I).strip('; ')
+            el['style'] = f"{cleaned}; background-image: url('{target_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
 
         # B. Business Name: <span class="business-name"> / .business-name / span.site-title / [data-editable="title"] (Header & Footer only)
         if b_name:
@@ -367,9 +362,9 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                     set_img_all_attrs(simg, target_u)
                     processed_imgs.add(id(simg))
 
-                # Update background ONLY if sec explicitly has an existing background image
+                # Update background: If hero section has foreground <img> elements (like cards), do not force a background image over solid color; otherwise replace background image
                 sec_has_bg = any(sec.has_attr(a) for a in ['data-background', 'data-bg', 'data-bg-image', 'data-background-image']) or bool(re.search(r'background(?:-image)?\s*:\s*url\(', str(sec.get('style', '')), re.I))
-                if sec_has_bg and id(sec) not in processed_bgs:
+                if id(sec) not in processed_bgs and (len(sec_imgs) == 0 or sec_has_bg):
                     target_bg = hero_url or (pool_urls[0] if pool_urls else '')
                     set_container_bg_attrs(sec, target_bg)
                     processed_bgs.add(id(sec))
@@ -407,8 +402,8 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             set_img_all_attrs(img, target_src)
             processed_imgs.add(id(img))
 
-        # Replace remaining background images in style attributes and data-background attributes (only elements that ALREADY have an existing background image)
-        for el in soup.find_all(lambda tag: tag.has_attr('data-background') or tag.has_attr('data-bg') or tag.has_attr('data-bg-image') or tag.has_attr('data-background-image') or bool(re.search(r'background(?:-image)?\s*:\s*url\(', str(tag.get('style', '')), re.I))):
+        # Replace remaining background images in style attributes and data-background attributes
+        for el in soup.find_all(lambda tag: tag.has_attr('data-background') or tag.has_attr('data-bg') or tag.has_attr('data-bg-image') or tag.has_attr('data-background-image') or 'background' in str(tag.get('style', '')).lower()):
             if id(el) in processed_bgs or el.name == 'img':
                 continue
             parent_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in el.parents]).lower()

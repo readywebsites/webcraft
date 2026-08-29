@@ -613,25 +613,17 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // Helper to set container background attributes & inline style (Only on elements that ALREADY have an explicit background image)
+            // Helper to set container background attributes & inline style
             function setContainerBgAttrs(el, targetUrl) {
               if (!targetUrl || !el) return;
-              var hasBgAttr = ['data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-bg-img', 'data-background-img'].some(function(attr) {
-                return el.hasAttribute(attr);
-              });
-              var currentSt = el.getAttribute('style') || '';
-              var hasBgImgStyle = /background(?:-image)?\s*:\s*url\(/i.test(currentSt);
-              if (!hasBgAttr && !hasBgImgStyle) return;
-
               ['data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-bg-img', 'data-background-img'].forEach(function(attr) {
                 if (el.hasAttribute(attr)) el.setAttribute(attr, targetUrl);
               });
-              if (hasBgImgStyle) {
-                var cleaned = currentSt.replace(/background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?/gi, '').replace(/;\s*$/, '');
-                el.style.setProperty('background-image', "url('" + targetUrl + "')", 'important');
-                el.style.setProperty('background-size', 'cover', 'important');
-                el.style.setProperty('background-position', 'center', 'important');
-              }
+              var currentSt = el.getAttribute('style') || '';
+              var cleaned = currentSt.replace(/background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?/gi, '').replace(/;\s*$/, '');
+              el.style.setProperty('background-image', "url('" + targetUrl + "')", 'important');
+              el.style.setProperty('background-size', 'cover', 'important');
+              el.style.setProperty('background-position', 'center', 'important');
             }
 
             // 2. User Logo Replacement (Image Mode vs Text Mode across ALL templates)
@@ -866,7 +858,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 }
               });
 
-              // Step B: Standalone hero sections (Only replaces <img> or elements with existing background-image; preserves solid colors)
+              // Step B: Standalone hero sections
               document.querySelectorAll('section, header, div.hero, div.banner, div.masthead, main').forEach(function(sec) {
                 var sCls = (sec.className || '').toLowerCase();
                 var sId = (sec.id || '').toLowerCase();
@@ -887,7 +879,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
                   var secSt = sec.getAttribute('style') || '';
                   var secHasBg = ['data-background', 'data-bg', 'data-bg-image', 'data-background-image'].some(function(a) { return sec.hasAttribute(a); }) || /background(?:-image)?\s*:\s*url\(/i.test(secSt);
-                  if (secHasBg && !processedBgs.has(sec)) {
+                  if (!processedBgs.has(sec) && (secImgs.length === 0 || secHasBg)) {
                     var tBg = heroImgUrl || poolUrls[0];
                     setContainerBgAttrs(sec, tBg);
                     processedBgs.add(sec);
@@ -931,8 +923,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 processedImgs.add(img);
               });
 
-              // Step D: Replace remaining background images in style attributes and data-background (only elements that ALREADY have an existing background image)
-              document.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="url("]').forEach(function(el) {
+              // Step D: Replace remaining background images in style attributes and data-background
+              document.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="background"], [style*="url("]').forEach(function(el) {
                 if (el.tagName === 'IMG' || processedBgs.has(el)) return;
                 var elClasses = (el.className || '').toLowerCase();
                 var bgTarget = "";
@@ -1010,7 +1002,16 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var processedDOMElements = new Set();
 
             // Step 0: Category-Specific Dynamic Navigation & Footer Menu Items
-            var corpusText = (busTitle + " " + busTagline + " " + (servicesArr.map(function(s) { return s.title || s.name || ''; }).join(' ')) + " " + microTagsArr.join(' ')).toLowerCase();
+            var corpusText = "";
+            try {
+              var sText = Array.isArray(servicesArr) ? servicesArr.map(function(s) {
+                return s && typeof s === 'object' ? (s.title || s.name || s.tag || '') : String(s || '');
+              }).join(' ') : '';
+              var mText = Array.isArray(microTagsArr) ? microTagsArr.join(' ') : '';
+              corpusText = (busTitle + " " + busTagline + " " + sText + " " + mText).toLowerCase();
+            } catch(e) {
+              corpusText = (busTitle + " " + busTagline).toLowerCase();
+            }
             var catMenuDefaults = [];
             if (/(?:pizza|italian|pasta|bistro|restaurant|cafe|coffee|bakery|food|dine|grill|bar|kitchen)/i.test(corpusText)) {
               catMenuDefaults = ["Menu", "Pizzas", "Story", "Specials", "Reviews", "Gallery", "Chefs", "Contact", "Locations", "Order"];
