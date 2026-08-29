@@ -272,40 +272,51 @@ def inject_business_content_into_html(
             processed_nodes.add(id(ap))
 
         # -------------------------------------------------------------
-        # STEP 2: Dynamic Navigation Menu Category Replacement (Strict In-Place Text Only & Limited Characters)
+        # STEP 2: Dynamic Category-Specific Navigation & Footer Menu Items Replacement
+        # Maintains exact count & concise character lengths (1-2 short words) to preserve layout
         # -------------------------------------------------------------
+        corpus = f"{brand_name} {tagline} {' '.join(str(s) for s in services)} {' '.join(micro_tags)}".lower()
+        if any(k in corpus for k in ['pizza', 'italian', 'pasta', 'bistro', 'restaurant', 'cafe', 'coffee', 'bakery', 'food', 'dine', 'grill', 'bar', 'kitchen']):
+            cat_menu_defaults = ["Menu", "Pizzas", "Story", "Specials", "Reviews", "Gallery", "Chefs", "Contact", "Locations", "Order"]
+        elif any(k in corpus for k in ['gym', 'fitness', 'workout', 'trainer', 'training', 'crossfit', 'yoga', 'athlete', 'muscle', 'health']):
+            cat_menu_defaults = ["Classes", "Trainers", "Story", "Plans", "Reviews", "Schedule", "Workouts", "Contact", "Facilities", "Join"]
+        elif any(k in corpus for k in ['dental', 'dentist', 'clinic', 'medical', 'doctor', 'hospital', 'health', 'care', 'smile', 'patient', 'therapy']):
+            cat_menu_defaults = ["Services", "Doctors", "Story", "Care", "Reviews", "Treatments", "Clinic", "Contact", "Hours", "Book"]
+        elif any(k in corpus for k in ['fashion', 'luxury', 'clothing', 'jewelry', 'boutique', 'apparel', 'watch', 'wear', 'leather', 'shoes', 'style']):
+            cat_menu_defaults = ["Collection", "Lookbook", "Story", "Artisans", "Reviews", "Catalog", "Boutique", "Contact", "Shipping", "Shop"]
+        elif any(k in corpus for k in ['car', 'auto', 'repair', 'mechanic', 'garage', 'vehicle', 'motor', 'detailing', 'tire', 'service']):
+            cat_menu_defaults = ["Services", "Repairs", "Story", "Pricing", "Reviews", "Fleet", "Garage", "Contact", "Warranty", "Quote"]
+        elif any(k in corpus for k in ['dairy', 'milk', 'farm', 'farming', 'organic', 'cheese', 'butter', 'purity', 'agriculture']):
+            cat_menu_defaults = ["Products", "Farm", "Story", "Quality", "Reviews", "Dairy", "Organic", "Contact", "Purity", "Order"]
+        elif any(k in corpus for k in ['software', 'saas', 'tech', 'app', 'digital', 'cloud', 'security', 'platform', 'agency', 'consulting']):
+            cat_menu_defaults = ["Features", "Solutions", "Story", "Pricing", "Reviews", "Integrations", "Company", "Contact", "Security", "Demo"]
+        else:
+            cat_menu_defaults = ["Offerings", "Services", "Story", "Highlights", "Reviews", "Specialties", "Company", "Contact", "Pricing", "Get Started"]
+
         raw_nav_items = content.get('navbar_items') or []
         nav_categories = []
-        
-        for item in raw_nav_items:
+        for item in raw_nav_items + cat_menu_defaults:
             sanitized = _sanitize_nav_item(item, max_chars=14)
-            if sanitized and sanitized not in nav_categories:
+            if sanitized and sanitized.lower() not in [c.lower() for c in nav_categories]:
                 nav_categories.append(sanitized)
-        
         if micro_tags:
             for mt in micro_tags:
                 sanitized = _sanitize_nav_item(mt, max_chars=14)
-                if sanitized and sanitized not in nav_categories:
+                if sanitized and sanitized.lower() not in [c.lower() for c in nav_categories]:
                     nav_categories.append(sanitized)
 
-        if services:
-            for s in services:
-                if isinstance(s, dict):
-                    if s.get('tag'):
-                        sanitized = _sanitize_nav_item(s['tag'], max_chars=14)
-                        if sanitized and sanitized not in nav_categories:
-                            nav_categories.append(sanitized)
-                    if s.get('title'):
-                        sanitized = _sanitize_nav_item(s['title'], max_chars=14)
-                        if sanitized and sanitized not in nav_categories:
-                            nav_categories.append(sanitized)
-
-        if not nav_categories:
-            nav_categories = ["Featured", "Specialties", "Best Sellers", "Collections", "Services", "Offerings"]
-
+        # 2A. Navbar Links Replacement
         nav_idx = 0
-        for nav_a in soup.select('nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a, nav a'):
-            # Protect icon-only links (cart, wishlist, search, profile buttons, hamburger toggle)
+        navbar_links = soup.select(
+            'header nav ul li a, nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, '
+            'header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, '
+            '.nav-menu a, header a.nav-link, nav a.nav-link, nav a'
+        )
+        for nav_a in navbar_links:
+            if id(nav_a) in processed_nodes or nav_a.find_parent('footer'):
+                continue
+            if any(k in ' '.join(nav_a.get('class', [])).lower() for k in ['navbar-brand', 'brand', 'logo', 'cart', 'search', 'social', 'user', 'toggle', 'btn-close']):
+                continue
             if nav_a.find(['svg', 'img', 'i']) and len(nav_a.get_text(strip=True)) <= 1:
                 continue
             txt = nav_a.get_text(strip=True)
@@ -313,65 +324,76 @@ def inject_business_content_into_html(
                 continue
             lower = txt.lower()
 
-            # Preserve standard navigation anchors with clean, concise names (no excessive characters)
             if lower in ['home', 'index', 'main']:
-                nav_a.string = "HOME" if txt.isupper() else "Home"
-                processed_nodes.add(id(nav_a))
+                target_word = "HOME" if txt.isupper() else "Home"
+            elif lower in ['contact', 'contact us', 'get in touch', 'reach us'] and (nav_idx >= 3 or 'contact' in lower):
+                target_word = "CONTACT" if txt.isupper() else "Contact"
+            else:
+                target_cat = nav_categories[nav_idx % len(nav_categories)]
+                nav_idx += 1
+                target_word = target_cat.upper() if txt.isupper() else target_cat
+
+            inner_span = nav_a.find('span')
+            if inner_span and not inner_span.find(['svg', 'img', 'i']):
+                inner_span.string = target_word
+                processed_nodes.add(id(inner_span))
+            else:
+                nav_a.string = target_word
+            processed_nodes.add(id(nav_a))
+
+        # 2B. Footer Menu Links Replacement (Tailored to business category, same count, concise length)
+        footer_links = soup.select(
+            'footer ul li a, footer .footer-links a, footer .footer-nav a, footer .widget a, '
+            'footer .footer-menu a, [class*="footer"] ul li a, [class*="footer"] .footer-nav a, footer a'
+        )
+        footer_nav_idx = 0
+        for f_a in footer_links:
+            if id(f_a) in processed_nodes:
                 continue
-            if lower in ['contact', 'contact us', 'get in touch', 'reach us']:
-                nav_a.string = "CONTACT" if txt.isupper() else "Contact"
-                processed_nodes.add(id(nav_a))
+            if any(k in ' '.join(f_a.get('class', [])).lower() for k in ['footer-logo', 'brand', 'logo', 'social', 'social-icon']):
                 continue
-            if lower in ['about', 'about us', 'our story', 'story', 'who we are', 'company']:
-                nav_a.string = "ABOUT" if (txt.isupper() and len(txt) <= 5) else ("OUR STORY" if txt.isupper() else ("About" if len(txt) <= 5 else "Our Story"))
-                processed_nodes.add(id(nav_a))
+            if f_a.find(['svg', 'img', 'i']) and len(f_a.get_text(strip=True)) <= 1:
                 continue
-            if lower in ['shop all', 'all products', 'all items', 'view all', 'collection', 'collections', 'shop', 'store']:
-                nav_a.string = "SHOP" if (lower in ['shop', 'store'] or len(txt) <= 4) else ("OFFERINGS" if txt.isupper() else "Offerings")
-                processed_nodes.add(id(nav_a))
+            f_txt = f_a.get_text(strip=True)
+            if not f_txt or len(f_txt) < 2:
                 continue
-            if lower in ['services', 'our services']:
-                nav_a.string = "SERVICES" if txt.isupper() else "Services"
-                processed_nodes.add(id(nav_a))
+            f_lower = f_txt.lower()
+            if any(k in f_lower for k in ['privacy', 'terms', 'condition', 'cookie', 'copyright', 'all rights', 'policy', 'disclaimer', 'sitemap', '@', 'tel:', 'mailto:']):
                 continue
-            if lower in ['menu', 'our menu', 'food', 'dishes']:
-                nav_a.string = "MENU" if txt.isupper() else "Menu"
-                processed_nodes.add(id(nav_a))
+            if any(k in f_lower for k in ['facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'github', 'pinterest', 'tiktok']):
                 continue
-            if lower in ['pricing', 'plans', 'rates', 'packages']:
-                nav_a.string = "PRICING" if txt.isupper() else "Pricing"
-                processed_nodes.add(id(nav_a))
-                continue
-            if lower in ['faq', 'faqs', 'f.a.q.', 'help', 'q&a']:
-                nav_a.string = "FAQ" if txt.isupper() else "FAQ"
-                processed_nodes.add(id(nav_a))
-                continue
-            if lower in ['blog', 'news', 'articles', 'journal']:
-                nav_a.string = "BLOG" if txt.isupper() else "Blog"
-                processed_nodes.add(id(nav_a))
-                continue
-            if lower in ['reviews', 'testimonials', 'feedback']:
-                nav_a.string = "REVIEWS" if txt.isupper() else "Reviews"
-                processed_nodes.add(id(nav_a))
-                continue
-            if lower in ['gallery', 'portfolio', 'photos', 'work']:
-                nav_a.string = "GALLERY" if txt.isupper() else "Gallery"
-                processed_nodes.add(id(nav_a))
-                continue
-            if lower in ['team', 'trainers', 'chefs', 'staff']:
-                nav_a.string = "TEAM" if txt.isupper() else "Team"
-                processed_nodes.add(id(nav_a))
-                continue
-            if lower in ['classes', 'schedule', 'timetable']:
-                nav_a.string = "CLASSES" if txt.isupper() else "Classes"
-                processed_nodes.add(id(nav_a))
+            if re.search(r'\d{3,}', f_txt):
                 continue
 
-            target_cat = nav_categories[nav_idx % len(nav_categories)]
-            nav_idx += 1
-            target_cat_sanitized = _sanitize_nav_item(target_cat, max_chars=14)
-            nav_a.string = target_cat_sanitized.upper() if txt.isupper() else target_cat_sanitized
-            processed_nodes.add(id(nav_a))
+            target_cat = nav_categories[footer_nav_idx % len(nav_categories)]
+            footer_nav_idx += 1
+            target_word = target_cat.upper() if f_txt.isupper() else target_cat
+
+            inner_span = f_a.find('span')
+            if inner_span and not inner_span.find(['svg', 'img', 'i']):
+                inner_span.string = target_word
+                processed_nodes.add(id(inner_span))
+            else:
+                f_a.string = target_word
+            processed_nodes.add(id(f_a))
+
+        # 2C. Footer Column Headers & Titles
+        for f_head in soup.select('footer .widget-title, footer .footer-title, footer h4, footer h5, footer h3, footer h6'):
+            if id(f_head) in processed_nodes or any(k in ' '.join(f_head.get('class', [])).lower() for k in ['logo', 'brand', 'business-name']):
+                continue
+            fh_txt = f_head.get_text(strip=True)
+            if not fh_txt or len(fh_txt) < 2:
+                continue
+            fh_lower = fh_txt.lower()
+            if any(k in fh_lower for k in ['about', 'company', 'who we are']):
+                f_head.string = "ABOUT US" if fh_txt.isupper() else "About Us"
+                processed_nodes.add(id(f_head))
+            elif any(k in fh_lower for k in ['link', 'quick link', 'navigate', 'navigation', 'explore', 'menu', 'service']):
+                f_head.string = "EXPLORE" if fh_txt.isupper() else "Explore"
+                processed_nodes.add(id(f_head))
+            elif any(k in fh_lower for k in ['contact', 'get in touch', 'reach us', 'address', 'location']):
+                f_head.string = "CONTACT" if fh_txt.isupper() else "Contact Us"
+                processed_nodes.add(id(f_head))
 
         # -------------------------------------------------------------
         # STEP 3: Hero & Masthead & Main Slider Headline, Subtitles & Badges

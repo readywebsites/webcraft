@@ -1009,6 +1009,131 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
             var processedDOMElements = new Set();
 
+            // Step 0: Category-Specific Dynamic Navigation & Footer Menu Items
+            var corpusText = (busTitle + " " + busTagline + " " + (servicesArr.map(function(s) { return s.title || s.name || ''; }).join(' ')) + " " + microTagsArr.join(' ')).toLowerCase();
+            var catMenuDefaults = [];
+            if (/(?:pizza|italian|pasta|bistro|restaurant|cafe|coffee|bakery|food|dine|grill|bar|kitchen)/i.test(corpusText)) {
+              catMenuDefaults = ["Menu", "Pizzas", "Story", "Specials", "Reviews", "Gallery", "Chefs", "Contact", "Locations", "Order"];
+            } else if (/(?:gym|fitness|workout|trainer|training|crossfit|yoga|athlete|muscle|health)/i.test(corpusText)) {
+              catMenuDefaults = ["Classes", "Trainers", "Story", "Plans", "Reviews", "Schedule", "Workouts", "Contact", "Facilities", "Join"];
+            } else if (/(?:dental|dentist|clinic|medical|doctor|hospital|health|care|smile|patient|therapy)/i.test(corpusText)) {
+              catMenuDefaults = ["Services", "Doctors", "Story", "Care", "Reviews", "Treatments", "Clinic", "Contact", "Hours", "Book"];
+            } else if (/(?:fashion|luxury|clothing|jewelry|boutique|apparel|watch|wear|leather|shoes|style)/i.test(corpusText)) {
+              catMenuDefaults = ["Collection", "Lookbook", "Story", "Artisans", "Reviews", "Catalog", "Boutique", "Contact", "Shipping", "Shop"];
+            } else if (/(?:car|auto|repair|mechanic|garage|vehicle|motor|detailing|tire|service)/i.test(corpusText)) {
+              catMenuDefaults = ["Services", "Repairs", "Story", "Pricing", "Reviews", "Fleet", "Garage", "Contact", "Warranty", "Quote"];
+            } else if (/(?:dairy|milk|farm|farming|organic|cheese|butter|purity|agriculture)/i.test(corpusText)) {
+              catMenuDefaults = ["Products", "Farm", "Story", "Quality", "Reviews", "Dairy", "Organic", "Contact", "Purity", "Order"];
+            } else if (/(?:software|saas|tech|app|digital|cloud|security|platform|agency|consulting)/i.test(corpusText)) {
+              catMenuDefaults = ["Features", "Solutions", "Story", "Pricing", "Reviews", "Integrations", "Company", "Contact", "Security", "Demo"];
+            } else {
+              catMenuDefaults = ["Offerings", "Services", "Story", "Highlights", "Reviews", "Specialties", "Company", "Contact", "Pricing", "Get Started"];
+            }
+
+            var rawNavItems = (content.navbar_items || (aiContent && aiContent.navbar_items) || []);
+            var catNavItems = [];
+            (rawNavItems.concat(catMenuDefaults)).forEach(function(item) {
+              if (typeof item === 'string') {
+                var clean = item.trim();
+                if (clean && clean.length <= 14) {
+                  var cleanLower = clean.toLowerCase();
+                  var exists = catNavItems.some(function(c) { return c.toLowerCase() === cleanLower; });
+                  if (!exists) catNavItems.push(clean);
+                }
+              }
+            });
+
+            // 0A. Dynamic Navbar Menu Items Replacement (Acc to business category, same count, concise characters)
+            var navLinks = document.querySelectorAll(
+              'header nav ul li a, nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, ' +
+              'header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, ' +
+              '.nav-menu a, header a.nav-link, nav a.nav-link, nav a'
+            );
+            var navIdx = 0;
+            navLinks.forEach(function(navA) {
+              if (processedDOMElements.has(navA) || navA.closest('footer, aside')) return;
+              var navCls = (navA.className || '').toLowerCase();
+              if (/(?:navbar-brand|brand|logo|cart|search|social|user|toggle|btn-close)/i.test(navCls)) return;
+              if (navA.querySelector('svg, img, i') && (navA.textContent || '').trim().length <= 1) return;
+
+              var oTxt = (navA.textContent || '').trim();
+              if (!oTxt || oTxt.length < 2) return;
+              var oLower = oTxt.toLowerCase();
+
+              var targetWord = "";
+              if (oLower === 'home' || oLower === 'index' || oLower === 'main') {
+                targetWord = oTxt === oTxt.toUpperCase() ? "HOME" : "Home";
+              } else if ((oLower === 'contact' || oLower === 'contact us') && (navIdx >= 3 || oLower.indexOf('contact') !== -1)) {
+                targetWord = oTxt === oTxt.toUpperCase() ? "CONTACT" : "Contact";
+              } else {
+                var chosen = catNavItems[navIdx % catNavItems.length];
+                navIdx++;
+                targetWord = oTxt === oTxt.toUpperCase() ? chosen.toUpperCase() : chosen;
+              }
+
+              var innerSpan = navA.querySelector('span');
+              if (innerSpan && !innerSpan.querySelector('svg, img, i')) {
+                innerSpan.textContent = targetWord;
+                processedDOMElements.add(innerSpan);
+              } else {
+                navA.textContent = targetWord;
+              }
+              processedDOMElements.add(navA);
+            });
+
+            // 0B. Dynamic Footer Menu Items Replacement (Tailored to business category, same count, concise characters)
+            var footerLinks = document.querySelectorAll(
+              'footer ul li a, footer .footer-links a, footer .footer-nav a, footer .widget a, ' +
+              'footer .footer-menu a, [class*="footer"] ul li a, [class*="footer"] .footer-nav a, footer a'
+            );
+            var fNavIdx = 0;
+            footerLinks.forEach(function(fA) {
+              if (processedDOMElements.has(fA)) return;
+              var fCls = (fA.className || '').toLowerCase();
+              if (/(?:footer-logo|brand|logo|social|social-icon|copyright)/i.test(fCls)) return;
+              if (fA.querySelector('svg, img, i') && (fA.textContent || '').trim().length <= 1) return;
+
+              var fTxt = (fA.textContent || '').trim();
+              if (!fTxt || fTxt.length < 2) return;
+              var fLower = fTxt.toLowerCase();
+              if (/(?:privacy|terms|condition|cookie|copyright|all rights|policy|disclaimer|sitemap|@|tel:|mailto:)/i.test(fLower)) return;
+              if (/(?:facebook|twitter|instagram|linkedin|youtube|github|pinterest|tiktok)/i.test(fLower)) return;
+              if (/\d{3,}/.test(fTxt)) return;
+
+              var chosenF = catNavItems[fNavIdx % catNavItems.length];
+              fNavIdx++;
+              var targetFWord = fTxt === fTxt.toUpperCase() ? chosenF.toUpperCase() : chosenF;
+
+              var innerSpan = fA.querySelector('span');
+              if (innerSpan && !innerSpan.querySelector('svg, img, i')) {
+                innerSpan.textContent = targetFWord;
+                processedDOMElements.add(innerSpan);
+              } else {
+                fA.textContent = targetFWord;
+              }
+              processedDOMElements.add(fA);
+            });
+
+            // 0C. Footer Column Widget Headers
+            document.querySelectorAll('footer .widget-title, footer .footer-title, footer h4, footer h5, footer h3, footer h6').forEach(function(fHead) {
+              if (processedDOMElements.has(fHead)) return;
+              var fhCls = (fHead.className || '').toLowerCase();
+              if (/(?:logo|brand|business-name)/i.test(fhCls)) return;
+              var fhTxt = (fHead.textContent || '').trim();
+              if (!fhTxt || fhTxt.length < 2) return;
+              var fhLower = fhTxt.toLowerCase();
+              if (/(?:about|company|who we are)/i.test(fhLower)) {
+                fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "ABOUT US" : "About Us";
+                processedDOMElements.add(fHead);
+              } else if (/(?:link|quick link|navigate|navigation|explore|menu|service)/i.test(fhLower)) {
+                fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "EXPLORE" : "Explore";
+                processedDOMElements.add(fHead);
+              } else if (/(?:contact|get in touch|reach us|address|location)/i.test(fhLower)) {
+                fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "CONTACT" : "Contact Us";
+                processedDOMElements.add(fHead);
+              }
+            });
+
             // Step 1: FAQs & Accordions Paired Replacement (Question + Answer)
             var faqCards = document.querySelectorAll('.accordion-item, .faq-item, .accordion-card, .toggle, .panel, dl, [class*="faq-item"], [class*="accordion-item"]');
             var topFaqCards = [];
