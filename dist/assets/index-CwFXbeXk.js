@@ -696,6 +696,43 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             if (poolUrls.length === 0 && heroImgUrl) {
               poolUrls = [heroImgUrl];
             }
+            if (poolUrls.length === 0) {
+              var corpusK = (busTitle + " " + busTagline).toLowerCase();
+              if (/(?:pizza|italian|pasta|bistro|restaurant|cafe|coffee|bakery|food|dine|grill|bar|kitchen)/i.test(corpusK)) {
+                poolUrls = [
+                  "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&q=80",
+                  "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=800&q=80",
+                  "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80",
+                  "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80",
+                  "https://images.unsplash.com/photo-1590947132387-155cc02f3212?w=800&q=80",
+                  "https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80"
+                ];
+              } else if (/(?:gym|fitness|workout|trainer|training|crossfit|yoga|athlete|muscle|health)/i.test(corpusK)) {
+                poolUrls = [
+                  "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80",
+                  "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=800&q=80",
+                  "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=800&q=80",
+                  "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80",
+                  "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&q=80"
+                ];
+              } else if (/(?:flower|boutique|floral|plant|garden|bloom|rose)/i.test(corpusK)) {
+                poolUrls = [
+                  "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=1200&q=80",
+                  "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800&q=80",
+                  "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800&q=80",
+                  "https://images.unsplash.com/photo-1508610048659-a06b669e3321?w=800&q=80",
+                  "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=800&q=80"
+                ];
+              } else {
+                poolUrls = [
+                  "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80",
+                  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80",
+                  "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80",
+                  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80",
+                  "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&q=80"
+                ];
+              }
+            }
 
             var cardImgUrls = poolUrls.length > 1 ? poolUrls.slice(1) : poolUrls;
 
@@ -1416,147 +1453,26 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               processedDOMElements.add(ap);
             });
 
-            // Helper for ultra-clean, length-limited navbar item names (max 14 chars)
-            function sanitizeNavItem(text, maxChars) {
-              if (!text) return "Featured";
-              var maxLen = maxChars || 14;
-              var clean = String(text).split(' ').filter(Boolean).join(' ').replace(/["'#*_~]/g, '').trim();
-              if (clean.length <= maxLen) return clean;
-              var words = clean.split(' ').filter(Boolean);
-              if (words.length >= 2) {
-                var two = words[0] + ' ' + words[1];
-                if (two.length <= maxLen) return two;
-              }
-              if (words.length >= 1 && words[0].length <= maxLen) return words[0];
-              return clean.substring(0, maxLen).trim();
-            }
 
-            // Step 5: Navigation Menu Sanitizer (Strict In-Place Text Replacement Only - Limited Characters)
-            var customNavCategories = [];
-            var rawNavList = (aiContent && (aiContent.navbar_items || aiContent.micro_tags)) || [];
-            rawNavList.forEach(function(item) {
-              var s = sanitizeNavItem(item, 14);
-              if (s && customNavCategories.indexOf(s) === -1) customNavCategories.push(s);
-            });
-            if (servicesArr && servicesArr.length > 0) {
-              servicesArr.forEach(function(s) {
-                if (s.tag) {
-                  var sTag = sanitizeNavItem(s.tag, 14);
-                  if (sTag && customNavCategories.indexOf(sTag) === -1) customNavCategories.push(sTag);
-                }
-                if (s.title) {
-                  var sTitle = sanitizeNavItem(s.title, 14);
-                  if (sTitle && customNavCategories.indexOf(sTitle) === -1) customNavCategories.push(sTitle);
-                }
-              });
-            }
-            if (customNavCategories.length === 0) {
-              customNavCategories = ["Featured", "Specialties", "Best Sellers", "Collections", "Services", "Offerings"];
-            }
-            var navCategoryIdx = 0;
-            document.querySelectorAll(
-              'nav a, header nav a, .navbar-nav a, .main-menu a, .navigation a, header ul.menu a, ' +
-              '.dropdown-menu a, .header-navigation a, ul.menu a, .site-nav a, .nav-menu a, #navbar-container nav a'
-            ).forEach(function(na) {
-              // Protect icon-only links & buttons (cart, wishlist, search, profile buttons, hamburger toggle)
-              if (na.querySelector('svg, img, i') && na.textContent.trim().length <= 1) return;
-              var txt = (na.textContent || '').trim();
-              if (!txt || txt.length < 2) return;
-              var lower = txt.toLowerCase();
+            // Step 4: Section Intro Badges & Subtitle Kickers (.badge, .sub-title, .kicker)
+            document.querySelectorAll('.badge, .sub-title, .subtitle, .kicker, .section-subtitle, span.tag, [class*="sub-title"], [class*="section-subtitle"]').forEach(function(badge, bIdx) {
+              if (processedDOMElements.has(badge)) return;
+              if (badge.closest('nav, footer, script, style, head, .copyright, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
+              if (badge.querySelector('img, svg')) return;
 
-              // Preserve standard navigation anchors with clean, concise names (no excessive characters)
-              if (/^(?:home|index|main)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "HOME" : "Home";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:contact|contact us|get in touch|reach us)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "CONTACT" : "Contact";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:about|about us|our story|story|who we are|company)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? (txt.length <= 5 ? "ABOUT" : "OUR STORY") : (txt.length <= 5 ? "About" : "Our Story");
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:shop all|all products|all items|view all|collection|collections|shop|store)$/i.test(lower)) {
-                var arrowSvg = na.querySelector('svg');
-                var labelText = (lower === 'shop' || lower === 'store' || txt.length <= 4) ? (txt === txt.toUpperCase() ? "SHOP" : "Shop") : (txt === txt.toUpperCase() ? "OFFERINGS" : "Offerings");
-                if (arrowSvg) {
-                  na.innerHTML = labelText + ' ' + arrowSvg.outerHTML;
-                } else {
-                  na.textContent = labelText;
-                }
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:services|our services)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "SERVICES" : "Services";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:menu|our menu|food|dishes)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "MENU" : "Menu";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:pricing|plans|rates|packages)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "PRICING" : "Pricing";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:faq|faqs|f\.a\.q\.|help|q&a)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "FAQ" : "FAQ";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:blog|news|articles|journal)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "BLOG" : "Blog";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:reviews|testimonials|feedback)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "REVIEWS" : "Reviews";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:gallery|portfolio|photos|work)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "GALLERY" : "Gallery";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:team|trainers|chefs|staff)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "TEAM" : "Team";
-                processedDOMElements.add(na);
-                return;
-              }
-              if (/^(?:classes|schedule|timetable)$/i.test(lower)) {
-                na.textContent = txt === txt.toUpperCase() ? "CLASSES" : "Classes";
-                processedDOMElements.add(na);
-                return;
-              }
+              var bTxt = (badge.textContent || '').trim();
+              if (!bTxt || bTxt.length > 30 || bTxt.length < 2) return;
 
-              // Replace all category & departmental links in-place with length-limited text
-              var rawTargetCat = customNavCategories[navCategoryIdx % customNavCategories.length];
-              navCategoryIdx++;
-              var targetCat = sanitizeNavItem(rawTargetCat, 14);
-              var arrowSvg = na.querySelector('svg');
-              var finalCatText = txt === txt.toUpperCase() ? targetCat.toUpperCase() : targetCat;
-              if (arrowSvg) {
-                na.innerHTML = finalCatText + ' ' + arrowSvg.outerHTML;
-              } else {
-                na.textContent = finalCatText;
-              }
-              processedDOMElements.add(na);
+              badge.textContent = microTagsArr[bIdx % microTagsArr.length];
+              processedDOMElements.add(badge);
             });
 
-            // Step 5.5: Feature, Benefit & Trust Cards Updater
+            // Step 5: Trust Features & Benefits Grid
             var trustBenefits = [
-              { title: "Artisan Quality", desc: "Crafted with highest standards & premium ingredients." },
-              { title: "Prompt Service", desc: "Dedicated fast delivery and dedicated customer support." },
-              { title: "100% Satisfaction", desc: "Guaranteed satisfaction on every single order." },
-              { title: "Secure Transactions", desc: "Safe, encrypted and seamless ordering experience." }
+              { title: "Premium Quality", desc: "Every single offering is prepared using top-grade standards with meticulous attention to detail." },
+              { title: "Fast & Reliable", desc: "We pride ourselves on swift, dependable service delivered directly to your doorstep." },
+              { title: "100% Satisfaction", desc: "Customer delight is our utmost priority with dedicated support and attention." },
+              { title: "Handcrafted Excellence", desc: "Rooted in authentic tradition, crafted with passion and dedicated perfection." }
             ];
             document.querySelectorAll('#home-features-container .feature, #home-features-container .feature-box, .features .feature, .features .feature-box, .service-box, .feature-card, [class*="feature-box"], [class*="features-box"]').forEach(function(fc, fIdx) {
               var tBenefit = trustBenefits[fIdx % trustBenefits.length];
@@ -1581,7 +1497,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var hIdx = 0;
             allTitles.forEach(function(h) {
               if (processedDOMElements.has(h)) return;
-              if (h.closest('script, style, head, nav, footer, .copyright, header, .navbar, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container, .hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, .masthead, #hero, #home, #intro')) return;
+              if (h.closest('script, style, head, nav, footer, .copyright, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
               if (h.querySelector('img, svg') && !h.textContent.trim()) return;
               var hClasses = (h.className || '').toLowerCase();
               if (/(?:copyright|email|phone|logo|brand|announcement|nav-link|menu-item)/i.test(hClasses)) return;
@@ -1622,7 +1538,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var pIdx = 0;
             allP.forEach(function(p) {
               if (processedDOMElements.has(p)) return;
-              if (p.closest('script, style, head, .copyright, footer, header, nav, .navbar, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container, .hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, .masthead, #hero, #home, #intro')) return;
+              if (p.closest('script, style, head, .copyright, footer, nav, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
               var pClasses = (p.className || '').toLowerCase();
               if (/(?:copyright|email|phone|logo|brand|price|author|date|time|announcement|nav-link|menu-item)/i.test(pClasses)) return;
 
