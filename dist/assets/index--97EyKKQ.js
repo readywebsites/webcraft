@@ -613,17 +613,25 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // Helper to set container background attributes & inline style
+            // Helper to set container background attributes & inline style (Only on elements that ALREADY have an explicit background image)
             function setContainerBgAttrs(el, targetUrl) {
               if (!targetUrl || !el) return;
+              var hasBgAttr = ['data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-bg-img', 'data-background-img'].some(function(attr) {
+                return el.hasAttribute(attr);
+              });
+              var currentSt = el.getAttribute('style') || '';
+              var hasBgImgStyle = /background(?:-image)?\s*:\s*url\(/i.test(currentSt);
+              if (!hasBgAttr && !hasBgImgStyle) return;
+
               ['data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-bg-img', 'data-background-img'].forEach(function(attr) {
                 if (el.hasAttribute(attr)) el.setAttribute(attr, targetUrl);
               });
-              var currentSt = el.getAttribute('style') || '';
-              var cleaned = currentSt.replace(/background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?/gi, '').replace(/;\s*$/, '');
-              el.style.setProperty('background-image', "url('" + targetUrl + "')", 'important');
-              el.style.setProperty('background-size', 'cover', 'important');
-              el.style.setProperty('background-position', 'center', 'important');
+              if (hasBgImgStyle) {
+                var cleaned = currentSt.replace(/background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?/gi, '').replace(/;\s*$/, '');
+                el.style.setProperty('background-image', "url('" + targetUrl + "')", 'important');
+                el.style.setProperty('background-size', 'cover', 'important');
+                el.style.setProperty('background-position', 'center', 'important');
+              }
             }
 
             // 2. User Logo Replacement (Image Mode vs Text Mode across ALL templates)
@@ -839,10 +847,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                       processedImgs.add(bgImgEl);
                     }
 
-                    setContainerBgAttrs(slideEl, slideBannerUrl);
-                    processedBgs.add(slideEl);
-
-                    slideEl.querySelectorAll('[data-background], [data-bg], [data-bg-image], [style*="background"], [style*="url("]').forEach(function(subBg) {
+                    // Slide background only if sub-element explicitly has data-background or style url(...)
+                    slideEl.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="url("]').forEach(function(subBg) {
                       if (subBg.tagName !== 'IMG' && !processedBgs.has(subBg)) {
                         setContainerBgAttrs(subBg, slideBannerUrl);
                         processedBgs.add(subBg);
@@ -860,7 +866,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 }
               });
 
-              // Step B: Standalone hero sections
+              // Step B: Standalone hero sections (Only replaces <img> or elements with existing background-image; preserves solid colors)
               document.querySelectorAll('section, header, div.hero, div.banner, div.masthead, main').forEach(function(sec) {
                 var sCls = (sec.className || '').toLowerCase();
                 var sId = (sec.id || '').toLowerCase();
@@ -879,7 +885,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                     processedImgs.add(simg);
                   });
 
-                  if (!processedBgs.has(sec)) {
+                  var secSt = sec.getAttribute('style') || '';
+                  var secHasBg = ['data-background', 'data-bg', 'data-bg-image', 'data-background-image'].some(function(a) { return sec.hasAttribute(a); }) || /background(?:-image)?\s*:\s*url\(/i.test(secSt);
+                  if (secHasBg && !processedBgs.has(sec)) {
                     var tBg = heroImgUrl || poolUrls[0];
                     setContainerBgAttrs(sec, tBg);
                     processedBgs.add(sec);
@@ -923,8 +931,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 processedImgs.add(img);
               });
 
-              // Step D: Replace remaining background images in style attributes and data-background
-              document.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="background"], [style*="url("]').forEach(function(el) {
+              // Step D: Replace remaining background images in style attributes and data-background (only elements that ALREADY have an existing background image)
+              document.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="url("]').forEach(function(el) {
                 if (el.tagName === 'IMG' || processedBgs.has(el)) return;
                 var elClasses = (el.className || '').toLowerCase();
                 var bgTarget = "";
@@ -1131,8 +1139,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                   cimg.alt = itmData.title;
                   processedImgs.add(cimg);
                 });
-                cardEl.querySelectorAll('[data-background], [data-bg], [data-bg-image], [style*="background"], [style*="url("]').forEach(function(cbg) {
-                  if (cbg.tagName !== 'IMG') {
+                cardEl.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="url("]').forEach(function(cbg) {
+                  if (cbg.tagName !== 'IMG' && !processedBgs.has(cbg)) {
                     setContainerBgAttrs(cbg, tCardImg);
                     processedBgs.add(cbg);
                   }

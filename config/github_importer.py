@@ -641,11 +641,13 @@ def auto_tag_github_html(html_code: str) -> str:
         return f'<{match.group(1)} {attrs} data-editable="title"'
     html_code = re.sub(r'<(span|div|a|p)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:site-title|brand-text|logo-text|app-title|brand-name|business-name|company-name)[^"\']*["\'][^>]*)', tag_title_class, html_code, count=2, flags=re.IGNORECASE)
 
-    # 3. Tag Hero Banner Images / Backgrounds
+    # 3. Tag Hero Banner Images / Backgrounds (Only for elements that ALREADY have an existing background image)
     def tag_hero_bg(match):
         tag_name = match.group(1)
         attrs = match.group(2)
         if 'data-background-image' in attrs.lower() or 'data-editable' in attrs.lower():
+            return match.group(0)
+        if not re.search(r'background(?:-image)?\s*:\s*url\(|data-bg|data-background', attrs, re.I):
             return match.group(0)
         return f'<{tag_name} {attrs} data-background-image="banner_1" data-editable="hero_image"'
     html_code = re.sub(r'<(section|div|header|main)\s+([^>]*?(?:class|id)=["\'][^"\']*(?:main-hero|home-hero|fit-hero|bistro-hero|saas-hero|hero|banner|masthead|slider|swiper|intro|showcase)[^"\']*["\'][^>]*)', tag_hero_bg, html_code, count=1, flags=re.IGNORECASE)

@@ -644,15 +644,16 @@ def inject_business_content_into_html(
                         set_node_img_attrs(cimg, target_card_img)
                         cimg['alt'] = item_data['title']
 
-                # Background images on card element or inner wrapper
-                for bg_el in card_el.find_all(lambda t: t.has_attr('data-bg') or t.has_attr('data-background') or 'background' in str(t.get('style', '')).lower()):
+                # Background images on card element or inner wrapper (only if element ALREADY has an existing background image)
+                for bg_el in card_el.find_all(lambda t: t.has_attr('data-bg') or t.has_attr('data-background') or t.has_attr('data-bg-image') or t.has_attr('data-background-image') or bool(re.search(r'background(?:-image)?\s*:\s*url\(', str(t.get('style', '')), re.I))):
                     if id(bg_el) not in processed_nodes:
                         for attr in ['data-bg', 'data-background', 'data-bg-image', 'data-background-image']:
                             if bg_el.has_attr(attr):
                                 bg_el[attr] = target_card_img
-                        cur_st = bg_el.get('style', '')
-                        cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', cur_st, flags=re.I).strip('; ')
-                        bg_el['style'] = f"{cleaned}; background-image: url('{target_card_img}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
+                        cur_st = str(bg_el.get('style', ''))
+                        if re.search(r'background(?:-image)?\s*:\s*url\(', cur_st, re.I):
+                            cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', cur_st, flags=re.I).strip('; ')
+                            bg_el['style'] = f"{cleaned}; background-image: url('{target_card_img}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
                         processed_nodes.add(id(bg_el))
 
             # 6. Button in Card
