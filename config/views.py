@@ -362,9 +362,7 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                     set_img_all_attrs(simg, target_u)
                     processed_imgs.add(id(simg))
 
-                # Update background: If hero section has foreground <img> elements (like cards), do not force a background image over solid color; otherwise replace background image
-                sec_has_bg = any(sec.has_attr(a) for a in ['data-background', 'data-bg', 'data-bg-image', 'data-background-image']) or bool(re.search(r'background(?:-image)?\s*:\s*url\(', str(sec.get('style', '')), re.I))
-                if id(sec) not in processed_bgs and (len(sec_imgs) == 0 or sec_has_bg):
+                if id(sec) not in processed_bgs:
                     target_bg = hero_url or (pool_urls[0] if pool_urls else '')
                     set_container_bg_attrs(sec, target_bg)
                     processed_bgs.add(id(sec))

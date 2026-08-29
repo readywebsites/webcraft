@@ -914,9 +914,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                     processedImgs.add(simg);
                   });
 
-                  var secSt = sec.getAttribute('style') || '';
-                  var secHasBg = ['data-background', 'data-bg', 'data-bg-image', 'data-background-image'].some(function(a) { return sec.hasAttribute(a); }) || /background(?:-image)?\s*:\s*url\(/i.test(secSt);
-                  if (!processedBgs.has(sec) && (secImgs.length === 0 || secHasBg)) {
+                  if (!processedBgs.has(sec)) {
                     var tBg = heroImgUrl || poolUrls[0];
                     setContainerBgAttrs(sec, tBg);
                     processedBgs.add(sec);
