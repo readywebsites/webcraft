@@ -182,14 +182,13 @@ def inject_business_content_into_html(
         processed_nodes = set()
 
         def set_node_img_attrs(img_tag: Tag, target_u: str):
-            if not target_u or not img_tag:
+            if not target_u or not img_tag or img_tag.name != 'img':
                 return
             img_tag['src'] = target_u
             if img_tag.has_attr('srcset'):
                 img_tag['srcset'] = target_u
             for attr in [
                 'data-src', 'data-original', 'data-lazy', 'data-lazy-src',
-                'data-bg', 'data-background', 'data-bg-image', 'data-background-image',
                 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src',
                 'data-retina', 'data-srcset', 'data-lazyload'
             ]:
@@ -441,13 +440,46 @@ def inject_business_content_into_html(
                 # Pure in-place text replacement: do not touch style, class, font, size, color, or alignment
                 inner_a = ht.find('a')
                 if inner_a:
-                    inner_a.string = target_head
+                    inner_a_spans = [s for s in inner_a.find_all('span') if not s.find_all()]
+                    if len(inner_a_spans) == 1:
+                        inner_a_spans[0].string = target_head
+                        processed_nodes.add(id(inner_a_spans[0]))
+                    elif len(inner_a_spans) == 2:
+                        words = target_head.split()
+                        if len(words) >= 2:
+                            inner_a_spans[0].string = words[0] + " "
+                            inner_a_spans[1].string = " ".join(words[1:])
+                        else:
+                            inner_a_spans[0].string = target_head
+                            inner_a_spans[1].string = ""
+                        processed_nodes.add(id(inner_a_spans[0]))
+                        processed_nodes.add(id(inner_a_spans[1]))
+                    else:
+                        inner_a.string = target_head
                     processed_nodes.add(id(inner_a))
                 else:
                     child_spans = [s for s in ht.find_all('span') if not s.find_all()]
                     if len(child_spans) == 1:
                         child_spans[0].string = target_head
                         processed_nodes.add(id(child_spans[0]))
+                    elif len(child_spans) == 2:
+                        words = target_head.split()
+                        if len(words) >= 2:
+                            child_spans[0].string = words[0] + " "
+                            child_spans[1].string = " ".join(words[1:])
+                        else:
+                            child_spans[0].string = target_head
+                            child_spans[1].string = ""
+                        processed_nodes.add(id(child_spans[0]))
+                        processed_nodes.add(id(child_spans[1]))
+                    elif len(child_spans) > 2:
+                        words = target_head.split()
+                        for s_idx, sp in enumerate(child_spans):
+                            if s_idx < len(words):
+                                sp.string = (words[s_idx] + " ") if s_idx < len(child_spans) - 1 else " ".join(words[s_idx:])
+                            else:
+                                sp.string = ""
+                            processed_nodes.add(id(sp))
                     else:
                         ht.string = target_head
                 processed_nodes.add(id(ht))
@@ -480,18 +512,34 @@ def inject_business_content_into_html(
                 hb.string = hero_badge
                 processed_nodes.add(id(hb))
 
-            # 4. CTA Buttons inside hero (Only buttons with visible text, NOT icon buttons)
+            # 4. CTA Buttons inside hero (Only buttons with visible text, preserving icons)
             hero_btns = [
                 b for b in h_cont.find_all(['a', 'button'], class_=re.compile(r'btn|button|cta', re.I))
                 if not b.find_parent(['nav', 'footer', 'header', 'aside']) and not (b.find(['svg', 'img']) and len(b.get_text(strip=True)) <= 1)
             ]
+            def set_py_btn_text(btn_tag, btn_text):
+                if not btn_tag or not btn_text:
+                    return
+                b_span = btn_tag.find('span')
+                if b_span and not b_span.find(['svg', 'img', 'i']):
+                    b_span.string = btn_text
+                    processed_nodes.add(id(b_span))
+                else:
+                    has_icon = btn_tag.find(['svg', 'img', 'i'])
+                    if has_icon:
+                        for child in list(btn_tag.children):
+                            if isinstance(child, NavigableString) and child.strip():
+                                child.replace_with(f" {btn_text} ")
+                                break
+                    else:
+                        btn_tag.string = btn_text
+                processed_nodes.add(id(btn_tag))
+
             if hero_btns:
                 if len(hero_btns) >= 1 and id(hero_btns[0]) not in processed_nodes:
-                    hero_btns[0].string = cta_pri
-                    processed_nodes.add(id(hero_btns[0]))
+                    set_py_btn_text(hero_btns[0], cta_pri)
                 if len(hero_btns) >= 2 and id(hero_btns[1]) not in processed_nodes:
-                    hero_btns[1].string = cta_sec
-                    processed_nodes.add(id(hero_btns[1]))
+                    set_py_btn_text(hero_btns[1], cta_sec)
 
             # Mark all text elements inside hero container as processed so subsequent generic steps (10 & 11) don't overwrite hero text
             for el_in_hero in h_cont.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'button']):
@@ -657,7 +705,7 @@ def inject_business_content_into_html(
                     desc_el.string = item_data['desc']
                 processed_nodes.add(id(desc_el))
 
-            # 5. Card Image Replacement
+            # 5. Card Image Replacement (Only targets <img> tags)
             if card_img_urls:
                 target_card_img = card_img_urls[c_idx % len(card_img_urls)]
                 card_imgs = card_el.find_all('img')
@@ -665,17 +713,6 @@ def inject_business_content_into_html(
                     if id(cimg) not in processed_nodes:
                         set_node_img_attrs(cimg, target_card_img)
                         cimg['alt'] = item_data['title']
-
-                # Background images on card element or inner wrapper
-                for bg_el in card_el.find_all(lambda t: t.has_attr('data-bg') or t.has_attr('data-background') or t.has_attr('data-bg-image') or t.has_attr('data-background-image') or 'background' in str(t.get('style', '')).lower()):
-                    if id(bg_el) not in processed_nodes:
-                        for attr in ['data-bg', 'data-background', 'data-bg-image', 'data-background-image']:
-                            if bg_el.has_attr(attr):
-                                bg_el[attr] = target_card_img
-                        cur_st = str(bg_el.get('style', ''))
-                        cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', cur_st, flags=re.I).strip('; ')
-                        bg_el['style'] = f"{cleaned}; background-image: url('{target_card_img}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
-                        processed_nodes.add(id(bg_el))
 
             # 6. Button in Card
             btn_el = card_el.find(['button', 'a'], class_=re.compile(r'btn|button|cta|cart|add', re.I))

@@ -134,25 +134,10 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                 img_el['srcset'] = target_url
             for attr in [
                 'data-src', 'data-original', 'data-lazy', 'data-lazy-src',
-                'data-bg', 'data-background', 'data-bg-image', 'data-background-image',
                 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina'
             ]:
                 if img_el.has_attr(attr):
                     img_el[attr] = target_url
-
-        # Helper to set container background attributes & inline style
-        def set_container_bg_attrs(el, target_url):
-            if not target_url or not el:
-                return
-            for attr in [
-                'data-bg', 'data-background', 'data-bg-image', 'data-background-image',
-                'data-img-url', 'data-bg-img', 'data-background-img'
-            ]:
-                if el.has_attr(attr):
-                    el[attr] = target_url
-            current_st = str(el.get('style', ''))
-            cleaned = re.sub(r'background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?', '', current_st, flags=re.I).strip('; ')
-            el['style'] = f"{cleaned}; background-image: url('{target_url}') !important; background-size: cover !important; background-position: center !important;".strip('; ')
 
         # B. Business Name: <span class="business-name"> / .business-name / span.site-title / [data-editable="title"] (Header & Footer only)
         if b_name:
@@ -327,12 +312,6 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                         set_img_all_attrs(bg_img_el, slide_banner_url)
                         processed_imgs.add(id(bg_img_el))
 
-                    # Slide background only if sub-element explicitly has data-background or style url(...)
-                    for sub_bg in slide_el.select('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="url("]'):
-                        if id(sub_bg) not in processed_bgs and sub_bg.name != 'img':
-                            set_container_bg_attrs(sub_bg, slide_banner_url)
-                            processed_bgs.add(id(sub_bg))
-
                     # Handle MULTI-IMAGE SLIDES (2+ images side-by-side or layered in the same slide)
                     for other_img in slide_imgs:
                         if id(other_img) in processed_imgs:
@@ -342,17 +321,18 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                         set_img_all_attrs(other_img, layer_url)
                         processed_imgs.add(id(other_img))
 
-        # F. Standalone Hero / Masthead / Banner sections if not in a slider
-        # Only replaces actual existing <img> elements or elements with existing background-image url(...); preserves solid background colors
+        # F. Standalone Hero / Masthead / Banner sections if not in a slider (Replaces <img> elements only)
         standalone_heroes = soup.select('section, header, div.hero, div.banner, div.masthead, main')
         for sec in standalone_heroes:
             sec_classes = ' '.join(sec.get('class', [])).lower() if isinstance(sec.get('class'), list) else str(sec.get('class', '')).lower()
             sec_id = str(sec.get('id', '')).lower()
             is_hero_sec = any(k in sec_classes or k in sec_id for k in ['hero', 'banner', 'masthead', 'showcase', 'intro', 'welcome'])
-            is_excluded = any(k in sec_classes for k in ['client', 'partner', 'sponsor', 'logo', 'footer', 'sidebar'])
+            is_excluded = any(k in sec_classes for k in ['client', 'partner', 'sponsor', 'logo', 'footer', 'sidebar', 'hero-content', 'hero-caption', 'hero-text', 'hero-title', 'hero-box', 'banner-content', 'banner-text', 'banner-inner', 'container', 'row', 'col-'])
             
             if is_hero_sec and not is_excluded:
-                sec_imgs = [img for img in sec.find_all('img') if id(img) not in processed_imgs]
+                if sec.find_parent(class_=re.compile(r'hero-content|hero-caption|hero-text|banner-content|banner-text|container|row', re.I)):
+                    continue
+                sec_imgs = [img for img in sec.find_all('img') if id(img) not in processed_imgs and not img.find_parent(class_=re.compile(r'logo|navbar-brand', re.I))]
                 for simg in sec_imgs:
                     simg_classes = ' '.join(simg.get('class', [])).lower() if isinstance(simg.get('class'), list) else str(simg.get('class', '')).lower()
                     if 'logo' in simg_classes:
@@ -362,12 +342,7 @@ def apply_user_details_to_template(raw_html, raw_css, details):
                     set_img_all_attrs(simg, target_u)
                     processed_imgs.add(id(simg))
 
-                if id(sec) not in processed_bgs:
-                    target_bg = hero_url or (pool_urls[0] if pool_urls else '')
-                    set_container_bg_attrs(sec, target_bg)
-                    processed_bgs.add(id(sec))
-
-        # G. Multi-Image & Card image replacement across the entire page (sequential distinct assignment)
+        # G. Multi-Image & Card image replacement across the entire page (strictly targets <img> tags only)
         for img in soup.find_all('img'):
             if id(img) in processed_imgs:
                 continue
@@ -399,24 +374,6 @@ def apply_user_details_to_template(raw_html, raw_css, details):
             pool_idx += 1
             set_img_all_attrs(img, target_src)
             processed_imgs.add(id(img))
-
-        # Replace remaining background images in style attributes and data-background attributes
-        for el in soup.find_all(lambda tag: tag.has_attr('data-background') or tag.has_attr('data-bg') or tag.has_attr('data-bg-image') or tag.has_attr('data-background-image') or 'background' in str(tag.get('style', '')).lower()):
-            if id(el) in processed_bgs or el.name == 'img':
-                continue
-            parent_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in el.parents]).lower()
-            el_classes = ' '.join(el.get('class', [])).lower() if isinstance(el.get('class'), list) else str(el.get('class', '')).lower()
-            
-            if 'about' in el_classes or 'about' in parent_classes:
-                bg_target = images.get('about') or (pool_urls[pool_idx % len(pool_urls)] if pool_urls else hero_url)
-            elif 'cta' in el_classes or 'cta' in parent_classes:
-                bg_target = images.get('cta') or (pool_urls[pool_idx % len(pool_urls)] if pool_urls else hero_url)
-            else:
-                bg_target = pool_urls[pool_idx % len(pool_urls)] if pool_urls else hero_url
-            pool_idx += 1
-
-            set_container_bg_attrs(el, bg_target)
-            processed_bgs.add(id(el))
 
         # H. Contact Email & Phone
         if email:
@@ -460,22 +417,6 @@ def apply_user_details_to_template(raw_html, raw_css, details):
 
         # Matches standard US/UK/International formats like +1 (555) 000-0000, (1245) 2456 012, +91 98765 43210, etc.
         html = re.sub(r'(?:\+\d{1,3}[\s.-]?)?\(?\d{2,5}\)?[\s.-]?\d{2,5}[\s.-]?\d{3,5}', repl_phone_context, html)
-
-    # 6. UNIVERSAL CSS STYLESHEET BACKGROUND IMAGE REPLACEMENTS
-    if css and pool_urls:
-        css_pool_idx = 0
-        def repl_css_bg(m):
-            nonlocal css_pool_idx
-            prop = m.group(1)
-            old_u = m.group(2).strip("'\"")
-            # Don't replace fonts, data URIs, SVGs, or tiny icon sprites
-            if any(ext in old_u.lower() for ext in ['.woff', '.woff2', '.ttf', '.eot', '.otf', '.svg', 'data:', 'icon', 'arrow', 'logo', 'star', 'pattern', 'gradient', 'linear-gradient']):
-                return m.group(0)
-            target_u = pool_urls[css_pool_idx % len(pool_urls)]
-            css_pool_idx += 1
-            return f"{prop}url('{target_u}')"
-        
-        css = re.sub(r'(background(?:-image)?\s*:\s*[^;]*?)url\(["\']?([^"\'\)]+)["\']?\)', repl_css_bg, css, flags=re.IGNORECASE)
 
     if css and color:
         css = f":root {{ --primary-color: {color}; }}\n" + css

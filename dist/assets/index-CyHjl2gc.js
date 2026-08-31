@@ -34,8 +34,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         })();
       <\/script>
       <style id="webcraft-visibility-fix">
-        body, html, #app-root, #wrapper, #main, .wrapper, .main-wrapper, #content, .content, section, [id^="section-"] {
-          display: block !important;
+        body, html, #app-root, #wrapper, #main, .wrapper, .main-wrapper, #content, .content {
           opacity: 1 !important;
           visibility: visible !important;
         }
@@ -45,31 +44,18 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           visibility: hidden !important;
           pointer-events: none !important;
         }
-        /* Reveal Owl Carousel items and WOW animation elements unconditionally */
-        .owl-carousel {
-          display: block !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-        }
-        .owl-carousel:not(.owl-loaded) {
-          display: flex !important;
-          flex-wrap: wrap !important;
-          gap: 1.5rem !important;
-          justify-content: center !important;
-        }
-        .owl-carousel:not(.owl-loaded) > * {
-          display: block !important;
-          width: 100% !important;
-          max-width: 650px !important;
-          margin: 0 auto 1.5rem auto !important;
+        /* Reveal Owl Carousel items and WOW animation elements unconditionally without altering transforms or layouts */
+        .owl-carousel.owl-loaded {
           visibility: visible !important;
           opacity: 1 !important;
         }
         .wow {
           visibility: visible !important;
           opacity: 1 !important;
-          animation: none !important;
-          transform: none !important;
+        }
+        [data-aos] {
+          visibility: visible !important;
+          opacity: 1 !important;
         }
         .jarallax {
           position: relative !important;
@@ -369,7 +355,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           overscroll-behavior-y: contain;
           overflow-x: hidden;
           overflow-y: auto !important;
-          height: auto !important;
+          min-height: 100%;
         }
         body {
           width: 100%;
@@ -379,7 +365,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           overflow-x: hidden !important;
           overflow-y: auto !important;
           -webkit-overflow-scrolling: touch !important;
-          position: relative !important;
           -webkit-font-smoothing: antialiased;
           -moz-osx-font-smoothing: grayscale;
           text-rendering: optimizeLegibility;
@@ -413,10 +398,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           scrollbar-width: thin !important;
           scrollbar-color: rgba(100, 116, 139, 0.35) transparent !important;
         }
-        /* Ensure AOS (Animate On Scroll) animated elements are visible and hardware-accelerated */
+        /* Ensure AOS (Animate On Scroll) animated elements are visible without destroying positioning transforms */
         [data-aos] {
           opacity: 1 !important;
-          transform: none !important;
           visibility: visible !important;
           -webkit-backface-visibility: hidden;
           backface-visibility: hidden;
@@ -603,27 +587,14 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // Helper to set all image and lazyload attributes
+            // Helper to set all image and lazyload attributes (strictly targets <img> elements only)
             function setImgAllAttrs(imgEl, targetUrl) {
-              if (!targetUrl || !imgEl) return;
+              if (!targetUrl || !imgEl || imgEl.tagName !== 'IMG') return;
               imgEl.src = targetUrl;
               imgEl.srcset = targetUrl;
-              ['data-src', 'data-original', 'data-lazy', 'data-lazy-src', 'data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina', 'data-srcset', 'data-lazyload'].forEach(function(attr) {
+              ['data-src', 'data-original', 'data-lazy', 'data-lazy-src', 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina', 'data-srcset', 'data-lazyload'].forEach(function(attr) {
                 if (imgEl.hasAttribute(attr)) imgEl.setAttribute(attr, targetUrl);
               });
-            }
-
-            // Helper to set container background attributes & inline style
-            function setContainerBgAttrs(el, targetUrl) {
-              if (!targetUrl || !el) return;
-              ['data-bg', 'data-background', 'data-bg-image', 'data-background-image', 'data-img-url', 'data-bg-img', 'data-background-img'].forEach(function(attr) {
-                if (el.hasAttribute(attr)) el.setAttribute(attr, targetUrl);
-              });
-              var currentSt = el.getAttribute('style') || '';
-              var cleaned = currentSt.replace(/background(?:-image)?\s*:\s*url\([^)]+\)[^;]*;?/gi, '').replace(/;\s*$/, '');
-              el.style.setProperty('background-image', "url('" + targetUrl + "')", 'important');
-              el.style.setProperty('background-size', 'cover', 'important');
-              el.style.setProperty('background-position', 'center', 'important');
             }
 
             // 2. User Logo Replacement (Image Mode vs Text Mode across ALL templates)
@@ -685,7 +656,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // 3. Full-Page & Multi-Banner Pexels Business Images Replacement
+            // 3. Full-Page & Multi-Banner Pexels Business Images Replacement (Strictly targets <img> tags only)
             var poolUrls = [];
             if (Array.isArray(imagePoolArr) && imagePoolArr.length > 0) {
               poolUrls = imagePoolArr.map(function(item) { return item && item.url ? item.url : ''; }).filter(Boolean);
@@ -739,7 +710,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             if (poolUrls.length > 0) {
               var livePoolIdx = 1; // poolUrls[0] is hero / slide 1 banner
               var processedImgs = new Set();
-              var processedBgs = new Set();
 
               function getActualSlides(container) {
                 // 1. Revolution Slider / flexslider / ul slider
@@ -802,13 +772,13 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                   if (topSlides.length > 0) return topSlides;
                 }
 
-                // 7. Direct child divs in slider container if multiple child divs have img/bg
+                // 7. Direct child divs in slider container if multiple child divs have img
                 var directChildren = Array.from(container.children).filter(function(c) {
                   return ['DIV', 'LI', 'ARTICLE', 'SECTION'].indexOf(c.tagName) !== -1;
                 });
                 if (directChildren.length >= 2) {
                   var withImgs = directChildren.filter(function(c) {
-                    return c.querySelector('img') || /background/i.test(c.getAttribute('style') || '') || c.hasAttribute('data-background') || c.hasAttribute('data-bg');
+                    return c.querySelector('img');
                   });
                   if (withImgs.length >= 2) return withImgs;
                 }
@@ -816,7 +786,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 return [];
               }
 
-              // Step A: Discover top-level sliders
+              // Step A: Discover top-level sliders and replace their <img> elements
               var sliderSelectors = '.rev_slider, .tp-banner, .swiper-container, .swiper, .owl-carousel, .slick-slider, .carousel, [class*="slider-area"], [class*="hero-slider"], [class*="banner-slider"], [class*="main-slider"], .ak-slider, [class*="slider_wrap"], [class*="rev_slider_wrapper"], [class*="home-slider"]';
               var allSliders = document.querySelectorAll(sliderSelectors);
               var topSliders = [];
@@ -876,14 +846,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                       processedImgs.add(bgImgEl);
                     }
 
-                    // Slide background only if sub-element explicitly has data-background or style url(...)
-                    slideEl.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="url("]').forEach(function(subBg) {
-                      if (subBg.tagName !== 'IMG' && !processedBgs.has(subBg)) {
-                        setContainerBgAttrs(subBg, slideBannerUrl);
-                        processedBgs.add(subBg);
-                      }
-                    });
-
                     slideImgs.forEach(function(otherImg) {
                       if (processedImgs.has(otherImg)) return;
                       var layerUrl = poolUrls[livePoolIdx % poolUrls.length];
@@ -895,15 +857,16 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 }
               });
 
-              // Step B: Standalone hero sections
+              // Step B: Standalone hero sections (replaces <img> elements only)
               document.querySelectorAll('section, header, div.hero, div.banner, div.masthead, main').forEach(function(sec) {
                 var sCls = (sec.className || '').toLowerCase();
                 var sId = (sec.id || '').toLowerCase();
                 var isHero = /(?:hero|banner|masthead|showcase|intro|welcome)/i.test(sCls) || /(?:hero|banner|masthead|showcase|intro|welcome)/i.test(sId);
-                var isEx = /(?:client|partner|sponsor|logo|footer|sidebar)/i.test(sCls);
+                var isEx = /(?:client|partner|sponsor|logo|footer|sidebar|hero-content|hero-caption|hero-text|hero-title|hero-box|banner-content|banner-text|banner-inner|caption|container|row|col-)/i.test(sCls);
                 if (isHero && !isEx) {
+                  if (sec.closest('.hero-content, .hero-caption, .hero-text, .hero-title, .banner-content, .banner-text, .container, .row')) return;
                   var secImgs = Array.from(sec.querySelectorAll('img')).filter(function(img) {
-                    return !processedImgs.has(img);
+                    return !processedImgs.has(img) && !img.closest('.logo, header, nav, footer, .navbar-brand');
                   });
                   secImgs.forEach(function(simg) {
                     var simgCls = (simg.className || '').toLowerCase();
@@ -913,16 +876,10 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                     setImgAllAttrs(simg, tUrl);
                     processedImgs.add(simg);
                   });
-
-                  if (!processedBgs.has(sec)) {
-                    var tBg = heroImgUrl || poolUrls[0];
-                    setContainerBgAttrs(sec, tBg);
-                    processedBgs.add(sec);
-                  }
                 }
               });
 
-              // Step C: All remaining images across the entire page
+              // Step C: All remaining <img> tags across the entire page
               document.querySelectorAll('img').forEach(function(img) {
                 if (processedImgs.has(img)) return;
                 var pClasses = (img.parentElement ? img.parentElement.className : '').toLowerCase();
@@ -956,23 +913,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 livePoolIdx++;
                 setImgAllAttrs(img, targetSrc);
                 processedImgs.add(img);
-              });
-
-              // Step D: Replace remaining background images in style attributes and data-background
-              document.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="background"], [style*="url("]').forEach(function(el) {
-                if (el.tagName === 'IMG' || processedBgs.has(el)) return;
-                var elClasses = (el.className || '').toLowerCase();
-                var bgTarget = "";
-                if (elClasses.indexOf('about') !== -1) {
-                  bgTarget = (imagesMap && imagesMap.about) || poolUrls[livePoolIdx % poolUrls.length];
-                } else if (elClasses.indexOf('cta') !== -1) {
-                  bgTarget = (imagesMap && imagesMap.cta) || poolUrls[livePoolIdx % poolUrls.length];
-                } else {
-                  bgTarget = poolUrls[livePoolIdx % poolUrls.length];
-                }
-                livePoolIdx++;
-                setContainerBgAttrs(el, bgTarget);
-                processedBgs.add(el);
               });
             }
 
@@ -1300,12 +1240,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                   cimg.alt = itmData.title;
                   processedImgs.add(cimg);
                 });
-                cardEl.querySelectorAll('[data-background], [data-bg], [data-bg-image], [data-background-image], [style*="url("]').forEach(function(cbg) {
-                  if (cbg.tagName !== 'IMG' && !processedBgs.has(cbg)) {
-                    setContainerBgAttrs(cbg, tCardImg);
-                    processedBgs.add(cbg);
-                  }
-                });
               }
 
               // Button in Card
@@ -1366,11 +1300,49 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 var innerA = ht.querySelector('a');
                 var childSpans = Array.from(ht.querySelectorAll('span')).filter(function(s) { return s.children.length === 0; });
                 if (innerA) {
-                  innerA.textContent = targetH;
+                  var innerASpans = Array.from(innerA.querySelectorAll('span')).filter(function(s) { return s.children.length === 0; });
+                  if (innerASpans.length === 1) {
+                    innerASpans[0].textContent = targetH;
+                    processedDOMElements.add(innerASpans[0]);
+                  } else if (innerASpans.length === 2) {
+                    var aWords = targetH.split(' ').filter(Boolean);
+                    if (aWords.length >= 2) {
+                      innerASpans[0].textContent = aWords[0] + ' ';
+                      innerASpans[1].textContent = aWords.slice(1).join(' ');
+                    } else {
+                      innerASpans[0].textContent = targetH;
+                      innerASpans[1].textContent = '';
+                    }
+                    processedDOMElements.add(innerASpans[0]);
+                    processedDOMElements.add(innerASpans[1]);
+                  } else {
+                    innerA.textContent = targetH;
+                  }
                   processedDOMElements.add(innerA);
                 } else if (childSpans.length === 1) {
                   childSpans[0].textContent = targetH;
                   processedDOMElements.add(childSpans[0]);
+                } else if (childSpans.length === 2) {
+                  var hWords = targetH.split(' ').filter(Boolean);
+                  if (hWords.length >= 2) {
+                    childSpans[0].textContent = hWords[0] + ' ';
+                    childSpans[1].textContent = hWords.slice(1).join(' ');
+                  } else {
+                    childSpans[0].textContent = targetH;
+                    childSpans[1].textContent = '';
+                  }
+                  processedDOMElements.add(childSpans[0]);
+                  processedDOMElements.add(childSpans[1]);
+                } else if (childSpans.length > 2) {
+                  var allWords = targetH.split(' ').filter(Boolean);
+                  childSpans.forEach(function(sp, idx) {
+                    if (idx < allWords.length) {
+                      sp.textContent = (idx < childSpans.length - 1 ? allWords[idx] + ' ' : allWords.slice(idx).join(' '));
+                    } else {
+                      sp.textContent = '';
+                    }
+                    processedDOMElements.add(sp);
+                  });
                 } else {
                   ht.textContent = targetH;
                 }
@@ -1391,20 +1363,46 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 processedDOMElements.add(heroBadge);
               }
 
-              // 4. Hero Action Buttons (Buttons with text only)
+              // 4. Hero Action Buttons (Buttons with text only, preserving icons)
               var heroBtns = Array.from(hSec.querySelectorAll('a.btn, button.btn, a[class*="btn"], button[class*="btn"], a.cta, .hero-btn, [class*="hero-btn"]')).filter(function(b) {
                 if (b.closest('nav, header, aside, footer, .announcement-bar, #top-banner-container, #header-container, #navbar-container, .header-tools, .header-right, .nav-right')) return false;
                 if (b.querySelector('svg, img, i') && b.textContent.trim().length <= 1) return false;
                 return true;
               });
 
+              function setHeroBtnText(btnEl, btnText) {
+                if (!btnEl || !btnText) return;
+                var bSpan = btnEl.querySelector('span');
+                if (bSpan && !bSpan.querySelector('svg, img, i')) {
+                  bSpan.textContent = btnText;
+                  processedDOMElements.add(bSpan);
+                } else {
+                  var hasIcon = btnEl.querySelector('svg, img, i');
+                  if (hasIcon) {
+                    var replacedNode = false;
+                    for (var bi = 0; bi < btnEl.childNodes.length; bi++) {
+                      var cNode = btnEl.childNodes[bi];
+                      if (cNode.nodeType === 3 && cNode.nodeValue.trim().length > 0) {
+                        cNode.nodeValue = ' ' + btnText + ' ';
+                        replacedNode = true;
+                        break;
+                      }
+                    }
+                    if (!replacedNode) {
+                      btnEl.appendChild(document.createTextNode(' ' + btnText));
+                    }
+                  } else {
+                    btnEl.textContent = btnText;
+                  }
+                }
+                processedDOMElements.add(btnEl);
+              }
+
               if (heroBtns.length >= 1 && !processedDOMElements.has(heroBtns[0])) {
-                heroBtns[0].textContent = (heroObj && heroObj.cta_primary) || "Get Started";
-                processedDOMElements.add(heroBtns[0]);
+                setHeroBtnText(heroBtns[0], (heroObj && heroObj.cta_primary) || "Get Started");
               }
               if (heroBtns.length >= 2 && !processedDOMElements.has(heroBtns[1])) {
-                heroBtns[1].textContent = (heroObj && heroObj.cta_secondary) || "Explore Offerings";
-                processedDOMElements.add(heroBtns[1]);
+                setHeroBtnText(heroBtns[1], (heroObj && heroObj.cta_secondary) || "Explore Offerings");
               }
 
               // Mark all remaining elements inside hero section as processed so later steps (6 & 7) never overwrite hero text
