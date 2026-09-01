@@ -245,6 +245,26 @@ def inject_business_content_into_html(
         about_story = _clean_text(about.get('story') or business_desc or f"At {brand_name}, we are committed to delivering the highest standard of quality and customer care.")
         about_highlights = [str(h) for h in about.get('highlights', []) if h]
 
+        domain_paragraphs = content.get('domain_paragraphs') or [
+            hero_subheadline,
+            about_story,
+            f"Every single offering at {brand_name} is crafted with extreme precision and dedicated attention to detail.",
+            f"At {brand_name}, we take immense pride in our craftsmanship and unwavering dedication to customer satisfaction."
+        ]
+
+        single_word_pool = (
+            micro_tags +
+            [str(s.get('title', '')).split()[0] for s in services if isinstance(s, dict) and s.get('title')] +
+            ["Fresh", "Artisanal", "Best", "Quality", "Pure", "Prime", "Select", "Choice", "Authentic", "Craft"]
+        )
+
+        all_items = services if services else [
+            {'title': f"Signature {brand_name} Special", 'desc': f"Prepared fresh daily using authentic recipes and supreme craftsmanship at {brand_name}.", 'tag': "Bestseller", 'price': "$19.99"},
+            {'title': f"Artisanal Handcrafted Offering", 'desc': f"Delight in our carefully curated selection, made to perfection for our guests at {brand_name}.", 'tag': "Chef Choice", 'price': "$24.99"},
+            {'title': f"Premium Deluxe Quality", 'desc': f"Crafted with top-tier grade elements, designed to exceed your highest expectations at {brand_name}.", 'tag': "Featured", 'price': "$29.99"},
+            {'title': f"Exclusive Seasonal Special", 'desc': f"An unforgettable culinary experience made with passion and dedication at {brand_name}.", 'tag': "Seasonal", 'price': "$34.99"}
+        ]
+
         # Extract available images pool
         pool_urls: List[str] = []
         if image_pool:

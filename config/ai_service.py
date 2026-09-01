@@ -199,8 +199,10 @@ Return ONLY a valid JSON object matching this exact schema:
 """
 
     models_to_try = [
-        "gemini-1.5-flash",
-        "gemini-2.0-flash"
+        "gemini-flash-lite-latest",
+        "gemini-flash-latest",
+        "gemini-2.5-flash",
+        "gemini-3.5-flash-lite"
     ]
 
     for model in models_to_try:
@@ -221,7 +223,7 @@ Return ONLY a valid JSON object matching this exact schema:
             headers={"Content-Type": "application/json"}
         )
         try:
-            with urllib.request.urlopen(req, timeout=2.5) as response:
+            with urllib.request.urlopen(req, timeout=15.0) as response:
                 if response.status == 200:
                     resp_json = json.loads(response.read().decode('utf-8'))
                     candidates = resp_json.get('candidates', [])
@@ -231,8 +233,16 @@ Return ONLY a valid JSON object matching this exact schema:
                         clean_json = re.sub(r'\s*```$', '', clean_json.strip())
                         data = json.loads(clean_json)
                         if isinstance(data, dict) and data.get('hero'):
+                            if not data.get('domain_paragraphs'):
+                                data['domain_paragraphs'] = [
+                                    data.get('hero', {}).get('subheadline', ''),
+                                    data.get('about', {}).get('story', ''),
+                                    f"Every single offering at {business_name} is crafted with extreme precision and dedicated attention to detail.",
+                                    f"At {business_name}, we take immense pride in our craftsmanship and unwavering dedication to customer satisfaction."
+                                ]
                             return data
-        except Exception:
+        except Exception as e:
+            print(f"[Gemini AI Service Notice] Model {model} attempt failed: {e}")
             continue
 
     return {}
