@@ -469,7 +469,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
           function runScript() {
             bindReactGlobals();
-            var isReactCode = /\\b(?:React|ReactDOM|useState|useEffect|useRef|useMemo|jsx|className|<[A-Z])\\b/.test(rawJs) || /<[a-z0-9_]+[^>]*>/i.test(rawJs);
+            var isReactCode = (rawJs.indexOf('React') !== -1 || rawJs.indexOf('ReactDOM') !== -1 || rawJs.indexOf('useState') !== -1 || rawJs.indexOf('useEffect') !== -1 || rawJs.indexOf('jsx') !== -1 || rawJs.indexOf('className') !== -1 || /<[A-Za-z0-9_]+[^>]*>/.test(rawJs));
             
             try {
               if (isReactCode && window.Babel) {
@@ -996,20 +996,20 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               var origClean = (orig || "").trim();
               if (!origClean) return "";
               var origLen = origClean.length;
-              var origWords = origClean.split(/\s+/).filter(Boolean).length;
-              var targetClean = String(target || "").replace(/[\r\n\t]+/g, ' ').trim();
+              var origWords = origClean.split(' ').filter(Boolean).length;
+              var targetClean = String(target || "").replace(/\r/g, ' ').replace(/\n/g, ' ').replace(/\t/g, ' ').trim();
               if (!targetClean) return origClean;
               var maxAllowed = origLen + (typeof maxLeeway === 'number' ? maxLeeway : 3);
 
               var res = "";
               if (origWords === 1) {
-                var tWords = targetClean.split(/\s+/).filter(Boolean);
+                var tWords = targetClean.split(' ').filter(Boolean);
                 if (tWords.length === 1 && targetClean.length <= maxAllowed) {
                   res = targetClean;
                 } else if (Array.isArray(wordPool) && wordPool.length > 0) {
                   var bestW = "";
                   for (var i = 0; i < wordPool.length; i++) {
-                    var cand = (wordPool[i] || "").trim().split(/\s+/)[0];
+                    var cand = (wordPool[i] || "").trim().split(' ')[0];
                     if (cand && cand.length <= maxAllowed) {
                       if (!bestW || Math.abs(cand.length - origLen) < Math.abs(bestW.length - origLen)) {
                         bestW = cand;
@@ -1030,7 +1030,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 if (targetClean.length <= maxAllowed) {
                   res = targetClean;
                 } else {
-                  var words = targetClean.split(/\s+/).filter(Boolean);
+                  var words = targetClean.split(' ').filter(Boolean);
                   var accum = [];
                   var curLen = 0;
                   for (var wIdx = 0; wIdx < words.length; wIdx++) {
@@ -1046,7 +1046,12 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                   if (accum.length > 0) {
                     res = accum.join(' ');
                     res = res.replace(/[,;:\-–—\s]+$/, '');
-                    res = res.replace(/\b(?:and|or|with|of|in|to|for|the|a|an)\s*$/i, '').trim();
+                    var danglingWords = ['and', 'or', 'with', 'of', 'in', 'to', 'for', 'the', 'a', 'an'];
+                    var resWords = res.split(' ').filter(Boolean);
+                    if (resWords.length > 1 && danglingWords.indexOf(resWords[resWords.length - 1].toLowerCase()) !== -1) {
+                      resWords.pop();
+                      res = resWords.join(' ');
+                    }
                     if (origClean.endsWith('.') && !res.endsWith('.')) {
                       if (res.length + 1 <= maxAllowed) res += '.';
                     }
@@ -1061,9 +1066,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 res = res.toUpperCase();
               } else if (origClean[0] === origClean[0].toUpperCase() && origClean.slice(1) === origClean.slice(1).toLowerCase()) {
                 if (res.indexOf(' ') !== -1) {
-                  res = res.replace(/\w\S*/g, function(txt) {
-                    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-                  });
+                  res = res.split(' ').map(function(txt) {
+                    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
+                  }).join(' ');
                 } else {
                   res = res.charAt(0).toUpperCase() + res.slice(1).toLowerCase();
                 }
@@ -1429,7 +1434,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 } else {
                   hSec.querySelectorAll('div, span, h4').forEach(function(cand) {
                     var cCls = (cand.className || '').toLowerCase();
-                    if (/(?:\btitle\b|\bheading\b|\bmain-title\b|\bbanner-title\b|\bhero-title\b)/i.test(cCls)) {
+                    if (cCls.indexOf('title') !== -1 || cCls.indexOf('heading') !== -1 || cCls.indexOf('banner') !== -1 || cCls.indexOf('hero') !== -1) {
                       if (!cand.querySelector('h1, h2, h3, p, div, section, article, ul, ol, form')) {
                         heroTitleEls.push(cand);
                       }
