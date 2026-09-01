@@ -517,37 +517,33 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
           }
         })();
 
-        var isWebcraftRunning = false;
-        var isUserScrolling = false;
-        var scrollDebounceTimer = null;
-        var totalDriverRuns = 0;
-        var MAX_DRIVER_RUNS = 4;
-        var observerInstance = null;
+          var isWebcraftRunning = false;
+          var isUserScrolling = false;
+          var scrollDebounceTimer = null;
+          var totalDriverRuns = 0;
+          var MAX_DRIVER_RUNS = 50;
+          var observerInstance = null;
 
-        window.addEventListener('scroll', function() {
-          isUserScrolling = true;
-          if (scrollDebounceTimer) clearTimeout(scrollDebounceTimer);
-          scrollDebounceTimer = setTimeout(function() {
-            isUserScrolling = false;
-          }, 150);
-        }, { passive: true });
+          window.addEventListener('scroll', function() {
+            isUserScrolling = true;
+            if (scrollDebounceTimer) clearTimeout(scrollDebounceTimer);
+            scrollDebounceTimer = setTimeout(function() {
+              isUserScrolling = false;
+            }, 150);
+          }, { passive: true });
 
-        function runWebcraftDriver() {
-          if (totalDriverRuns >= MAX_DRIVER_RUNS || isUserScrolling || isWebcraftRunning) return;
-          isWebcraftRunning = true;
-          totalDriverRuns++;
+          function runWebcraftDriver() {
+            if (totalDriverRuns >= MAX_DRIVER_RUNS || isUserScrolling || isWebcraftRunning) return;
+            isWebcraftRunning = true;
+            totalDriverRuns++;
 
-          if (observerInstance) {
-            try { observerInstance.disconnect(); } catch(e) {}
-          }
+            if (typeof AOS !== 'undefined') {
+              try { AOS.init({ duration: 600, once: true }); } catch(e) {}
+            }
 
-          if (typeof AOS !== 'undefined') {
-            try { AOS.init({ duration: 600, once: true }); } catch(e) {}
-          }
-
-          // Inside-iframe Native DOM Post-Processing Driver (Zero Cross-Origin SecurityErrors)
-          try {
-            var logoUrl = ${JSON.stringify(r.logo_url||``)};
+            // Inside-iframe Native DOM Dynamic Post-Processing Driver (Zero Cross-Origin SecurityErrors)
+            try {
+              var logoUrl = ${JSON.stringify(r.logo_url||``)};
             var imagesMap = ${JSON.stringify(r.images||{})};
             var imagePoolArr = ${JSON.stringify(r.image_pool||[])};
             var heroImgUrl = ${JSON.stringify(r.hero_image_url||``)} || imagesMap.hero || '';
@@ -1411,11 +1407,14 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             document.querySelectorAll(
               '.hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, .masthead, .intro-section, ' +
               '.showcase, .welcome-section, .rev_slider, .swiper-container, .swiper, .carousel, ' +
+              '#hero-slider-wrapper, [id*="hero-slider"], [id*="hero_slider"], [id*="hero-wrapper"], [data-editable="hero_image"], ' +
+              '.hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, .masthead, .intro-section, ' +
+              '.showcase, .welcome-section, .rev_slider, .swiper-container, .swiper, .carousel, ' +
               '#hero, #home, #intro, #home-hero-container, [class*="hero-"], [class*="slider-"], [class*="masthead"], ' +
               'main > section:first-child, main > div:first-child'
             ).forEach(function(hSec) {
               if (hSec.closest('header, nav, footer, aside, [id*="banner-container"], [id*="header-container"], [id*="navbar-container"], [class*="announcement"], [class*="top-bar"], [class*="header"]') || /(?:footer|sidebar|client|partner|announcement|header|navbar|top-bar)/i.test(hSec.className || '')) return;
-              if (/(?:banner-container|header-container|navbar-container|announcement)/i.test(hSec.id || '')) return;
+              if (/(?:banner-container|header-container|navbar-container|announcement)/i.test(hSec.id || '') && hSec.id !== 'hero-slider-wrapper') return;
 
               var heroTitleEls = [];
               var h1s = Array.from(hSec.querySelectorAll('h1'));
@@ -1461,7 +1460,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
 
               // Badge / Kicker
-              var heroBadge = hSec.querySelector('.badge, .tag, .pill, .kicker, .hero-badge, [class*="badge"], [class*="kicker"]');
+              var heroBadge = hSec.querySelector('.badge, .tag, .pill, .kicker, .hero-badge, [class*="badge"], [class*="kicker"], span[class*="tracking"], span[class*="uppercase"]');
               if (heroBadge && !processedDOMElements.has(heroBadge) && !heroBadge.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container') && !heroBadge.querySelector('h1, h2, h3, p, div')) {
                 var origBadge = (heroBadge.textContent || '').trim();
                 var candBadge = (heroObj && heroObj.badge_text) || "PREMIUM QUALITY";
@@ -1471,7 +1470,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
 
               // Hero Action Buttons
-              var heroBtns = Array.from(hSec.querySelectorAll('a.btn, button.btn, a[class*="btn"], button[class*="btn"], a.cta, .hero-btn, [class*="hero-btn"]')).filter(function(b) {
+              var heroBtns = Array.from(hSec.querySelectorAll('a.btn, button.btn, a[class*="btn"], button[class*="btn"], a.cta, .hero-btn, [class*="hero-btn"], a[class*="px-"], a[class*="tracking"]')).filter(function(b) {
                 if (b.closest('nav, header, aside, footer, .announcement-bar, #top-banner-container, #header-container, #navbar-container, .header-tools, .header-right, .nav-right')) return false;
                 if (b.querySelector('svg, img, i') && b.textContent.trim().length <= 1) return false;
                 return true;
@@ -1491,10 +1490,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 setTagTextPreservingChildren(heroBtns[1], fitHB2);
                 processedDOMElements.add(heroBtns[1]);
               }
-
-              hSec.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, a, button').forEach(function(elInHero) {
-                processedDOMElements.add(elInHero);
-              });
             });
 
             // Step 4: Stats & Counters (Number + Short 1-3 Word Label)
@@ -1737,11 +1732,11 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
         }
 
         // 2. Controlled Staged Multi-Interval Execution during page load
-        [80, 400, 1500].forEach(function(delay) {
+        [30, 100, 250, 500, 900, 1500, 2500, 4000].forEach(function(delay) {
           setTimeout(runWebcraftDriver, delay);
         });
 
-        // 3. Ultra-Lightweight MutationObserver with automatic disconnect after 3.5s
+        // 3. Ultra-Lightweight MutationObserver with automatic disconnect after 8s
         try {
           var webcraftDebounceTimer = null;
           observerInstance = new MutationObserver(function(mutations) {
@@ -1751,7 +1746,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
                 for (var j = 0; j < mutations[i].addedNodes.length; j++) {
                   var node = mutations[i].addedNodes[j];
-                  if (node.nodeType === 1 && (node.tagName === 'DIV' || node.tagName === 'SECTION' || node.tagName === 'ARTICLE' || node.tagName === 'MAIN')) {
+                  if (node.nodeType === 1 && (node.tagName === 'DIV' || node.tagName === 'SECTION' || node.tagName === 'ARTICLE' || node.tagName === 'MAIN' || node.tagName === 'SPAN' || node.tagName === 'H1' || node.tagName === 'H2' || node.tagName === 'P')) {
                     hasSignificantNodes = true;
                     break;
                   }
@@ -1761,15 +1756,15 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             }
             if (hasSignificantNodes) {
               if (webcraftDebounceTimer) clearTimeout(webcraftDebounceTimer);
-              webcraftDebounceTimer = setTimeout(runWebcraftDriver, 120);
+              webcraftDebounceTimer = setTimeout(runWebcraftDriver, 80);
             }
           });
           observerInstance.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
-          // Disconnect observer after 3.5s to eliminate all background CPU overhead
+          // Disconnect observer after 8s to eliminate all background CPU overhead
           setTimeout(function() {
             try { observerInstance.disconnect(); } catch(e) {}
-          }, 3500);
+          }, 8000);
         } catch(obsErr) {}
 
       <\/script>
