@@ -195,9 +195,12 @@ def inject_business_content_into_html(
     logo_type: str = 'both'
 ) -> str:
     """
-    Universal Length-Preserving & Whole-Page Semantic Content Injector:
-    Guarantees every replaced word and sentence across the ENTIRE page strictly respects
-    character length limits (same or fewer characters, max 2-3 leeway) to preserve design.
+    Universal Length-Preserving & Whole-Page Semantic Content & Multi-Banner Image Injector:
+    1. Replaces all slider/carousel slides and section banners with distinct, unique images.
+    2. Replaces all card images, product images, galleries, and remaining <img> tags with domain-relevant images.
+    3. Replaces background-image CSS and data-background attributes.
+    4. Guarantees every replaced word and sentence across the ENTIRE page strictly respects
+       character length limits (same or fewer characters, max 2-3 leeway) to preserve design.
     """
     if not raw_html or not content:
         return raw_html
@@ -254,8 +257,37 @@ def inject_business_content_into_html(
             for r, u in images_by_role.items():
                 if u and u not in pool_urls:
                     pool_urls.append(u)
+        if not pool_urls:
+            from .pexels_service import build_fallback_image_pool
+            fb_pool = build_fallback_image_pool(business_name=brand_name, category=content.get('category_name', 'general'))
+            pool_urls = [item['url'] for item in fb_pool if item.get('url')]
+
+        hero_img_url = ""
+        if images_by_role and images_by_role.get('hero'):
+            hero_img_url = images_by_role.get('hero')
+        elif pool_urls:
+            hero_img_url = pool_urls[0]
 
         card_img_urls = pool_urls[1:] if len(pool_urls) > 1 else pool_urls
+        live_pool_idx = 1
+        processed_imgs = set()
+        processed_nodes = set()
+
+        def set_node_img_attrs(img_tag: Tag, target_u: str):
+            if not target_u or not img_tag or img_tag.name != 'img':
+                return
+            img_tag['src'] = target_u
+            if img_tag.has_attr('srcset'):
+                img_tag['srcset'] = target_u
+            for attr in [
+                'data-src', 'data-original', 'data-lazy', 'data-lazy-src',
+                'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src',
+                'data-retina', 'data-srcset', 'data-lazyload'
+            ]:
+                if img_tag.has_attr(attr):
+                    img_tag[attr] = target_u
+            processed_imgs.add(id(img_tag))
+            processed_nodes.add(id(img_tag))
 
         # Combine all product/service items with complete semantic pairing
         all_items: List[Dict[str, str]] = []
@@ -323,23 +355,6 @@ def inject_business_content_into_html(
             "Order", "Book", "Prices", "Deals", "Offers", "Reviews", "Team", "About", "FAQ", "Contact"
         ]
 
-        processed_nodes = set()
-
-        def set_node_img_attrs(img_tag: Tag, target_u: str):
-            if not target_u or not img_tag or img_tag.name != 'img':
-                return
-            img_tag['src'] = target_u
-            if img_tag.has_attr('srcset'):
-                img_tag['srcset'] = target_u
-            for attr in [
-                'data-src', 'data-original', 'data-lazy', 'data-lazy-src',
-                'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src',
-                'data-retina', 'data-srcset', 'data-lazyload'
-            ]:
-                if img_tag.has_attr(attr):
-                    img_tag[attr] = target_u
-            processed_nodes.add(id(img_tag))
-
         # -------------------------------------------------------------
         # STEP 1: Document Title & Navbar Brand / Logo (Header & Footer)
         # -------------------------------------------------------------
@@ -373,11 +388,13 @@ def inject_business_content_into_html(
                         img_in_logo['alt'] = brand_name
                         cur_st = img_in_logo.get('style', '')
                         img_in_logo['style'] = f"{cur_st}; max-height: 52px; width: auto; object-fit: contain;".strip('; ')
+                        processed_imgs.add(id(img_in_logo))
                         processed_nodes.add(id(img_in_logo))
                         processed_nodes.add(id(el))
                     elif svg_in_logo and svg_in_logo.parent:
                         new_img = soup.new_tag('img', src=logo_url, alt=brand_name, style="max-height: 52px; width: auto; object-fit: contain;")
                         svg_in_logo.replace_with(new_img)
+                        processed_imgs.add(id(new_img))
                         processed_nodes.add(id(new_img))
                         processed_nodes.add(id(el))
                 else:
@@ -404,6 +421,147 @@ def inject_business_content_into_html(
                         else:
                             el.string = fit_text_to_length(brand_name, orig_b_txt, max_leeway=4)
                         processed_nodes.add(id(el))
+
+        # -------------------------------------------------------------
+        # STEP 1.8: MULTI-BANNER SLIDER & CAROUSEL IMAGE REPLACEMENT
+        # -------------------------------------------------------------
+        slider_selectors = (
+            '.rev_slider, .tp-banner, .swiper-container, .swiper, .owl-carousel, .slick-slider, .carousel, '
+            '[class*="slider-area"], [class*="hero-slider"], [class*="banner-slider"], [class*="main-slider"], '
+            '.ak-slider, [class*="slider_wrap"], [class*="rev_slider_wrapper"], [class*="home-slider"]'
+        )
+        all_sliders = list(soup.select(slider_selectors))
+        top_sliders = []
+        for sc in all_sliders:
+            if not any(parent in all_sliders for parent in sc.parents):
+                top_sliders.append(sc)
+
+        def get_actual_slides(container):
+            # 1. Revolution Slider / flexslider / ul slider
+            rev_slides = container.select('.rev_slider ul > li, .tp-banner ul > li, .tp-banner-container ul > li, ul.slides > li, .rslides > li')
+            if rev_slides:
+                valid_rev = [li for li in rev_slides if not any(c in ' '.join(li.get('class', [])).lower() for c in ['bullet', 'dot', 'arrow', 'thumb', 'nav', 'tab', 'indicator'])]
+                if valid_rev:
+                    return valid_rev
+
+            # 2. Swiper
+            swiper_slides = container.select('.swiper-wrapper > .swiper-slide') or container.select('.swiper-slide')
+            if swiper_slides:
+                return list(swiper_slides)
+
+            # 3. Owl Carousel
+            owl_slides = container.select('.owl-stage > .owl-item, .owl-carousel > .item, .owl-carousel > div, .owl-item, .owl-carousel .item')
+            if owl_slides:
+                top_owl = []
+                for s in owl_slides:
+                    if not any(parent in owl_slides for parent in s.parents):
+                        top_owl.append(s)
+                if top_owl:
+                    return top_owl
+
+            # 4. Slick Slider
+            slick_slides = container.select('.slick-track > .slick-slide, .slick-slide')
+            if slick_slides:
+                return list(slick_slides)
+
+            # 5. Bootstrap Carousel
+            bs_slides = container.select('.carousel-inner > .carousel-item, .carousel-item')
+            if bs_slides:
+                return list(bs_slides)
+
+            # 6. Generic slide classes
+            raw_slides = container.select('[class*="slide-item"], [class*="slider-item"], [class*="single-slide"], [class*="single-slider"], [class*="slide-inner"], .slide, .single-hero-slide')
+            top_slides_cand = []
+            for s in raw_slides:
+                if not any(parent in raw_slides for parent in s.parents):
+                    top_slides_cand.append(s)
+            if top_slides_cand:
+                return top_slides_cand
+
+            # 7. Direct child elements with images
+            direct_children = [child for child in container.find_all(recursive=False) if child.name in ['div', 'li', 'article', 'section']]
+            if len(direct_children) >= 2:
+                children_with_imgs = [c for c in direct_children if c.find('img') or re.search(r'background', str(c.get('style', '')), re.I) or any(c.has_attr(a) for a in ['data-background', 'data-bg', 'data-bg-image'])]
+                if len(children_with_imgs) >= 2:
+                    return children_with_imgs
+
+            return []
+
+        handled_slides = set()
+        global_slide_idx = 0
+
+        for sc in top_sliders:
+            actual_slides = get_actual_slides(sc)
+            for slide_el in actual_slides:
+                if id(slide_el) in handled_slides:
+                    continue
+                handled_slides.add(id(slide_el))
+
+                if global_slide_idx == 0:
+                    slide_banner_url = hero_img_url or (pool_urls[0] if pool_urls else "")
+                else:
+                    slide_banner_url = pool_urls[live_pool_idx % len(pool_urls)] if pool_urls else hero_img_url
+                    live_pool_idx += 1
+                global_slide_idx += 1
+
+                # Update slide background attributes & style
+                for bg_attr in ['data-background', 'data-bg', 'data-bg-image', 'data-img-url']:
+                    if slide_el.has_attr(bg_attr):
+                        slide_el[bg_attr] = slide_banner_url
+                if slide_el.has_attr('style') and 'background' in str(slide_el['style']).lower():
+                    slide_el['style'] = re.sub(r'url\([^)]+\)', f"url('{slide_banner_url}')", str(slide_el['style']), flags=re.I)
+
+                slide_imgs = [img for img in slide_el.find_all('img') if id(img) not in processed_imgs]
+                bg_img_el = None
+                for simg in slide_imgs:
+                    s_classes = ' '.join(simg.get('class', [])).lower() if isinstance(simg.get('class'), list) else str(simg.get('class', '')).lower()
+                    if any(bg_cls in s_classes for bg_cls in ['rev-slidebg', 'ak-hero-bg', 'main-slider__bg', 'slide-bg', 'hero-bg', 'bg-img', 'object-cover', 'slidebg']):
+                        bg_img_el = simg
+                        break
+                if not bg_img_el and slide_imgs:
+                    bg_img_el = slide_imgs[0]
+
+                if bg_img_el and slide_banner_url:
+                    set_node_img_attrs(bg_img_el, slide_banner_url)
+                    processed_imgs.add(id(bg_img_el))
+
+                for other_img in slide_imgs:
+                    if id(other_img) in processed_imgs:
+                        continue
+                    layer_url = pool_urls[live_pool_idx % len(pool_urls)] if pool_urls else hero_img_url
+                    live_pool_idx += 1
+                    set_node_img_attrs(other_img, layer_url)
+                    processed_imgs.add(id(other_img))
+
+        # -------------------------------------------------------------
+        # STEP 1.9: STANDALONE HERO & BANNER SECTIONS IMAGES
+        # -------------------------------------------------------------
+        standalone_heroes = soup.select('section, header, div.hero, div.banner, div.masthead, main')
+        for sec in standalone_heroes:
+            sec_classes = ' '.join(sec.get('class', [])).lower() if isinstance(sec.get('class'), list) else str(sec.get('class', '')).lower()
+            sec_id = str(sec.get('id', '')).lower()
+            is_hero_sec = any(k in sec_classes or k in sec_id for k in ['hero', 'banner', 'masthead', 'showcase', 'intro', 'welcome'])
+            is_excluded = any(k in sec_classes for k in ['client', 'partner', 'sponsor', 'logo', 'footer', 'sidebar', 'hero-content', 'hero-caption', 'hero-text', 'hero-title', 'hero-box', 'banner-content', 'banner-text', 'banner-inner', 'container', 'row', 'col-'])
+
+            if is_hero_sec and not is_excluded:
+                if sec.find_parent(class_=re.compile(r'hero-content|hero-caption|hero-text|banner-content|banner-text|container|row', re.I)):
+                    continue
+
+                for bg_attr in ['data-background', 'data-bg', 'data-bg-image', 'data-img-url']:
+                    if sec.has_attr(bg_attr):
+                        sec[bg_attr] = hero_img_url or (pool_urls[0] if pool_urls else "")
+                if sec.has_attr('style') and 'background' in str(sec['style']).lower():
+                    sec['style'] = re.sub(r'url\([^)]+\)', f"url('{hero_img_url or (pool_urls[0] if pool_urls else '')}')", str(sec['style']), flags=re.I)
+
+                sec_imgs = [img for img in sec.find_all('img') if id(img) not in processed_imgs and not img.find_parent(class_=re.compile(r'logo|navbar-brand', re.I))]
+                for simg in sec_imgs:
+                    simg_classes = ' '.join(simg.get('class', [])).lower() if isinstance(simg.get('class'), list) else str(simg.get('class', '')).lower()
+                    if 'logo' in simg_classes:
+                        continue
+                    t_url = pool_urls[live_pool_idx % len(pool_urls)] if (live_pool_idx > 1 and pool_urls) else (hero_img_url or (pool_urls[0] if pool_urls else ""))
+                    live_pool_idx += 1
+                    set_node_img_attrs(simg, t_url)
+                    processed_imgs.add(id(simg))
 
         # -------------------------------------------------------------
         # STEP 1.5: Announcement Bar Text Replacement (Strict Length-Preserved)
@@ -619,7 +777,8 @@ def inject_business_content_into_html(
                     continue
                 orig_hs = hs.get_text(strip=True)
                 if orig_hs:
-                    hs.string = fit_text_to_length(hero_subheadline, orig_hs, max_leeway=3)
+                    fit_hs = fit_text_to_length(hero_subheadline, orig_hs, max_leeway=3, single_word_pool=single_word_pool)
+                    set_tag_text_preserving_children(hs, fit_hs)
                     processed_nodes.add(id(hs))
 
             # 3. Badge inside hero
@@ -824,9 +983,10 @@ def inject_business_content_into_html(
                 target_card_img = card_img_urls[c_idx % len(card_img_urls)]
                 card_imgs = card_el.find_all('img')
                 for cimg in card_imgs:
-                    if id(cimg) not in processed_nodes:
+                    if id(cimg) not in processed_imgs:
                         set_node_img_attrs(cimg, target_card_img)
                         cimg['alt'] = item_data['title']
+                        processed_imgs.add(id(cimg))
 
             # 6. Button in Card
             btn_el = card_el.find(['button', 'a'], class_=re.compile(r'btn|button|cta|cart|add', re.I))
@@ -881,7 +1041,7 @@ def inject_business_content_into_html(
                 if q_el and q_text and id(q_el) not in processed_nodes:
                     orig_q = q_el.get_text(strip=True)
                     fitted_q = fit_text_to_length(q_text, orig_q, max_leeway=3)
-                    q_el.string = f'"{fitted_q.strip(chr(34) + chr(39))}"'
+                    set_tag_text_preserving_children(q_el, f'"{fitted_q.strip(chr(34) + chr(39))}"')
                     processed_nodes.add(id(q_el))
 
                 a_el = t_box.select_one('.author, .name, .client-name, h4, h5, strong')
@@ -907,14 +1067,14 @@ def inject_business_content_into_html(
             if cta_h and id(cta_h) not in processed_nodes:
                 orig_ch = cta_h.get_text(strip=True)
                 cand_ch = _clean_text(cta_banner.get('headline') or f"Ready to Experience {brand_name}?")
-                cta_h.string = fit_text_to_length(cand_ch, orig_ch, max_leeway=3)
+                set_tag_text_preserving_children(cta_h, fit_text_to_length(cand_ch, orig_ch, max_leeway=3))
                 processed_nodes.add(id(cta_h))
 
             cta_p = cta_sec_el.find('p')
             if cta_p and id(cta_p) not in processed_nodes:
                 orig_cp = cta_p.get_text(strip=True)
                 cand_cp = _clean_text(cta_banner.get('subheadline') or f"Get in touch with our team today to learn more.")
-                cta_p.string = fit_text_to_length(cand_cp, orig_cp, max_leeway=3)
+                set_tag_text_preserving_children(cta_p, fit_text_to_length(cand_cp, orig_cp, max_leeway=3))
                 processed_nodes.add(id(cta_p))
 
             cta_b = cta_sec_el.find(['a', 'button'], class_=re.compile(r'btn|button|cta', re.I))
@@ -924,6 +1084,48 @@ def inject_business_content_into_html(
                 fitted_cb = fit_text_to_length(cand_cb, orig_cb, max_leeway=2, single_word_pool=single_word_pool)
                 set_tag_text_preserving_children(cta_b, fitted_cb)
                 processed_nodes.add(id(cta_b))
+
+        # -------------------------------------------------------------
+        # STEP 9.5: ALL REMAINING <img> TAGS ACROSS ENTIRE PAGE
+        # -------------------------------------------------------------
+        for img in soup.find_all('img'):
+            if id(img) in processed_imgs:
+                continue
+            p_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in img.parents]).lower()
+            i_classes = ' '.join(img.get('class', [])).lower() if isinstance(img.get('class'), list) else str(img.get('class', '')).lower()
+            i_src = str(img.get('src', '')).lower()
+            i_alt = str(img.get('alt', '')).lower()
+            i_id = str(img.get('id', '')).lower()
+
+            if 'logo' in p_classes or 'logo' in i_classes or 'logo' in i_src or 'logo' in i_alt or 'logo' in i_id or img.has_attr('data-logo'):
+                if logo_url:
+                    set_node_img_attrs(img, logo_url)
+                processed_imgs.add(id(img))
+                continue
+
+            if i_src.endswith('.svg') or i_src.endswith('.ico') or any(ik in i_src or ik in i_classes for ik in ['flag', 'payment', 'visa', 'mastercard', 'paypal', 'cart-icon', 'arrow-', 'close', 'search-icon']):
+                continue
+
+            if img.has_attr('data-image'):
+                role_k = str(img['data-image']).lower().strip()
+                if images_by_role and images_by_role.get(role_k):
+                    set_node_img_attrs(img, images_by_role[role_k])
+                    processed_imgs.add(id(img))
+                    continue
+
+            target_src = pool_urls[live_pool_idx % len(pool_urls)] if pool_urls else hero_img_url
+            live_pool_idx += 1
+            set_node_img_attrs(img, target_src)
+            processed_imgs.add(id(img))
+
+        # -------------------------------------------------------------
+        # STEP 9.6: ALL REMAINING data-background & CSS BACKGROUND IMAGES
+        # -------------------------------------------------------------
+        for bg_attr in ['data-background', 'data-bg', 'data-bg-image']:
+            for el in soup.find_all(attrs={bg_attr: True}):
+                target_src = pool_urls[live_pool_idx % len(pool_urls)] if pool_urls else hero_img_url
+                live_pool_idx += 1
+                el[bg_attr] = target_src
 
         # -------------------------------------------------------------
         # STEP 10: REMAINING HEADINGS & TITLES (Strict Length Budgeting)
@@ -977,11 +1179,8 @@ def inject_business_content_into_html(
         for p in soup.find_all(['p', 'div', 'blockquote', 'li', 'span']):
             if id(p) in processed_nodes:
                 continue
-            if p.name == 'span' and (p.find_parent(['a', 'button', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']) or p.find(['svg', 'img', 'i'])):
-                continue
-            if p.name == 'div' and not any(k in ' '.join(p.get('class', [])).lower() for k in ['desc', 'text-muted', 'lead', 'info', 'timeline-body', 'caption-text', 'sub-heading']):
-                continue
-            if p.find_parent(['script', 'style', 'head', 'footer', '.copyright', 'nav', 'header', '.navbar', '.announcement-bar', '#announcement-bar-container', '#top-banner-container', '#header-container', '#navbar-container']):
+            # Exclude only scripts, styles, navigation bars, announcement banners, and copyright
+            if p.find_parent(['script', 'style', 'head', 'nav', '.navbar-nav', '.navbar-brand', '.copyright', '.footer-bottom', '.announcement-bar', '#announcement-bar', '#announcement-bar-container', '#top-banner-container']):
                 continue
             if p.find_parent(class_=re.compile(r'hero|masthead|main-slider|home-slider|hero-slider', re.I)) or p.find_parent(id=re.compile(r'hero|home|intro', re.I)):
                 continue
@@ -1006,7 +1205,7 @@ def inject_business_content_into_html(
             elif orig_words <= 16 or orig_len <= 110:
                 cand_p = all_items[p_idx % len(all_items)]['desc'] if all_items else medium_phrases[p_idx % len(medium_phrases)]
             else:
-                cand_p = domain_paragraphs[p_idx % domain_paragraphs_len if (domain_paragraphs_len := len(domain_paragraphs)) else 1]
+                cand_p = domain_paragraphs[p_idx % len(domain_paragraphs)]
 
             fitted_p = fit_text_to_length(cand_p, orig_txt, max_leeway=3, single_word_pool=single_word_pool)
             set_tag_text_preserving_children(p, fitted_p)

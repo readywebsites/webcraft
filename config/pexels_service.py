@@ -236,6 +236,67 @@ FALLBACK_PHOTO_CATALOG = {
         {"url": "https://images.unsplash.com/photo-1528732263440-4dd1a18a4cc2?w=900&q=80", "alt": "Artisanal farm cheese and butter"},
         {"url": "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=900&q=80", "alt": "Lush country farm landscape"}
     ],
+    'jewelry': [
+        {"url": "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&q=80", "alt": "Luxury diamond ring and gold jewelry"},
+        {"url": "https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?w=1400&q=80", "alt": "Artisanal gold necklace and evil eye charm"},
+        {"url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=1200&q=80", "alt": "Handcrafted minimalist silver earrings"},
+        {"url": "https://images.unsplash.com/photo-1611591475102-460d7f382a93?w=900&q=80", "alt": "Sacred spiritual gemstone bracelet"},
+        {"url": "https://images.unsplash.com/photo-1573408301185-9146fe634ad0?w=900&q=80", "alt": "Luxury gemstone ring display"},
+        {"url": "https://images.unsplash.com/photo-1605100804763-247f67b3557e?w=900&q=80", "alt": "Fine jewelry diamond solitaire ring"},
+        {"url": "https://images.unsplash.com/photo-1602751584552-8ba73aad10e1?w=900&q=80", "alt": "Traditional handmade jewelry craft"},
+        {"url": "https://images.unsplash.com/photo-1600003014755-ba31aa59c4b6?w=900&q=80", "alt": "Curated spiritual and bridal jewelry gift"}
+    ],
+    'shoe': [
+        {"url": "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=1400&q=80", "alt": "Bespoke handcrafted leather shoes"},
+        {"url": "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=1400&q=80", "alt": "Modern footwear sneakers collection"},
+        {"url": "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=1200&q=80", "alt": "Luxury designer heels and footwear"},
+        {"url": "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=900&q=80", "alt": "Casual streetwear shoes"},
+        {"url": "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=900&q=80", "alt": "Premium athletic trainers"}
+    ],
+    'dental': [
+        {"url": "https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=1400&q=80", "alt": "Modern state-of-the-art dental clinic"},
+        {"url": "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=1400&q=80", "alt": "Radiant healthy smile dentistry"},
+        {"url": "https://images.unsplash.com/photo-1598256989800-fe5f95da9787?w=1200&q=80", "alt": "Professional gentle dental care examination"},
+        {"url": "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=900&q=80", "alt": "Advanced orthodontic and cosmetic dentistry"}
+    ],
+    'medical': [
+        {"url": "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1400&q=80", "alt": "Modern hospital and healthcare clinic"},
+        {"url": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1400&q=80", "alt": "Doctor consultation and patient care"},
+        {"url": "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=1200&q=80", "alt": "Compassionate medical healthcare specialists"}
+    ],
+    'realestate': [
+        {"url": "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1400&q=80", "alt": "Luxury modern architecture estate villa"},
+        {"url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1400&q=80", "alt": "Contemporary living room interior design"},
+        {"url": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80", "alt": "Spacious sunlit home architecture"},
+        {"url": "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=900&q=80", "alt": "Prime residential luxury property"}
+    ],
+    'hotel': [
+        {"url": "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1400&q=80", "alt": "Luxury resort and boutique hotel"},
+        {"url": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1400&q=80", "alt": "Elegant hotel bedroom suite"},
+        {"url": "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&q=80", "alt": "Scenic luxury travel destination resort"}
+    ],
+    'pet': [
+        {"url": "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=1400&q=80", "alt": "Happy healthy dog pet care"},
+        {"url": "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1400&q=80", "alt": "Playful kitten companion pet care"},
+        {"url": "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=1200&q=80", "alt": "Veterinary grooming and animal care"}
+    ],
+    'education': [
+        {"url": "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1400&q=80", "alt": "University campus and students studying"},
+        {"url": "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1400&q=80", "alt": "Modern classroom interactive learning"},
+        {"url": "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1200&q=80", "alt": "Academic library and student excellence"}
+    ],
+    'cleaning': [
+        {"url": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1400&q=80", "alt": "Professional home and office cleaning service"},
+        {"url": "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=1400&q=80", "alt": "Sparkling clean interior housekeeping"}
+    ],
+    'construction': [
+        {"url": "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1400&q=80", "alt": "Modern construction architecture and building"},
+        {"url": "https://images.unsplash.com/photo-1541888946425-d0fbb18086f7?w=1400&q=80", "alt": "Professional building contractor team"}
+    ],
+    'furniture': [
+        {"url": "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1400&q=80", "alt": "Contemporary living room modern furniture"},
+        {"url": "https://images.unsplash.com/photo-1538688525198-9b88f6f53126?w=1400&q=80", "alt": "Artisanal handcrafted wooden furniture"}
+    ],
     'general': [
         {"url": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1400&q=80", "photographer": "Israel Andrade", "photographer_url": "https://unsplash.com/@israelreid", "alt": "Modern professional workspace"},
         {"url": "https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=1200&q=80", "photographer": "Alesia Kazantceva", "photographer_url": "https://unsplash.com/@alekazan", "alt": "Creative office interior"},
@@ -371,21 +432,43 @@ def select_best_fallback_catalog(category: str = '', keywords: list[str] = None)
     """Selects the most suitable categorized fallback photo list based on category and keywords."""
     combined = f"{category} {' '.join(keywords or [])}".lower()
     
-    if any(k in combined for k in ['bakery', 'cake', 'pastry', 'bread', 'restaurant', 'food', 'cafe', 'coffee', 'dining', 'bistro', 'pizza', 'burger']):
+    if any(k in combined for k in ['jewelry', 'jewel', 'jewels', 'gold', 'silver', 'pendant', 'bracelet', 'necklace', 'diamond', 'gem', 'nazariya', 'spiritual']):
+        return FALLBACK_PHOTO_CATALOG['jewelry']
+    if any(k in combined for k in ['shoe', 'footwear', 'boots', 'sneakers', 'leather', 'cobbler', 'heels']):
+        return FALLBACK_PHOTO_CATALOG['shoe']
+    if any(k in combined for k in ['dental', 'dentist', 'teeth', 'smile', 'orthodont']):
+        return FALLBACK_PHOTO_CATALOG['dental']
+    if any(k in combined for k in ['doctor', 'clinic', 'medical', 'hospital', 'health', 'medicine', 'physician', 'patient']):
+        return FALLBACK_PHOTO_CATALOG['medical']
+    if any(k in combined for k in ['realestate', 'realtor', 'property', 'house', 'estate', 'villa', 'apartment', 'home builder']):
+        return FALLBACK_PHOTO_CATALOG['realestate']
+    if any(k in combined for k in ['hotel', 'resort', 'travel', 'tourism', 'vacation', 'lodge', 'hospitality']):
+        return FALLBACK_PHOTO_CATALOG['hotel']
+    if any(k in combined for k in ['pet', 'dog', 'cat', 'puppy', 'kitten', 'vet', 'veterinary', 'animal']):
+        return FALLBACK_PHOTO_CATALOG['pet']
+    if any(k in combined for k in ['education', 'school', 'university', 'college', 'tutor', 'course', 'academy', 'learning']):
+        return FALLBACK_PHOTO_CATALOG['education']
+    if any(k in combined for k in ['cleaning', 'clean', 'janitor', 'maid', 'housekeeping', 'sanitiz']):
+        return FALLBACK_PHOTO_CATALOG['cleaning']
+    if any(k in combined for k in ['construction', 'contractor', 'builder', 'renovation', 'plumb', 'electric']):
+        return FALLBACK_PHOTO_CATALOG['construction']
+    if any(k in combined for k in ['furniture', 'woodworking', 'interior design', 'sofa', 'cabinet', 'carpenter']):
+        return FALLBACK_PHOTO_CATALOG['furniture']
+    if any(k in combined for k in ['bakery', 'cake', 'pastry', 'bread', 'restaurant', 'food', 'cafe', 'coffee', 'dining', 'bistro', 'pizza', 'burger', 'kitchen', 'grill']):
         return FALLBACK_PHOTO_CATALOG['restaurant']
-    if any(k in combined for k in ['fashion', 'cloth', 'apparel', 'boutique', 'dress', 'saree', 'jewelry', 'shoe', 'shopping', 'retail', 'store']):
+    if any(k in combined for k in ['fashion', 'cloth', 'apparel', 'boutique', 'dress', 'saree', 'shopping', 'retail', 'store', 'wear']):
         return FALLBACK_PHOTO_CATALOG['fashion']
-    if any(k in combined for k in ['gym', 'fit', 'fitness', 'workout', 'train', 'sport', 'yoga', 'crossfit', 'athletics']):
+    if any(k in combined for k in ['gym', 'fit', 'fitness', 'workout', 'train', 'sport', 'yoga', 'crossfit', 'athletics', 'muscle']):
         return FALLBACK_PHOTO_CATALOG['fitness']
-    if any(k in combined for k in ['tech', 'saas', 'software', 'app', 'code', 'data', 'cloud', 'ai', 'platform']):
+    if any(k in combined for k in ['tech', 'saas', 'software', 'app', 'code', 'data', 'cloud', 'ai', 'platform', 'it service', 'cyber']):
         return FALLBACK_PHOTO_CATALOG['tech']
-    if any(k in combined for k in ['car', 'automotive', 'mechanic', 'repair', 'auto', 'vehicle', 'garage']):
+    if any(k in combined for k in ['car', 'automotive', 'mechanic', 'repair', 'auto', 'vehicle', 'garage', 'tire']):
         return FALLBACK_PHOTO_CATALOG['car']
-    if any(k in combined for k in ['salon', 'spa', 'beauty', 'hair', 'skincare', 'cosmetics', 'wellness']):
+    if any(k in combined for k in ['salon', 'spa', 'beauty', 'hair', 'skincare', 'cosmetics', 'wellness', 'massage']):
         return FALLBACK_PHOTO_CATALOG['salon']
-    if any(k in combined for k in ['flower', 'florist', 'botanical', 'bouquet', 'plant']):
+    if any(k in combined for k in ['flower', 'florist', 'botanical', 'bouquet', 'plant', 'floral', 'garden']):
         return FALLBACK_PHOTO_CATALOG['flower']
-    if any(k in combined for k in ['dairy', 'farm', 'milk', 'cow', 'agriculture', 'organic']):
+    if any(k in combined for k in ['dairy', 'farm', 'milk', 'cow', 'agriculture', 'organic', 'cheese']):
         return FALLBACK_PHOTO_CATALOG['dairy']
         
     return FALLBACK_PHOTO_CATALOG['general']
