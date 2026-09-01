@@ -65,16 +65,23 @@ def apply_user_details_to_template(raw_html, raw_css, details):
 
     # 1. RUN SEMANTIC AI COPYWRITING INJECTION FIRST
     html = raw_html
-    if not ai_content and details.get('business_description'):
+    if not ai_content or not isinstance(ai_content, dict) or not ai_content.get('hero'):
         from .ai_service import generate_business_content
         ai_content = generate_business_content(
-            business_name=b_name,
-            business_description=details.get('business_description', ''),
-            category=details.get('category_name', ''),
+            business_name=b_name or 'My Business',
+            business_description=details.get('business_description', '') or details.get('description', ''),
+            category=details.get('category_name', '') or details.get('category', ''),
             tagline=tagline
         )
 
     if ai_content and isinstance(ai_content, dict):
+        if b_name:
+            ai_content['brand_name'] = b_name
+            ai_content['business_name'] = b_name
+        if tagline:
+            ai_content['tagline'] = tagline
+        if details.get('business_description'):
+            ai_content['business_description'] = details.get('business_description')
         from .content_injector import inject_business_content_into_html
         html = inject_business_content_into_html(
             raw_html=html,
@@ -86,338 +93,6 @@ def apply_user_details_to_template(raw_html, raw_css, details):
         )
 
     css = raw_css or ''
-
-    # 2. SUBSTITUTE EXPLICIT PLACEHOLDER TOKENS
-    if b_name:
-        html = html.replace('{{SITE_TITLE}}', b_name).replace('{{SITE_NAME}}', b_name).replace('{{BUSINESS_NAME}}', b_name).replace('{{business_name}}', b_name).replace('{{BRAND_NAME}}', b_name).replace('{{COMPANY_NAME}}', b_name)
-    if logo_url:
-        html = html.replace('{{LOGO_URL}}', logo_url).replace('{{logo_url}}', logo_url).replace('{{LOGO}}', logo_url)
-    if hero_url:
-        html = html.replace('{{HERO_IMAGE_URL}}', hero_url).replace('{{hero_image_url}}', hero_url).replace('{{HERO_IMAGE}}', hero_url).replace('{{BANNER_IMAGE}}', hero_url).replace('{{HERO_BG}}', hero_url).replace('{{banner_image}}', hero_url)
-    if email:
-        html = html.replace('{{CONTACT_EMAIL}}', email).replace('{{contact_email}}', email).replace('{{EMAIL}}', email).replace('{{email}}', email)
-    if phone:
-        html = html.replace('{{CONTACT_PHONE}}', phone).replace('{{contact_phone}}', phone).replace('{{PHONE}}', phone).replace('{{phone}}', phone)
-    if tagline:
-        html = html.replace('{{TAGLINE}}', tagline).replace('{{tagline}}', tagline)
-    if color:
-        html = html.replace('{{PRIMARY_COLOR}}', color).replace('{{primary_color}}', color)
-
-    # Dynamic replacement for image role placeholders e.g. {{IMAGE_HERO}}, {{IMAGE_BANNER_1}}, {{IMAGE_BANNER_2}}, etc.
-    if images:
-        for role_k, img_v in images.items():
-            if img_v:
-                html = html.replace(f'{{{{IMAGE_{role_k.upper()}}}}}', img_v)
-                html = html.replace(f'{{{{image_{role_k.lower()}}}}}', img_v)
-
-    # 3. DIRECT DOM REPLACEMENTS (BeautifulSoup)
-    try:
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(html, 'html.parser')
-
-        # A. Page Title: <title>
-        if b_name:
-            if soup.title:
-                soup.title.string = f"{b_name} - {tagline}" if tagline else b_name
-            else:
-                new_title = soup.new_tag('title')
-                new_title.string = f"{b_name} - {tagline}" if tagline else b_name
-                if soup.head:
-                    soup.head.append(new_title)
-
-        # Helper to set all image and lazyload attributes
-        def set_img_all_attrs(img_el, target_url):
-            if not target_url:
-                return
-            img_el['src'] = target_url
-            if img_el.has_attr('srcset'):
-                img_el['srcset'] = target_url
-            for attr in [
-                'data-src', 'data-original', 'data-lazy', 'data-lazy-src',
-                'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina'
-            ]:
-                if img_el.has_attr(attr):
-                    img_el[attr] = target_url
-
-        # B. Business Name: <span class="business-name"> / .business-name / span.site-title / [data-editable="title"] (Header & Footer only)
-        if b_name:
-            bname_els = soup.select(
-                'header .navbar-brand, nav .navbar-brand, span.business-name, .business-name, span.site-title, .site-title, '
-                'span.brand-name, .brand-name, span.company-name, .company-name, '
-                'header [data-editable="title"], nav [data-editable="title"], footer [data-editable="title"], [data-editable="business-name"]'
-            )
-            for el in bname_els:
-                if el.parent and el.name not in ['img', 'svg'] and not el.find_parent(class_=re.compile(r'hero|masthead|main-slider|home-slider|hero-slider', re.I)) and not el.find_parent(id=re.compile(r'hero|home|intro', re.I)):
-                    inner_img = el.find(['img', 'svg'])
-                    if inner_img and inner_img.parent:
-                        inner_img.replace_with(soup.new_string(b_name))
-                    elif el.parent:
-                        el.string = b_name
-
-        # C. User Logo Replacement (Image Mode vs Text Mode across ALL templates)
-        logo_container_selectors = (
-            'header .navbar-brand, nav .navbar-brand, .navbar-brand, header .logo, nav .logo, '
-            '.site-logo, .header-logo, .brand-logo, .brand, .logo, .site-branding, .logo-box, '
-            '.logo-area, .logo-holder, .custom-logo-link, span.logo, span.business-logo, '
-            '.business-logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]'
-        )
-        logo_elements = soup.select(logo_container_selectors)
-
-        if logo_url:
-            for el in logo_elements:
-                if not el.parent:
-                    continue
-                img = el if el.name == 'img' else el.find('img')
-                if img and img.parent:
-                    set_img_all_attrs(img, logo_url)
-                    img['alt'] = b_name or 'Logo'
-                    img['style'] = f"{img.get('style', '')}; max-height: 60px !important; max-width: 280px !important; object-fit: contain !important; width: auto !important;".strip('; ')
-                elif el.parent and el.name not in ['img', 'svg']:
-                    el.clear()
-                    new_img = soup.new_tag('img', src=logo_url, alt=b_name or 'Logo', style="max-height: 60px; max-width: 280px; object-fit: contain; width: auto;")
-                    el.append(new_img)
-            
-            # Replace header/nav branding logo images
-            for h_logo in soup.select('header img, nav img, .navbar-brand img, .header-logo img, .site-logo img, .footer-logo img, .footer-brand img'):
-                if h_logo.parent and not h_logo.has_attr('data-image'):
-                    set_img_all_attrs(h_logo, logo_url)
-                    h_logo['style'] = f"{h_logo.get('style', '')}; max-height: 60px !important; max-width: 280px !important; object-fit: contain !important; width: auto !important;".strip('; ')
-        elif b_name:
-            # Text logo mode: Replace template logo image with bold text brand name
-            for el in logo_elements:
-                if not el.parent:
-                    continue
-                img = el if el.name == 'img' else el.find('img')
-                if img and img.parent:
-                    new_span = soup.new_tag('span', style="font-size: 1.45rem; font-weight: 800; color: inherit; text-decoration: none; display: inline-block;")
-                    new_span.string = b_name
-                    if el.name == 'img':
-                        if el.parent:
-                            el.replace_with(new_span)
-                    elif el.parent:
-                        el.clear()
-                        el.append(new_span)
-                elif el.parent:
-                    el.string = b_name
-
-        # D. Tagline: <span class="business-tagline"> / span.tagline / span.subtitle / [data-editable="tagline"]
-        if tagline:
-            tagline_els = soup.select('span.business-tagline, .business-tagline, span.tagline, .tagline, span.subtitle, .subtitle, span.hero-sub, [data-editable="tagline"]')
-            for el in tagline_els:
-                if el.parent:
-                    el.string = tagline
-
-        # E. MULTI-BANNER SLIDER & MULTI-IMAGE REPLACEMENT ENGINE (Universal for ALL GitHub Templates)
-        processed_imgs = set()
-        processed_bgs = set()
-        pool_idx = 1  # pool_urls[0] reserved for hero / slide 1 banner
-
-        def get_actual_slides(container):
-            # 1. Revolution Slider / flexslider / ul slider
-            rev_slides = container.select('.rev_slider ul > li, .tp-banner ul > li, .tp-banner-container ul > li, ul.slides > li, .rslides > li')
-            if rev_slides:
-                return [li for li in rev_slides if not any(c in ' '.join(li.get('class', [])).lower() for c in ['bullet', 'dot', 'arrow', 'thumb', 'nav', 'tab', 'indicator'])]
-            
-            # 2. Swiper
-            swiper_slides = container.select('.swiper-wrapper > .swiper-slide') or container.select('.swiper-slide')
-            if swiper_slides:
-                return swiper_slides
-            
-            # 3. Owl Carousel
-            owl_slides = container.select('.owl-stage > .owl-item, .owl-carousel > .item, .owl-carousel > div, .owl-item, .owl-carousel .item')
-            if owl_slides:
-                top_owl = []
-                for s in owl_slides:
-                    if not any(parent in owl_slides for parent in s.parents):
-                        top_owl.append(s)
-                if top_owl:
-                    return top_owl
-
-            # 4. Slick Slider
-            slick_slides = container.select('.slick-track > .slick-slide, .slick-slide')
-            if slick_slides:
-                return slick_slides
-
-            # 5. Bootstrap Carousel
-            bs_slides = container.select('.carousel-inner > .carousel-item, .carousel-item')
-            if bs_slides:
-                return bs_slides
-
-            # 6. Generic slide classes
-            raw_slides = container.select('[class*="slide-item"], [class*="slider-item"], [class*="single-slide"], [class*="single-slider"], [class*="slide-inner"], .slide, .single-hero-slide')
-            top_slides = []
-            for s in raw_slides:
-                if not any(parent in raw_slides for parent in s.parents):
-                    top_slides.append(s)
-            if top_slides:
-                return top_slides
-
-            # 7. Direct child divs in slider container if multiple child divs have img/bg
-            direct_children = [child for child in container.find_all(recursive=False) if child.name in ['div', 'li', 'article', 'section']]
-            if len(direct_children) >= 2:
-                children_with_imgs = [c for c in direct_children if c.find('img') or re.search(r'background', str(c.get('style', '')), re.I) or any(c.has_attr(a) for a in ['data-background', 'data-bg', 'data-bg-image'])]
-                if len(children_with_imgs) >= 2:
-                    return children_with_imgs
-
-            return []
-
-        # Find all top-level slider containers
-        slider_selectors = (
-            '.rev_slider, .tp-banner, .swiper-container, .swiper, .owl-carousel, .slick-slider, .carousel, '
-            '[class*="slider-area"], [class*="hero-slider"], [class*="banner-slider"], [class*="main-slider"], '
-            '.ak-slider, [class*="slider_wrap"], [class*="rev_slider_wrapper"], [class*="home-slider"]'
-        )
-        all_sliders = soup.select(slider_selectors)
-        top_sliders = []
-        for sc in all_sliders:
-            if not any(parent in all_sliders for parent in sc.parents):
-                top_sliders.append(sc)
-
-        handled_slides = set()
-        global_slide_idx = 0
-
-        for sc in top_sliders:
-            actual_slides = get_actual_slides(sc)
-            filtered_slides = []
-            for sl in actual_slides:
-                if id(sl) in handled_slides:
-                    continue
-                filtered_slides.append(sl)
-                handled_slides.add(id(sl))
-
-            if filtered_slides:
-                for slide_el in filtered_slides:
-                    # Guarantee a DISTINCT banner URL for each slide across all sliders
-                    if global_slide_idx == 0:
-                        slide_banner_url = hero_url or (pool_urls[0] if pool_urls else '')
-                    else:
-                        slide_banner_url = pool_urls[pool_idx % len(pool_urls)] if pool_urls else hero_url
-                        pool_idx += 1
-                    global_slide_idx += 1
-
-                    # Find all images inside this slide (excluding logos)
-                    slide_imgs = [img for img in slide_el.find_all('img') if id(img) not in processed_imgs]
-                    
-                    # Detect slide background image element
-                    bg_img_el = None
-                    for simg in slide_imgs:
-                        s_classes = ' '.join(simg.get('class', [])).lower() if isinstance(simg.get('class'), list) else str(simg.get('class', '')).lower()
-                        if any(bg_cls in s_classes for bg_cls in ['rev-slidebg', 'ak-hero-bg', 'main-slider__bg', 'slide-bg', 'hero-bg', 'bg-img', 'object-cover', 'slidebg']):
-                            bg_img_el = simg
-                            break
-                    if not bg_img_el and slide_imgs:
-                        bg_img_el = slide_imgs[0]
-
-                    if bg_img_el and slide_banner_url:
-                        set_img_all_attrs(bg_img_el, slide_banner_url)
-                        processed_imgs.add(id(bg_img_el))
-
-                    # Handle MULTI-IMAGE SLIDES (2+ images side-by-side or layered in the same slide)
-                    for other_img in slide_imgs:
-                        if id(other_img) in processed_imgs:
-                            continue
-                        layer_url = pool_urls[pool_idx % len(pool_urls)] if pool_urls else hero_url
-                        pool_idx += 1
-                        set_img_all_attrs(other_img, layer_url)
-                        processed_imgs.add(id(other_img))
-
-        # F. Standalone Hero / Masthead / Banner sections if not in a slider (Replaces <img> elements only)
-        standalone_heroes = soup.select('section, header, div.hero, div.banner, div.masthead, main')
-        for sec in standalone_heroes:
-            sec_classes = ' '.join(sec.get('class', [])).lower() if isinstance(sec.get('class'), list) else str(sec.get('class', '')).lower()
-            sec_id = str(sec.get('id', '')).lower()
-            is_hero_sec = any(k in sec_classes or k in sec_id for k in ['hero', 'banner', 'masthead', 'showcase', 'intro', 'welcome'])
-            is_excluded = any(k in sec_classes for k in ['client', 'partner', 'sponsor', 'logo', 'footer', 'sidebar', 'hero-content', 'hero-caption', 'hero-text', 'hero-title', 'hero-box', 'banner-content', 'banner-text', 'banner-inner', 'container', 'row', 'col-'])
-            
-            if is_hero_sec and not is_excluded:
-                if sec.find_parent(class_=re.compile(r'hero-content|hero-caption|hero-text|banner-content|banner-text|container|row', re.I)):
-                    continue
-                sec_imgs = [img for img in sec.find_all('img') if id(img) not in processed_imgs and not img.find_parent(class_=re.compile(r'logo|navbar-brand', re.I))]
-                for simg in sec_imgs:
-                    simg_classes = ' '.join(simg.get('class', [])).lower() if isinstance(simg.get('class'), list) else str(simg.get('class', '')).lower()
-                    if 'logo' in simg_classes:
-                        continue
-                    target_u = pool_urls[pool_idx % len(pool_urls)] if pool_idx > 1 else (hero_url or pool_urls[0])
-                    pool_idx += 1
-                    set_img_all_attrs(simg, target_u)
-                    processed_imgs.add(id(simg))
-
-        # G. Multi-Image & Card image replacement across the entire page (strictly targets <img> tags only)
-        for img in soup.find_all('img'):
-            if id(img) in processed_imgs:
-                continue
-            p_classes = ' '.join([' '.join(p.get('class', [])) if isinstance(p.get('class'), list) else str(p.get('class', '')) for p in img.parents]).lower()
-            i_classes = ' '.join(img.get('class', [])).lower() if isinstance(img.get('class'), list) else str(img.get('class', '')).lower()
-            i_src = str(img.get('src', '')).lower()
-            i_alt = str(img.get('alt', '')).lower()
-            i_id = str(img.get('id', '')).lower()
-
-            if 'logo' in p_classes or 'logo' in i_classes or 'logo' in i_src or 'logo' in i_alt or 'logo' in i_id or img.has_attr('data-logo'):
-                if logo_url:
-                    set_img_all_attrs(img, logo_url)
-                processed_imgs.add(id(img))
-                continue
-
-            # Don't replace tiny UI icons / flags / payment badges with photos
-            if i_src.endswith('.svg') or i_src.endswith('.ico') or any(ik in i_src or ik in i_classes for ik in ['flag', 'payment', 'visa', 'mastercard', 'paypal', 'cart-icon', 'arrow-', 'close', 'search-icon']):
-                continue
-
-            if img.has_attr('data-image'):
-                role_k = str(img['data-image']).lower().strip()
-                if images.get(role_k):
-                    set_img_all_attrs(img, images[role_k])
-                    processed_imgs.add(id(img))
-                    continue
-
-            # Sequential unique image from pool
-            target_src = pool_urls[pool_idx % len(pool_urls)] if pool_urls else hero_url
-            pool_idx += 1
-            set_img_all_attrs(img, target_src)
-            processed_imgs.add(id(img))
-
-        # H. Contact Email & Phone
-        if email:
-            for em_el in soup.select('span.business-email, .business-email, span.email, .email, span.contact-email, .contact-email, [data-editable="contact_email"], [data-editable="email"]'):
-                em_el.string = email
-                if em_el.name == 'a':
-                    em_el['href'] = f"mailto:{email}"
-                elif em_el.parent and em_el.parent.name == 'a':
-                    em_el.parent['href'] = f"mailto:{email}"
-
-        if phone:
-            clean_digits = re.sub(r'[^\d+]', '', phone)
-            for ph_el in soup.select('span.business-phone, .business-phone, span.phone, .phone, span.contact-phone, .contact-phone, [data-editable="contact_phone"], [data-editable="phone"]'):
-                ph_el.string = phone
-                if ph_el.name == 'a':
-                    ph_el['href'] = f"tel:{clean_digits}"
-                elif ph_el.parent and ph_el.parent.name == 'a':
-                    ph_el.parent['href'] = f"tel:{clean_digits}"
-
-        html = str(soup)
-    except Exception as dom_err:
-        print(f"[DOM Replacer Notice] Exception during DOM processing: {dom_err}")
-
-    # 4. CONTACT EMAIL REGEX FALLBACK
-    if email:
-        html = re.sub(r'href=["\']mailto:[^"\']+["\']', f'href="mailto:{email}"', html, flags=re.IGNORECASE)
-        html = re.sub(r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b', email, html)
-
-    # 5. CONTACT PHONE REGEX FALLBACK (Exclude numbers in SVG paths, CSS, and HTML attributes)
-    if phone:
-        clean_phone_digits = re.sub(r'[^\d+]', '', phone)
-        html = re.sub(r'href=["\']tel:[^"\']+["\']', f'href="tel:{clean_phone_digits}"', html, flags=re.IGNORECASE)
-        def repl_phone_context(m):
-            full_str = m.string
-            start = m.start()
-            before = full_str[max(0, start - 150):start]
-            # Don't replace numbers inside <svg>, <path d="...">, coordinates, attributes, or image URLs
-            if re.search(r'(?:<path|<svg|d=["\']|viewBox|transform|style=|class=|id=|src=|srcset=|href=["\']https?:\/\/|url\(|unsplash|photo-)', before, re.IGNORECASE):
-                return m.group(0)
-            return phone
-
-        # Matches standard US/UK/International formats like +1 (555) 000-0000, (1245) 2456 012, +91 98765 43210, etc.
-        html = re.sub(r'(?:\+\d{1,3}[\s.-]?)?\(?\d{2,5}\)?[\s.-]?\d{2,5}[\s.-]?\d{3,5}', repl_phone_context, html)
-
     if css and color:
         css = f":root {{ --primary-color: {color}; }}\n" + css
 
@@ -972,13 +647,19 @@ def generate_website(request):
                     "contact_email": final_email,
                     "contact_phone": final_phone,
                     "ai_content": ai_content,
+                    "navbar_items": ai_content.get('navbar_items', []),
                     "hero": ai_content.get('hero', {}),
                     "about": ai_content.get('about', {}),
                     "services": ai_content.get('services_or_products', matched_preset['default_services']),
                     "features": ai_content.get('features', []),
+                    "faqs": ai_content.get('faqs', []),
                     "testimonials": ai_content.get('testimonials', matched_preset['default_testimonials']),
                     "stats": ai_content.get('stats', []),
-                    "cta_banner": ai_content.get('cta_banner', {})
+                    "cta_banner": ai_content.get('cta_banner', {}),
+                    "micro_tags": ai_content.get('micro_tags', []),
+                    "short_titles": ai_content.get('short_titles', []),
+                    "medium_phrases": ai_content.get('medium_phrases', []),
+                    "domain_paragraphs": ai_content.get('domain_paragraphs', [])
                 }
             }
             previews_list.append(item)

@@ -916,7 +916,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               });
             }
 
-            // 5.5. Full-Page Length-Aware & Semantic AI Copywriting Live Injection
+            // 5.5. Full-Page Strict Length-Aware & Semantic Copywriting Live Injection
             var aiContent = ${JSON.stringify(r.ai_content||null)};
             var heroObj = ${JSON.stringify(r.hero||null)} || (aiContent ? aiContent.hero : null);
             var aboutObj = ${JSON.stringify(r.about||null)} || (aiContent ? aiContent.about : null);
@@ -924,12 +924,160 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             var faqsArr = ${JSON.stringify(r.faqs||null)} || (aiContent ? aiContent.faqs : null) || [];
             var testimonialsArr = ${JSON.stringify(r.testimonials||null)} || (aiContent ? aiContent.testimonials : null) || [];
             var statsArr = ${JSON.stringify(r.stats||null)} || (aiContent ? aiContent.stats : null) || [];
+            var ctaBannerObj = ${JSON.stringify(r.cta_banner||null)} || (aiContent ? aiContent.cta_banner : null);
             var microTagsArr = ${JSON.stringify(r.micro_tags||null)} || (aiContent ? aiContent.micro_tags : null) || [
               "Fresh Daily", "Artisanal", "Best Seller", "Organic", "Handcrafted", "Signature", "Top Choice", "Pure Quality"
             ];
             var shortTitlesArr = ${JSON.stringify(r.short_titles||null)} || (aiContent ? aiContent.short_titles : null) || [
               "Our Story", "Signature Offerings", "Why Choose Us", "Customer Reviews", "Frequently Asked Questions", "Get in Touch"
             ];
+            var mediumPhrases = ${JSON.stringify(r.medium_phrases||null)} || (aiContent ? aiContent.medium_phrases : null) || [
+              (aboutObj && aboutObj.subtitle) || "Craftsmanship & Passion",
+              busTagline || "Exceptional quality and dedicated service",
+              "Handcrafted with precision and passion daily",
+              "Rooted in tradition and unwavering quality",
+              "Dedicated to providing an unforgettable experience",
+              "Discover our finest seasonal selections"
+            ];
+            var domainParas = ${JSON.stringify(r.domain_paragraphs||null)} || (aiContent ? aiContent.domain_paragraphs : null) || [
+              (heroObj && heroObj.subheadline) || "",
+              (aboutObj && aboutObj.story) || "",
+              "Every single offering at " + busTitle + " is crafted with extreme precision and dedicated attention to detail.",
+              "We take immense pride in our craftsmanship and unwavering dedication to customer satisfaction."
+            ];
+
+            // Build single word pool for 1-word elements
+            var singleWordPool = [busTitle, busTagline];
+            if (Array.isArray(microTagsArr)) {
+              microTagsArr.forEach(function(m) {
+                if (typeof m === 'string' && m) {
+                  m.split(/\s+/).forEach(function(w) { if (w && singleWordPool.indexOf(w) === -1) singleWordPool.push(w); });
+                }
+              });
+            }
+            if (Array.isArray(servicesArr)) {
+              servicesArr.forEach(function(s) {
+                var st = typeof s === 'object' ? (s.title || s.tag || '') : String(s || '');
+                st.split(/\s+/).forEach(function(w) { if (w && singleWordPool.indexOf(w) === -1) singleWordPool.push(w); });
+              });
+            }
+
+            // CORE LENGTH-PRESERVING & DESIGN-PROTECTION ALGORITHM
+            function fitTextToLength(target, orig, maxLeeway, wordPool) {
+              if (!orig) return target || "";
+              var origClean = (orig || "").trim();
+              if (!origClean) return "";
+              var origLen = origClean.length;
+              var origWords = origClean.split(/\s+/).filter(Boolean).length;
+              var targetClean = String(target || "").replace(/[\r\n\t]+/g, ' ').trim();
+              if (!targetClean) return origClean;
+              var maxAllowed = origLen + (typeof maxLeeway === 'number' ? maxLeeway : 3);
+
+              var res = "";
+              if (origWords === 1) {
+                var tWords = targetClean.split(/\s+/).filter(Boolean);
+                if (tWords.length === 1 && targetClean.length <= maxAllowed) {
+                  res = targetClean;
+                } else if (Array.isArray(wordPool) && wordPool.length > 0) {
+                  var bestW = "";
+                  for (var i = 0; i < wordPool.length; i++) {
+                    var cand = (wordPool[i] || "").trim().split(/\s+/)[0];
+                    if (cand && cand.length <= maxAllowed) {
+                      if (!bestW || Math.abs(cand.length - origLen) < Math.abs(bestW.length - origLen)) {
+                        bestW = cand;
+                      }
+                    }
+                  }
+                  if (bestW) {
+                    res = bestW;
+                  } else {
+                    var firstW = tWords[0] || targetClean;
+                    res = firstW.length <= maxAllowed ? firstW : firstW.substring(0, maxAllowed).trim();
+                  }
+                } else {
+                  var firstW2 = tWords[0] || targetClean;
+                  res = firstW2.length <= maxAllowed ? firstW2 : firstW2.substring(0, maxAllowed).trim();
+                }
+              } else {
+                if (targetClean.length <= maxAllowed) {
+                  res = targetClean;
+                } else {
+                  var words = targetClean.split(/\s+/).filter(Boolean);
+                  var accum = [];
+                  var curLen = 0;
+                  for (var wIdx = 0; wIdx < words.length; wIdx++) {
+                    var w = words[wIdx];
+                    var nextLen = curLen + (accum.length > 0 ? 1 : 0) + w.length;
+                    if (nextLen <= maxAllowed) {
+                      accum.push(w);
+                      curLen = nextLen;
+                    } else {
+                      break;
+                    }
+                  }
+                  if (accum.length > 0) {
+                    res = accum.join(' ');
+                    res = res.replace(/[,;:\-–—\s]+$/, '');
+                    res = res.replace(/\b(?:and|or|with|of|in|to|for|the|a|an)\s*$/i, '').trim();
+                    if (origClean.endsWith('.') && !res.endsWith('.')) {
+                      if (res.length + 1 <= maxAllowed) res += '.';
+                    }
+                  } else {
+                    var fWord = words[0] || targetClean;
+                    res = fWord.substring(0, maxAllowed).trim();
+                  }
+                }
+              }
+
+              if (origClean === origClean.toUpperCase() && origClean.length >= 2) {
+                res = res.toUpperCase();
+              } else if (origClean[0] === origClean[0].toUpperCase() && origClean.slice(1) === origClean.slice(1).toLowerCase()) {
+                if (res.indexOf(' ') !== -1) {
+                  res = res.replace(/\w\S*/g, function(txt) {
+                    return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+                  });
+                } else {
+                  res = res.charAt(0).toUpperCase() + res.slice(1).toLowerCase();
+                }
+              } else if (origClean === origClean.toLowerCase()) {
+                res = res.toLowerCase();
+              }
+
+              if (res.length > maxAllowed) {
+                res = res.substring(0, maxAllowed).trim();
+              }
+
+              return res;
+            }
+
+            function setTagTextPreservingChildren(el, newText) {
+              if (!el || newText === null || newText === undefined) return;
+              var innerSpan = el.querySelector('span');
+              if (innerSpan && !innerSpan.querySelector('svg, img, i') && el.querySelectorAll('span').length === 1) {
+                innerSpan.textContent = newText;
+                return;
+              }
+              var hasIcon = el.querySelector('svg, img, i, em, strong');
+              if (hasIcon) {
+                var replaced = false;
+                for (var i = 0; i < el.childNodes.length; i++) {
+                  var child = el.childNodes[i];
+                  if (child.nodeType === 3 && child.nodeValue.trim().length > 0) {
+                    if (!replaced) {
+                      child.nodeValue = ' ' + newText.trim() + ' ';
+                      replaced = true;
+                    } else {
+                      child.nodeValue = '';
+                    }
+                  }
+                }
+                if (!replaced) {
+                  el.appendChild(document.createTextNode(' ' + newText.trim() + ' '));
+                }
+              } else {
+                el.textContent = newText;
+              }
+            }
 
             if (faqsArr.length === 0) {
               faqsArr = [
@@ -958,22 +1106,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               "Visit Us & Get in Touch"
             ];
 
-            var mediumPhrases = [
-              (aboutObj && aboutObj.subtitle) || "Craftsmanship & Passion",
-              busTagline || "Exceptional quality and dedicated service",
-              "Handcrafted with precision and passion daily",
-              "Rooted in tradition and unwavering quality",
-              "Dedicated to providing an unforgettable experience",
-              "Discover our finest seasonal selections"
-            ];
-
-            var domainParas = [
-              (heroObj && heroObj.subheadline) || "",
-              (aboutObj && aboutObj.story) || "",
-              "Every single offering at " + busTitle + " is crafted with extreme precision and dedicated attention to detail.",
-              "We take immense pride in our craftsmanship and unwavering dedication to customer satisfaction."
-            ];
-
             var processedDOMElements = new Set();
 
             // Step 0: Category-Specific Dynamic Navigation & Footer Menu Items
@@ -996,7 +1128,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               catMenuDefaults = ["Services", "Doctors", "Story", "Care", "Reviews", "Treatments", "Clinic", "Contact", "Hours", "Book"];
             } else if (/(?:fashion|luxury|clothing|jewelry|boutique|apparel|watch|wear|leather|shoes|style)/i.test(corpusText)) {
               catMenuDefaults = ["Collection", "Lookbook", "Story", "Artisans", "Reviews", "Catalog", "Boutique", "Contact", "Shipping", "Shop"];
-            } else if (/(?:car|auto|repair|mechanic|garage|vehicle|motor|detailing|tire|service)/i.test(corpusText)) {
+            } else if (/(?:car|auto|repair|mechanic|garage|vehicle|motor|detailing|tire|service|plumb)/i.test(corpusText)) {
               catMenuDefaults = ["Services", "Repairs", "Story", "Pricing", "Reviews", "Fleet", "Garage", "Contact", "Warranty", "Quote"];
             } else if (/(?:dairy|milk|farm|farming|organic|cheese|butter|purity|agriculture)/i.test(corpusText)) {
               catMenuDefaults = ["Products", "Farm", "Story", "Quality", "Reviews", "Dairy", "Organic", "Contact", "Purity", "Order"];
@@ -1011,7 +1143,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             (rawNavItems.concat(catMenuDefaults)).forEach(function(item) {
               if (typeof item === 'string') {
                 var clean = item.trim();
-                if (clean && clean.length <= 14) {
+                if (clean && clean.length <= 16) {
                   var cleanLower = clean.toLowerCase();
                   var exists = catNavItems.some(function(c) { return c.toLowerCase() === cleanLower; });
                   if (!exists) catNavItems.push(clean);
@@ -1019,7 +1151,7 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
             });
 
-            // 0A. Dynamic Navbar Menu Items Replacement (Acc to business category, same count, concise characters)
+            // 0A. Dynamic Navbar Menu Items (Length Preserved)
             var navLinks = document.querySelectorAll(
               'header nav ul li a, nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, ' +
               'header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, ' +
@@ -1038,26 +1170,21 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
               var targetWord = "";
               if (oLower === 'home' || oLower === 'index' || oLower === 'main') {
-                targetWord = oTxt === oTxt.toUpperCase() ? "HOME" : "Home";
+                targetWord = "Home";
               } else if ((oLower === 'contact' || oLower === 'contact us') && (navIdx >= 3 || oLower.indexOf('contact') !== -1)) {
-                targetWord = oTxt === oTxt.toUpperCase() ? "CONTACT" : "Contact";
+                targetWord = "Contact";
               } else {
                 var chosen = catNavItems[navIdx % catNavItems.length];
                 navIdx++;
-                targetWord = oTxt === oTxt.toUpperCase() ? chosen.toUpperCase() : chosen;
+                targetWord = chosen;
               }
 
-              var innerSpan = navA.querySelector('span');
-              if (innerSpan && !innerSpan.querySelector('svg, img, i')) {
-                innerSpan.textContent = targetWord;
-                processedDOMElements.add(innerSpan);
-              } else {
-                navA.textContent = targetWord;
-              }
+              var fittedNav = fitTextToLength(targetWord, oTxt, 2, singleWordPool);
+              setTagTextPreservingChildren(navA, fittedNav);
               processedDOMElements.add(navA);
             });
 
-            // 0B. Dynamic Footer Menu Items Replacement (Tailored to business category, same count, concise characters)
+            // 0B. Dynamic Footer Menu Items (Length Preserved)
             var footerLinks = document.querySelectorAll(
               'footer ul li a, footer .footer-links a, footer .footer-nav a, footer .widget a, ' +
               'footer .footer-menu a, [class*="footer"] ul li a, [class*="footer"] .footer-nav a, footer a'
@@ -1078,19 +1205,12 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
               var chosenF = catNavItems[fNavIdx % catNavItems.length];
               fNavIdx++;
-              var targetFWord = fTxt === fTxt.toUpperCase() ? chosenF.toUpperCase() : chosenF;
-
-              var innerSpan = fA.querySelector('span');
-              if (innerSpan && !innerSpan.querySelector('svg, img, i')) {
-                innerSpan.textContent = targetFWord;
-                processedDOMElements.add(innerSpan);
-              } else {
-                fA.textContent = targetFWord;
-              }
+              var fittedF = fitTextToLength(chosenF, fTxt, 2, singleWordPool);
+              setTagTextPreservingChildren(fA, fittedF);
               processedDOMElements.add(fA);
             });
 
-            // 0C. Footer Column Widget Headers
+            // 0C. Footer Column Widget Headers (Length Preserved)
             document.querySelectorAll('footer .widget-title, footer .footer-title, footer h4, footer h5, footer h3, footer h6').forEach(function(fHead) {
               if (processedDOMElements.has(fHead)) return;
               var fhCls = (fHead.className || '').toLowerCase();
@@ -1098,19 +1218,22 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               var fhTxt = (fHead.textContent || '').trim();
               if (!fhTxt || fhTxt.length < 2) return;
               var fhLower = fhTxt.toLowerCase();
+              var targetFH = "";
               if (/(?:about|company|who we are)/i.test(fhLower)) {
-                fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "ABOUT US" : "About Us";
-                processedDOMElements.add(fHead);
+                targetFH = "About Us";
               } else if (/(?:link|quick link|navigate|navigation|explore|menu|service)/i.test(fhLower)) {
-                fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "EXPLORE" : "Explore";
-                processedDOMElements.add(fHead);
+                targetFH = "Explore";
               } else if (/(?:contact|get in touch|reach us|address|location)/i.test(fhLower)) {
-                fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "CONTACT" : "Contact Us";
+                targetFH = "Contact";
+              }
+              if (targetFH) {
+                var fittedFH = fitTextToLength(targetFH, fhTxt, 2, singleWordPool);
+                setTagTextPreservingChildren(fHead, fittedFH);
                 processedDOMElements.add(fHead);
               }
             });
 
-            // Step 1: FAQs & Accordions Paired Replacement (Question + Answer)
+            // Step 1: FAQs & Accordions Paired Replacement (Question + Answer with Length Fitting)
             var faqCards = document.querySelectorAll('.accordion-item, .faq-item, .accordion-card, .toggle, .panel, dl, [class*="faq-item"], [class*="accordion-item"]');
             var topFaqCards = [];
             faqCards.forEach(function(fc) {
@@ -1130,18 +1253,16 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               var aEl = fEl.querySelector('.accordion-body, .faq-answer, .answer, dd, .card-body, .panel-body, .toggle-content, .collapse p, p');
 
               if (qEl && !processedDOMElements.has(qEl)) {
-                var innerBtn = qEl.querySelector('button, a');
-                if (innerBtn) {
-                  innerBtn.textContent = fData.question;
-                  processedDOMElements.add(innerBtn);
-                } else {
-                  qEl.textContent = fData.question;
-                }
+                var oQ = (qEl.textContent || '').trim();
+                var fitQ = fitTextToLength(fData.question, oQ, 3, singleWordPool);
+                setTagTextPreservingChildren(qEl, fitQ);
                 processedDOMElements.add(qEl);
               }
 
               if (aEl && aEl !== qEl && !processedDOMElements.has(aEl)) {
-                aEl.textContent = fData.answer;
+                var oA = (aEl.textContent || '').trim();
+                var fitA = fitTextToLength(fData.answer, oA, 4, singleWordPool);
+                setTagTextPreservingChildren(aEl, fitA);
                 processedDOMElements.add(aEl);
               }
             });
@@ -1161,7 +1282,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
             );
             var rawCards = Array.from(document.querySelectorAll(cardSelectors));
 
-            // Add grid columns and article/div blocks that contain image/icon + heading
             document.querySelectorAll('article, div, li').forEach(function(el) {
               if (rawCards.indexOf(el) !== -1) return;
               if (el.closest('nav, footer, header') || /(?:header|footer|slider|banner|hero|nav|menu-bar|modal)/i.test(el.className || '')) return;
@@ -1174,7 +1294,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
             });
 
-            // Retain leaf card elements (exclude outer grid/section wrappers that contain child cards)
             var topCards = [];
             rawCards.forEach(function(c) {
               var hasChildCard = false;
@@ -1193,42 +1312,40 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               if (servicesArr.length === 0) return;
               var itmData = servicesArr[cIdx % servicesArr.length];
 
-              // Title in Card
+              // Title in Card (Strict Length Fit)
               var titleEl = cardEl.querySelector('h2, h3, h4, h5, h6, .title, .item-title, .product-title, .service-title, [class*="title"], [class*="heading"]');
               if (titleEl && !processedDOMElements.has(titleEl)) {
-                var innerA = titleEl.querySelector('a');
-                if (innerA) {
-                  innerA.textContent = itmData.title;
-                  processedDOMElements.add(innerA);
-                } else {
-                  titleEl.textContent = itmData.title;
-                }
+                var oT = (titleEl.textContent || '').trim();
+                var fitT = fitTextToLength(itmData.title, oT, 3, singleWordPool);
+                setTagTextPreservingChildren(titleEl, fitT);
                 processedDOMElements.add(titleEl);
               }
 
               // Tag / Badge in Card
               var badgeEl = cardEl.querySelector('.tag, .badge, .card-tag, .tag-badge, .cat-name, .category, .subheading, .portfolio-caption-subheading, .collection__category');
               if (badgeEl && !processedDOMElements.has(badgeEl)) {
-                badgeEl.textContent = itmData.tag || microTagsArr[cIdx % microTagsArr.length];
+                var oB = (badgeEl.textContent || '').trim();
+                var fitB = fitTextToLength(itmData.tag || microTagsArr[cIdx % microTagsArr.length], oB, 2, singleWordPool);
+                setTagTextPreservingChildren(badgeEl, fitB);
                 processedDOMElements.add(badgeEl);
               }
 
               // Price in Card
               var priceEl = cardEl.querySelector('.price, .bistro-price, .cost, .amount, [class*="price"]');
               if (priceEl && !processedDOMElements.has(priceEl) && itmData.price) {
-                priceEl.textContent = itmData.price;
+                var oP = (priceEl.textContent || '').trim();
+                var fitPrice = fitTextToLength(itmData.price, oP, 2, singleWordPool);
+                setTagTextPreservingChildren(priceEl, fitPrice);
                 processedDOMElements.add(priceEl);
               }
 
-              // Description in Card (Strictly Paired with Title!)
+              // Description in Card (Strict Length Fit)
               var descEl = cardEl.querySelector('p, .desc, .text, .info, .timeline-body, [class*="desc"]');
               if (descEl && !processedDOMElements.has(descEl)) {
-                var oLen = (descEl.textContent || '').trim().length;
-                if (oLen <= 25) {
-                  descEl.textContent = itmData.tag || microTagsArr[cIdx % microTagsArr.length];
-                } else {
-                  descEl.textContent = itmData.desc || itmData.description || "";
-                }
+                var oDesc = (descEl.textContent || '').trim();
+                var candDesc = itmData.desc || itmData.description || "";
+                var fitD = fitTextToLength(candDesc, oDesc, 4, singleWordPool);
+                setTagTextPreservingChildren(descEl, fitD);
                 processedDOMElements.add(descEl);
               }
 
@@ -1245,16 +1362,17 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               // Button in Card
               var btnEl = cardEl.querySelector('button, a.btn, a[class*="btn"], a.cta, .add-to-cart, .btn-cart');
               if (btnEl && !processedDOMElements.has(btnEl)) {
-                var bTxt = (btnEl.textContent || '').trim();
-                if (bTxt.length <= 25) {
-                  btnEl.textContent = bTxt.toLowerCase().indexOf('order') !== -1 ? "Order Now" : "View Details";
+                var oBtn = (btnEl.textContent || '').trim();
+                if (oBtn.length >= 2) {
+                  var candB = oBtn.toLowerCase().indexOf('order') !== -1 ? "Order Now" : "View Details";
+                  var fitBtn = fitTextToLength(candB, oBtn, 2, singleWordPool);
+                  setTagTextPreservingChildren(btnEl, fitBtn);
                   processedDOMElements.add(btnEl);
                 }
               }
             });
 
-            // Step 3: Hero & Masthead & Slider Headline Replacement
-            // Strictly replaces text only without modifying text size, alignment, fonts, colors, or inline styles
+            // Step 3: Hero & Masthead & Slider Headline Replacement (Strict Length Preservation)
             var heroHeadlinePool = [(heroObj && heroObj.headline) || busTitle, busTagline || "Exceptional Quality", (heroObj && heroObj.headline) || busTitle];
             var heroHeadIdx = 0;
 
@@ -1267,8 +1385,6 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               if (hSec.closest('header, nav, footer, aside, [id*="banner-container"], [id*="header-container"], [id*="navbar-container"], [class*="announcement"], [class*="top-bar"], [class*="header"]') || /(?:footer|sidebar|client|partner|announcement|header|navbar|top-bar)/i.test(hSec.className || '')) return;
               if (/(?:banner-container|header-container|navbar-container|announcement)/i.test(hSec.id || '')) return;
 
-              // 1. Target leaf heading elements ONLY (H1 first, then H2/H3, then leaf elements with heading title classes)
-              // Never target container divs (.hero-caption, .tp-caption, .slider-caption, etc.)
               var heroTitleEls = [];
               var h1s = Array.from(hSec.querySelectorAll('h1'));
               if (h1s.length > 0) {
@@ -1296,116 +1412,54 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 var targetH = heroHeadlinePool[heroHeadIdx % heroHeadlinePool.length];
                 heroHeadIdx++;
 
-                // Pure in-place text replacement: do not modify style, font size, font family, color, or alignment
-                var innerA = ht.querySelector('a');
-                var childSpans = Array.from(ht.querySelectorAll('span')).filter(function(s) { return s.children.length === 0; });
-                if (innerA) {
-                  var innerASpans = Array.from(innerA.querySelectorAll('span')).filter(function(s) { return s.children.length === 0; });
-                  if (innerASpans.length === 1) {
-                    innerASpans[0].textContent = targetH;
-                    processedDOMElements.add(innerASpans[0]);
-                  } else if (innerASpans.length === 2) {
-                    var aWords = targetH.split(' ').filter(Boolean);
-                    if (aWords.length >= 2) {
-                      innerASpans[0].textContent = aWords[0] + ' ';
-                      innerASpans[1].textContent = aWords.slice(1).join(' ');
-                    } else {
-                      innerASpans[0].textContent = targetH;
-                      innerASpans[1].textContent = '';
-                    }
-                    processedDOMElements.add(innerASpans[0]);
-                    processedDOMElements.add(innerASpans[1]);
-                  } else {
-                    innerA.textContent = targetH;
-                  }
-                  processedDOMElements.add(innerA);
-                } else if (childSpans.length === 1) {
-                  childSpans[0].textContent = targetH;
-                  processedDOMElements.add(childSpans[0]);
-                } else if (childSpans.length === 2) {
-                  var hWords = targetH.split(' ').filter(Boolean);
-                  if (hWords.length >= 2) {
-                    childSpans[0].textContent = hWords[0] + ' ';
-                    childSpans[1].textContent = hWords.slice(1).join(' ');
-                  } else {
-                    childSpans[0].textContent = targetH;
-                    childSpans[1].textContent = '';
-                  }
-                  processedDOMElements.add(childSpans[0]);
-                  processedDOMElements.add(childSpans[1]);
-                } else if (childSpans.length > 2) {
-                  var allWords = targetH.split(' ').filter(Boolean);
-                  childSpans.forEach(function(sp, idx) {
-                    if (idx < allWords.length) {
-                      sp.textContent = (idx < childSpans.length - 1 ? allWords[idx] + ' ' : allWords.slice(idx).join(' '));
-                    } else {
-                      sp.textContent = '';
-                    }
-                    processedDOMElements.add(sp);
-                  });
-                } else {
-                  ht.textContent = targetH;
-                }
+                var origH = (ht.textContent || '').trim();
+                var fitH = fitTextToLength(targetH, origH, 3, singleWordPool);
+                setTagTextPreservingChildren(ht, fitH);
                 processedDOMElements.add(ht);
               });
 
-              // 2. Subtitle: leaf paragraph or subtitle element only
+              // Subtitle
               var heroSub = hSec.querySelector('p.subtitle, p.sub-title, p.subheading, p.tagline, p.lead, p.hero-text, p.desc, div.subtitle, span.subtitle, p');
               if (heroSub && !processedDOMElements.has(heroSub) && !heroSub.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container') && !heroSub.querySelector('h1, h2, h3, div')) {
-                heroSub.textContent = (heroObj && heroObj.subheadline) || busTagline || "";
+                var origSub = (heroSub.textContent || '').trim();
+                var candSub = (heroObj && heroObj.subheadline) || busTagline || "";
+                var fitSub = fitTextToLength(candSub, origSub, 4, singleWordPool);
+                setTagTextPreservingChildren(heroSub, fitSub);
                 processedDOMElements.add(heroSub);
               }
 
-              // 3. Badge / Kicker (leaf element only)
+              // Badge / Kicker
               var heroBadge = hSec.querySelector('.badge, .tag, .pill, .kicker, .hero-badge, [class*="badge"], [class*="kicker"]');
               if (heroBadge && !processedDOMElements.has(heroBadge) && !heroBadge.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container') && !heroBadge.querySelector('h1, h2, h3, p, div')) {
-                heroBadge.textContent = (heroObj && heroObj.badge_text) || "PREMIUM QUALITY";
+                var origBadge = (heroBadge.textContent || '').trim();
+                var candBadge = (heroObj && heroObj.badge_text) || "PREMIUM QUALITY";
+                var fitBadge = fitTextToLength(candBadge, origBadge, 2, singleWordPool);
+                setTagTextPreservingChildren(heroBadge, fitBadge);
                 processedDOMElements.add(heroBadge);
               }
 
-              // 4. Hero Action Buttons (Buttons with text only, preserving icons)
+              // Hero Action Buttons
               var heroBtns = Array.from(hSec.querySelectorAll('a.btn, button.btn, a[class*="btn"], button[class*="btn"], a.cta, .hero-btn, [class*="hero-btn"]')).filter(function(b) {
                 if (b.closest('nav, header, aside, footer, .announcement-bar, #top-banner-container, #header-container, #navbar-container, .header-tools, .header-right, .nav-right')) return false;
                 if (b.querySelector('svg, img, i') && b.textContent.trim().length <= 1) return false;
                 return true;
               });
 
-              function setHeroBtnText(btnEl, btnText) {
-                if (!btnEl || !btnText) return;
-                var bSpan = btnEl.querySelector('span');
-                if (bSpan && !bSpan.querySelector('svg, img, i')) {
-                  bSpan.textContent = btnText;
-                  processedDOMElements.add(bSpan);
-                } else {
-                  var hasIcon = btnEl.querySelector('svg, img, i');
-                  if (hasIcon) {
-                    var replacedNode = false;
-                    for (var bi = 0; bi < btnEl.childNodes.length; bi++) {
-                      var cNode = btnEl.childNodes[bi];
-                      if (cNode.nodeType === 3 && cNode.nodeValue.trim().length > 0) {
-                        cNode.nodeValue = ' ' + btnText + ' ';
-                        replacedNode = true;
-                        break;
-                      }
-                    }
-                    if (!replacedNode) {
-                      btnEl.appendChild(document.createTextNode(' ' + btnText));
-                    }
-                  } else {
-                    btnEl.textContent = btnText;
-                  }
-                }
-                processedDOMElements.add(btnEl);
-              }
-
               if (heroBtns.length >= 1 && !processedDOMElements.has(heroBtns[0])) {
-                setHeroBtnText(heroBtns[0], (heroObj && heroObj.cta_primary) || "Get Started");
+                var origHB1 = (heroBtns[0].textContent || '').trim();
+                var candHB1 = (heroObj && heroObj.cta_primary) || "Get Started";
+                var fitHB1 = fitTextToLength(candHB1, origHB1, 2, singleWordPool);
+                setTagTextPreservingChildren(heroBtns[0], fitHB1);
+                processedDOMElements.add(heroBtns[0]);
               }
               if (heroBtns.length >= 2 && !processedDOMElements.has(heroBtns[1])) {
-                setHeroBtnText(heroBtns[1], (heroObj && heroObj.cta_secondary) || "Explore Offerings");
+                var origHB2 = (heroBtns[1].textContent || '').trim();
+                var candHB2 = (heroObj && heroObj.cta_secondary) || "Explore Offerings";
+                var fitHB2 = fitTextToLength(candHB2, origHB2, 2, singleWordPool);
+                setTagTextPreservingChildren(heroBtns[1], fitHB2);
+                processedDOMElements.add(heroBtns[1]);
               }
 
-              // Mark all remaining elements inside hero section as processed so later steps (6 & 7) never overwrite hero text
               hSec.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, a, button').forEach(function(elInHero) {
                 processedDOMElements.add(elInHero);
               });
@@ -1435,22 +1489,25 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 processedDOMElements.add(numEl);
               }
               if (labelEl && labelEl !== numEl && !processedDOMElements.has(labelEl)) {
-                labelEl.textContent = sData.label;
+                var origL = (labelEl.textContent || '').trim();
+                var fitL = fitTextToLength(sData.label, origL, 2, singleWordPool);
+                setTagTextPreservingChildren(labelEl, fitL);
                 processedDOMElements.add(labelEl);
               }
             });
 
-            // 4.9. Announcement Bar Text Replacement (In-Place Text Only - Strict Layout & Icon Protection)
+            // 4.9. Announcement Bar Text Replacement
             var announcementText = (aiContent && aiContent.tagline) || busTagline || ("WELCOME TO " + (busTitle ? busTitle.toUpperCase() : "OUR STORE") + " — PREMIER QUALITY & DEDICATED SERVICE");
             document.querySelectorAll('#announcement-text, .announcement-text, aside p, .announcement-bar p, .top-bar p, .top-banner p, [class*="announcement"] p, [id*="announcement"] p').forEach(function(ap) {
               if (ap.closest('#header-container, #navbar-container, nav, .navbar')) return;
               if (ap.querySelector('button, svg, img')) return;
-              ap.textContent = announcementText.toUpperCase();
+              var origAnn = (ap.textContent || '').trim();
+              var fitAnn = fitTextToLength(announcementText.toUpperCase(), origAnn, 4, singleWordPool);
+              setTagTextPreservingChildren(ap, fitAnn);
               processedDOMElements.add(ap);
             });
 
-
-            // Step 4: Section Intro Badges & Subtitle Kickers (.badge, .sub-title, .kicker)
+            // Step 4.5: Section Intro Badges & Subtitle Kickers
             document.querySelectorAll('.badge, .sub-title, .subtitle, .kicker, .section-subtitle, span.tag, [class*="sub-title"], [class*="section-subtitle"]').forEach(function(badge, bIdx) {
               if (processedDOMElements.has(badge)) return;
               if (badge.closest('nav, footer, script, style, head, .copyright, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
@@ -1459,7 +1516,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               var bTxt = (badge.textContent || '').trim();
               if (!bTxt || bTxt.length > 30 || bTxt.length < 2) return;
 
-              badge.textContent = microTagsArr[bIdx % microTagsArr.length];
+              var fitBadge = fitTextToLength(microTagsArr[bIdx % microTagsArr.length], bTxt, 2, singleWordPool);
+              setTagTextPreservingChildren(badge, fitBadge);
               processedDOMElements.add(badge);
             });
 
@@ -1475,16 +1533,20 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               var hEl = fc.querySelector('h3, h4, h5, h6, .title, strong');
               var pEl = fc.querySelector('p, .desc, .text, span');
               if (hEl && !processedDOMElements.has(hEl)) {
-                hEl.textContent = tBenefit.title;
+                var origH = (hEl.textContent || '').trim();
+                var fitH = fitTextToLength(tBenefit.title, origH, 2, singleWordPool);
+                setTagTextPreservingChildren(hEl, fitH);
                 processedDOMElements.add(hEl);
               }
               if (pEl && !processedDOMElements.has(pEl) && pEl !== hEl) {
-                pEl.textContent = tBenefit.desc;
+                var origP = (pEl.textContent || '').trim();
+                var fitP = fitTextToLength(tBenefit.desc, origP, 4, singleWordPool);
+                setTagTextPreservingChildren(pEl, fitP);
                 processedDOMElements.add(pEl);
               }
             });
 
-            // Step 6: Remaining Headings & Title Elements (Length-Aware)
+            // Step 6: Remaining Headings & Title Elements (Strict Length Budgeting)
             var titleSelectors = (
               'h1, h2, h3, h4, h5, h6, .title, .sub-title, .subtitle, .section-title, .heading, .subheading, ' +
               '.portfolio-caption-heading, .portfolio-caption-subheading, .timeline-heading, .slide-title, .banner-title, [class*="title"], [class*="heading"]'
@@ -1515,17 +1577,8 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               }
               hIdx++;
 
-              var innerA = h.querySelector('a');
-              var innerSpan = h.querySelector('span');
-              if (innerA) {
-                innerA.textContent = targetHText;
-                processedDOMElements.add(innerA);
-              } else if (innerSpan && !innerSpan.querySelector('img, svg')) {
-                innerSpan.textContent = targetHText;
-                processedDOMElements.add(innerSpan);
-              } else {
-                h.textContent = targetHText;
-              }
+              var fitHText = fitTextToLength(targetHText, oTxt, 3, singleWordPool);
+              setTagTextPreservingChildren(h, fitHText);
               processedDOMElements.add(h);
             });
 
@@ -1543,16 +1596,20 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               var oWords = oTxt.split(' ').filter(Boolean).length;
               var oLen = oTxt.length;
 
+              var targetP = "";
               if (oWords <= 3 || oLen <= 25) {
-                p.textContent = microTagsArr[pIdx % microTagsArr.length];
+                targetP = microTagsArr[pIdx % microTagsArr.length];
               } else if (oWords <= 8 || oLen <= 65) {
-                p.textContent = mediumPhrases[pIdx % mediumPhrases.length];
+                targetP = mediumPhrases[pIdx % mediumPhrases.length];
               } else if (oWords <= 20 || oLen <= 140) {
-                p.textContent = (servicesArr.length > 0 ? servicesArr[pIdx % servicesArr.length].desc : mediumPhrases[pIdx % mediumPhrases.length]) || "";
+                targetP = (servicesArr.length > 0 ? servicesArr[pIdx % servicesArr.length].desc : mediumPhrases[pIdx % mediumPhrases.length]) || "";
               } else {
-                p.textContent = domainParas[pIdx % domainParas.length];
+                targetP = domainParas[pIdx % domainParas.length];
               }
               pIdx++;
+
+              var fitPText = fitTextToLength(targetP, oTxt, 4, singleWordPool);
+              setTagTextPreservingChildren(p, fitPText);
               processedDOMElements.add(p);
             });
 
@@ -1563,16 +1620,28 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
                 if (idx < testimonialsArr.length) {
                   var tData = testimonialsArr[idx];
                   var qEl = tc.querySelector('p, blockquote, .quote');
-                  if (qEl && tData.quote) qEl.textContent = '"' + tData.quote.replace(/^["']|["']$/g, '') + '"';
+                  if (qEl && tData.quote) {
+                    var origQ = (qEl.textContent || '').trim();
+                    var fitQ = fitTextToLength(tData.quote, origQ, 4, singleWordPool);
+                    setTagTextPreservingChildren(qEl, '"' + fitQ.replace(/^["']|["']$/g, '') + '"');
+                  }
                   var aEl = tc.querySelector('.author, .name, .client-name, h4, h5, strong');
-                  if (aEl && tData.author) aEl.textContent = tData.author;
+                  if (aEl && tData.author) {
+                    var origA = (aEl.textContent || '').trim();
+                    var fitA = fitTextToLength(tData.author, origA, 2, singleWordPool);
+                    setTagTextPreservingChildren(aEl, fitA);
+                  }
                   var rEl = tc.querySelector('.role, .title, .designation, span');
-                  if (rEl && rEl !== aEl && tData.role) rEl.textContent = tData.role;
+                  if (rEl && rEl !== aEl && tData.role) {
+                    var origR = (rEl.textContent || '').trim();
+                    var fitR = fitTextToLength(tData.role, origR, 2, singleWordPool);
+                    setTagTextPreservingChildren(rEl, fitR);
+                  }
                 }
               });
             }
 
-            // Step 9: Action Buttons & CTAs (Concise 1-3 Words)
+            // Step 9: Action Buttons & CTAs (Strict Length Fit: Max +2 Chars)
             var ctaBtns = document.querySelectorAll('button.btn, a.btn, a[class*="btn"], button[class*="btn"], a.cta');
             var ctaLabels = [(heroObj && heroObj.cta_primary) || "Get Started", (heroObj && heroObj.cta_secondary) || "Explore More", "Order Online", "Book Now", "View Details"];
             var ctaIdx = 0;
@@ -1583,8 +1652,10 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
               var bTxt = (btn.textContent || '').trim();
               if (bTxt && bTxt.length <= 30 && bTxt.length >= 2) {
-                btn.textContent = ctaLabels[ctaIdx % ctaLabels.length];
+                var candCta = ctaLabels[ctaIdx % ctaLabels.length];
                 ctaIdx++;
+                var fitCta = fitTextToLength(candCta, bTxt, 2, singleWordPool);
+                setTagTextPreservingChildren(btn, fitCta);
                 processedDOMElements.add(btn);
               }
             });
@@ -1605,7 +1676,9 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
               brandTexts.forEach(function(el) {
                 if (processedDOMElements.has(el)) return;
                 if (el.tagName !== 'IMG' && !el.querySelector('img, svg, a')) {
-                  el.textContent = busTitle;
+                  var origBrand = (el.textContent || '').trim();
+                  var fitBrand = fitTextToLength(busTitle, origBrand, 3, singleWordPool);
+                  setTagTextPreservingChildren(el, fitBrand);
                   processedDOMElements.add(el);
                 }
               });

@@ -3,7 +3,7 @@ import json
 import re
 import urllib.request
 import urllib.parse
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 
 
 def get_gemini_api_key() -> str:
@@ -29,7 +29,7 @@ def generate_business_content(
     api_key = get_gemini_api_key()
     
     # Try calling Google Gemini AI API if API key is provided
-    if api_key and api_key != 'your_gemini_api_key_here':
+    if api_key and api_key != 'your_gemini_api_key_here' and len(api_key) > 10:
         try:
             ai_result = call_gemini_api(
                 api_key=api_key,
@@ -60,10 +60,10 @@ def call_gemini_api(
     tagline: str = ''
 ) -> Dict[str, Any]:
     """
-    Calls Google Gemini 1.5 Flash via REST API with a strict JSON output schema.
+    Calls Google Gemini Flash via REST API with strict JSON schema and concise length constraints.
     """
     prompt = f"""
-You are an elite, award-winning conversion copywriter and website brand strategist.
+You are an elite conversion copywriter and website brand strategist.
 Create a complete, highly engaging, professional website copywriting package for the following business:
 
 - Business Name: {business_name}
@@ -71,37 +71,33 @@ Create a complete, highly engaging, professional website copywriting package for
 - Tagline / Slogan: {tagline}
 - Business Description & Details: {business_description or f"A top-rated {category} business providing premium products and services."}
 
-CRITICAL RULES:
-1. Micro tags, badges, and kickers MUST be 1-3 words only (never sentences).
-2. Navbar items (in "navbar_items") MUST be ultra-concise (1-2 words only, maximum 12 characters each, e.g. "Menu", "Story", "Specials", "Services", "Reviews", "Offers", "Contact") so they never overflow navbar headers.
-3. Hero headline MUST be concise (3-6 words only, matching typical template headline sizing without wrapping into huge text blocks, e.g. "Pure Quality & Exceptional Craft" or "Handcrafted Pizza Daily").
-4. Card titles and card descriptions MUST be semantically paired and have strong direct meaning together.
-5. FAQ questions and answers MUST be semantically paired with direct, helpful answers.
-6. Keep short phrases concise so they fit template designs without overflowing.
+CRITICAL RULES FOR DESIGN PRESERVATION:
+1. Micro tags, badges, and kickers MUST be 1-3 words only (maximum 14 characters, e.g. "Fresh Daily", "Artisanal", "Best Seller", "Certified").
+2. Navbar items (in "navbar_items") MUST be ultra-concise (1-2 words only, maximum 12 characters each, e.g. "Menu", "Story", "Services", "Reviews", "Contact").
+3. Hero headline MUST be concise (3-6 words only, max 32 characters, e.g. "Handcrafted Italian Leather Shoes" or "Pure Quality & Dedicated Craft").
+4. Card titles (2-4 words, max 24 chars) and card descriptions (8-16 words, max 100 chars) MUST be semantically paired with direct meaning together.
+5. All text should have same or fewer characters than standard templates so it NEVER overflows headers, buttons, or grid columns.
 
-You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks, just pure raw JSON) matching this exact schema:
-
+Return ONLY a valid JSON object matching this exact schema:
 {{
   "brand_name": "{business_name}",
-  "tagline": "Short, punchy, memorable 4-6 word brand slogan",
-  "navbar_items": [
-    "Menu", "Specials", "Story", "Reviews", "Contact"
-  ],
+  "tagline": "Short 4-6 word slogan",
+  "navbar_items": ["Services", "Offerings", "Story", "Reviews", "Contact"],
   "hero": {{
-    "headline": "Concise, high-impact hero headline (3-6 words only)",
-    "subheadline": "Compelling 15-25 word supporting subtitle explaining benefits and uniqueness",
-    "badge_text": "Short 1-3 word badge e.g. 'Handcrafted Quality' or 'Top Rated 2026'",
-    "cta_primary": "Action button text e.g. 'Order Online' or 'Book Appointment'",
-    "cta_secondary": "Secondary button text e.g. 'View Menu' or 'Explore Services'"
+    "headline": "Concise high-impact headline (3-6 words)",
+    "subheadline": "Compelling 15-22 word subtitle explaining benefits and uniqueness",
+    "badge_text": "Short 1-3 word badge e.g. 'PREMIUM QUALITY'",
+    "cta_primary": "Action button text (1-3 words)",
+    "cta_secondary": "Secondary button text (1-3 words)"
   }},
   "about": {{
-    "title": "Engaging About section title e.g. 'Rooted in Tradition, Baked with Passion'",
-    "subtitle": "Short 2-4 word subtitle e.g. 'Our Story & Heritage'",
-    "story": "Rich, inspiring 2-3 sentence narrative describing the passion, craftsmanship, or mission of the business.",
+    "title": "Engaging About section title (3-6 words)",
+    "subtitle": "Short 2-4 word subtitle",
+    "story": "Rich 2-3 sentence narrative describing the passion and quality of the business.",
     "highlights": [
-      "Key highlight 1 e.g. '100% Organic Sourdough Fermentation'",
-      "Key highlight 2 e.g. 'Imported Authentic Napoli Ingredients'",
-      "Key highlight 3 e.g. 'Locally Sourced Farm-Fresh Produce'"
+      "Key highlight 1",
+      "Key highlight 2",
+      "Key highlight 3"
     ]
   }},
   "micro_tags": [
@@ -110,72 +106,75 @@ You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks,
   "short_titles": [
     "Our Story", "Signature Offerings", "Why Choose Us", "Customer Reviews", "Frequently Asked Questions", "Get in Touch"
   ],
+  "medium_phrases": [
+    "Handcrafted with precision and passion", "Rooted in tradition and unwavering quality", "Dedicated to an unforgettable experience", "Discover our finest seasonal selections"
+  ],
   "services_or_products": [
     {{
-      "title": "Specific Product or Service 1 (2-4 words)",
-      "desc": "Appetizing or persuasive 10-18 word description directly explaining this specific item.",
-      "price": "$18 - $24",
+      "title": "Product or Service 1 (2-4 words)",
+      "desc": "Persuasive 8-15 word description directly explaining this specific item.",
+      "price": "$24.00",
       "tag": "Signature"
     }},
     {{
-      "title": "Specific Product or Service 2 (2-4 words)",
-      "desc": "Appetizing or persuasive 10-18 word description directly explaining this specific item.",
-      "price": "$22 - $28",
-      "tag": "Chef Special"
-    }},
-    {{
-      "title": "Specific Product or Service 3 (2-4 words)",
-      "desc": "Appetizing or persuasive 10-18 word description directly explaining this specific item.",
-      "price": "$15 - $20",
+      "title": "Product or Service 2 (2-4 words)",
+      "desc": "Persuasive 8-15 word description directly explaining this specific item.",
+      "price": "$38.00",
       "tag": "Best Seller"
     }},
     {{
-      "title": "Specific Product or Service 4 (2-4 words)",
-      "desc": "Appetizing or persuasive 10-18 word description directly explaining this specific item.",
-      "price": "$12 - $16",
+      "title": "Product or Service 3 (2-4 words)",
+      "desc": "Persuasive 8-15 word description directly explaining this specific item.",
+      "price": "$29.00",
       "tag": "Popular"
+    }},
+    {{
+      "title": "Product or Service 4 (2-4 words)",
+      "desc": "Persuasive 8-15 word description directly explaining this specific item.",
+      "price": "$45.00",
+      "tag": "Special"
     }}
   ],
   "faqs": [
     {{
-      "question": "Realistic, common question 1 for this specific business?",
+      "question": "Common question 1 for this business?",
       "answer": "Direct, helpful 1-2 sentence answer specifically answering this question."
     }},
     {{
-      "question": "Realistic, common question 2 for this specific business?",
+      "question": "Common question 2 for this business?",
       "answer": "Direct, helpful 1-2 sentence answer specifically answering this question."
     }},
     {{
-      "question": "Realistic, common question 3 for this specific business?",
+      "question": "Common question 3 for this business?",
       "answer": "Direct, helpful 1-2 sentence answer specifically answering this question."
     }},
     {{
-      "question": "Realistic, common question 4 for this specific business?",
+      "question": "Common question 4 for this business?",
       "answer": "Direct, helpful 1-2 sentence answer specifically answering this question."
     }}
   ],
   "features": [
     {{
       "title": "Core Feature 1 (2-3 words)",
-      "desc": "Compelling 8-15 word description of how this benefits the customer."
+      "desc": "Compelling 8-14 word description of customer benefit."
     }},
     {{
       "title": "Core Feature 2 (2-3 words)",
-      "desc": "Compelling 8-15 word description of quality or speed."
+      "desc": "Compelling 8-14 word description of quality or speed."
     }},
     {{
       "title": "Core Feature 3 (2-3 words)",
-      "desc": "Compelling 8-15 word description of guarantee or atmosphere."
+      "desc": "Compelling 8-14 word description of guarantee or reliability."
     }}
   ],
   "testimonials": [
     {{
-      "quote": "Authentic, enthusiastic customer quote praising specific qualities of the product/service.",
+      "quote": "Authentic customer quote praising specific qualities of the product/service.",
       "author": "Full Name",
       "role": "Verified Customer"
     }},
     {{
-      "quote": "Second glowing review highlighting reliability, flavor, craftsmanship, or exceptional service.",
+      "quote": "Second glowing review highlighting reliability, craftsmanship, or exceptional service.",
       "author": "Full Name",
       "role": "Regular Client"
     }},
@@ -186,36 +185,28 @@ You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks,
     }}
   ],
   "cta_banner": {{
-    "headline": "Exciting call-to-action headline e.g. 'Ready for the Best Experience in Town?'",
+    "headline": "Exciting call-to-action headline (4-8 words)",
     "subheadline": "Warm invitation to visit, order, or get in touch today.",
     "button_text": "Get Started Now"
   }},
   "stats": [
+    {{ "number": "100%", "label": "Satisfaction" }},
     {{ "number": "15k+", "label": "Happy Clients" }},
-    {{ "number": "100%", "label": "Organic Quality" }},
-    {{ "number": "4.9/5", "label": "Google Reviews" }},
-    {{ "number": "Daily", "label": "Fresh Craft" }}
+    {{ "number": "4.9/5", "label": "Review Score" }},
+    {{ "number": "Daily", "label": "Fresh Quality" }}
   ]
 }}
 """
 
     models_to_try = [
         "gemini-1.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-pro",
-        "gemini-1.5-flash-latest"
+        "gemini-2.0-flash"
     ]
 
     for model in models_to_try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key.strip()}"
         payload = {
-            "contents": [
-                {
-                    "parts": [
-                        {"text": prompt}
-                    ]
-                }
-            ],
+            "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": 0.7,
                 "topP": 0.9,
@@ -230,7 +221,7 @@ You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks,
             headers={"Content-Type": "application/json"}
         )
         try:
-            with urllib.request.urlopen(req, timeout=4.0) as response:
+            with urllib.request.urlopen(req, timeout=2.5) as response:
                 if response.status == 200:
                     resp_json = json.loads(response.read().decode('utf-8'))
                     candidates = resp_json.get('candidates', [])
@@ -247,6 +238,53 @@ You MUST return ONLY a valid JSON object (no markdown code blocks, no backticks,
     return {}
 
 
+def _extract_offerings_from_description(desc: str) -> List[str]:
+    """
+    Extracts individual product/service offering phrases from user's business description.
+    e.g. "We provide emergency 24/7 plumbing, drain cleaning, water heater repair, and pipe replacement in Dallas"
+    -> ["Emergency 24/7 Plumbing", "Drain Cleaning", "Water Heater Repair", "Pipe Replacement"]
+    """
+    if not desc:
+        return []
+    
+    # Remove leading common introductory phrases
+    clean = re.sub(r'^(?:we\s+(?:are|provide|sell|offer|specialize\s+in|build|craft|create|deliver|make)|our\s+business\s+is|a\s+top-rated)\s+', '', desc, flags=re.I)
+    clean = re.sub(r'\s+in\s+[A-Z][a-zA-Z\s,]+$', '', clean)
+    
+    # Split by comma, semicolon, bullet, or 'and'
+    parts = re.split(r'[,;\n•·|]|\s+and\s+', clean)
+    offerings = []
+    for p in parts:
+        p_clean = p.strip()
+        p_clean = re.sub(r'^(?:including|such\s+as|specializing\s+in|custom|our|all\s+kinds\s+of)\s+', '', p_clean, flags=re.I)
+        p_clean = re.sub(r'[.\s]+$', '', p_clean).strip()
+        words = p_clean.split()
+        if 1 <= len(words) <= 6 and len(p_clean) >= 3:
+            offerings.append(p_clean.title())
+            
+    return offerings[:8]
+
+
+def _extract_keywords_and_adjectives(desc: str) -> List[str]:
+    """Extracts distinctive quality adjectives and key terms from description."""
+    if not desc:
+        return []
+    words = re.findall(r'\b[a-zA-Z-]{3,}\b', desc.lower())
+    stop_words = {
+        'the', 'and', 'for', 'with', 'from', 'our', 'your', 'are', 'this', 'that',
+        'provide', 'offer', 'service', 'services', 'business', 'shop', 'store',
+        'best', 'top', 'all', 'more', 'can', 'has', 'have', 'will', 'you', 'they'
+    }
+    distinctive = [w.capitalize() for w in words if w not in stop_words and len(w) >= 4]
+    seen = set()
+    unique = []
+    for w in distinctive:
+        if w.lower() not in seen:
+            seen.add(w.lower())
+            unique.append(w)
+    return unique[:10]
+
+
 def generate_fallback_business_content(
     business_name: str,
     business_description: str = '',
@@ -254,430 +292,332 @@ def generate_fallback_business_content(
     tagline: str = ''
 ) -> Dict[str, Any]:
     """
-    Intelligent offline contextual copy generator that analyzes keywords in business description,
-    name, and category to produce authentic, human-quality copywriting with semantically paired
-    cards, FAQs, micro tags, and length-budgeted phrases.
+    Intelligent offline contextual copywriting synthesis engine.
+    Parses any custom business description to extract real offerings, attributes, and actions,
+    and produces fully paired, length-budgeted copy across all page sections.
     """
     b_name = business_name.strip() if business_name else "Premier Brand"
-    desc = business_description.strip().lower()
-    cat = category.strip().lower()
-    combined_context = f"{b_name} {desc} {cat}".lower()
+    desc_raw = business_description.strip()
+    desc_lower = desc_raw.lower()
+    cat_lower = category.strip().lower()
+    combined_context = f"{b_name} {desc_lower} {cat_lower}"
 
-    # Detect domain keywords
-    is_pizza_or_italian = any(k in combined_context for k in ['pizza', 'pizzeria', 'wood-fired', 'sourdough', 'neapolitan', 'pasta', 'italian', 'trattoria', 'calzone', 'burrata'])
-    is_restaurant_or_cafe = any(k in combined_context for k in ['restaurant', 'cafe', 'coffee', 'bistro', 'bakery', 'food', 'dining', 'bar', 'grill', 'burger', 'sushi', 'dessert', 'pastry', 'bread'])
-    is_fashion_or_clothing = any(k in combined_context for k in ['fashion', 'clothing', 'apparel', 'wear', 'boutique', 'dress', 'jeans', 'accessories', 'shoes', 'footwear', 'style'])
-    is_fitness_or_gym = any(k in combined_context for k in ['gym', 'fitness', 'workout', 'trainer', 'training', 'crossfit', 'yoga', 'pilates', 'bodybuilding', 'athletics', 'health'])
-    is_tech_or_saas = any(k in combined_context for k in ['tech', 'saas', 'software', 'app', 'ai', 'cloud', 'developer', 'startup', 'digital', 'analytics', 'platform'])
-    is_flower_or_plant = any(k in combined_context for k in ['flower', 'florist', 'plants', 'bouquet', 'bloom', 'garden', 'roses', 'floral'])
-    is_pet_shop = any(k in combined_context for k in ['pet', 'dog', 'cat', 'puppy', 'vet', 'animal', 'grooming'])
-    is_car_or_repair = any(k in combined_context for k in ['car', 'auto', 'vehicle', 'mechanic', 'repair', 'garage', 'detailing', 'tire', 'service'])
-    is_dairy_or_farm = any(k in combined_context for k in ['dairy', 'farm', 'milk', 'cow', 'agriculture', 'organic farm', 'butter', 'cheese'])
+    # Extract user offerings and keywords
+    user_offerings = _extract_offerings_from_description(desc_raw)
+    user_keywords = _extract_keywords_and_adjectives(desc_raw)
 
-    if is_pizza_or_italian:
-        return {
-            "brand_name": b_name,
-            "tagline": tagline or "Authentic Wood-Fired Neapolitan Pizza & Italian Craft",
-            "navbar_items": ["Menu", "Pizzas", "Story", "Reviews", "Contact"],
-            "hero": {
-                "headline": f"Authentic Wood-Fired Pizza by {b_name}",
-                "subheadline": "Slow-fermented 48-hour sourdough, sweet San Marzano tomatoes, and creamy fresh mozzarella baked at 900°F.",
-                "badge_text": "WOOD-FIRED AUTHENTIC",
-                "cta_primary": "Order Pizza Online",
-                "cta_secondary": "View Full Menu"
-            },
-            "about": {
-                "title": "Old-World Italian Heritage & Craft",
-                "subtitle": "The Art of Slow Fermentation",
-                "story": f"At {b_name}, we honor centuries-old Neapolitan traditions. Every pizza begins with naturally fermented dough, imported Italian flour, and blistered perfection in volcanic brick ovens.",
-                "highlights": [
-                    "48-Hour Cold Fermented Dough",
-                    "DOP San Marzano Tomatoes & Fresh Fior di Latte",
-                    "Authentic Wood-Fired Volcanic Stone Oven"
-                ]
-            },
-            "micro_tags": ["Wood Fired", "Fresh Daily", "Neapolitan", "Artisanal", "DOP Certified", "Hand Tossed", "House Special", "Best Seller"],
-            "short_titles": ["Our Pizza Menu", "Traditional Craft", "Why Choose Us", "Guest Reviews", "Frequently Asked Questions", "Visit Our Pizzeria"],
-            "services_or_products": [
-                { "title": "Margherita Verace", "desc": "Sweet San Marzano tomato sauce, fresh buffalo mozzarella, fragrant basil, and extra virgin olive oil.", "price": "$16.50", "tag": "Classic Favorite" },
-                { "title": "Diavola Piccante", "desc": "Artisanal spicy soppressata, crushed red chili, smoked provolone, and hot honey drizzle.", "price": "$19.00", "tag": "Chef Special" },
-                { "title": "Tartufo e Funghi", "desc": "Roasted wild forest mushrooms, creamy fontina cheese, white truffle oil, and thyme.", "price": "$21.50", "tag": "Signature" },
-                { "title": "Handcrafted Burrata Gnocchi", "desc": "Tender potato gnocchi tossed in slow-simmered pomodoro sauce with whole fresh burrata.", "price": "$18.00", "tag": "Handmade Pasta" }
-            ],
-            "faqs": [
-                { "question": "What style of pizza do you bake?", "answer": "We specialize in authentic Neapolitan-style pizza baked in a 900°F wood-fired volcanic stone oven." },
-                { "question": "Do you have gluten-friendly or vegan options?", "answer": "Yes, we offer house-made gluten-friendly crusts and dairy-free artisan vegan mozzarella." },
-                { "question": "Can I reserve a table for large parties?", "answer": "Yes, you can reserve tables online for parties of up to 20 guests with 24 hours notice." },
-                { "question": "Do you deliver hot fresh pizzas?", "answer": "We offer direct local delivery and curbside pickup in temperature-controlled packaging." }
-            ],
-            "features": [
-                { "title": "Volcanic Brick Oven", "desc": "Blistered at 900°F for a light, airy, leopard-spotted crust." },
-                { "title": "Imported Ingredients", "desc": "Directly imported Italian flour, San Marzano tomatoes, and cheeses." },
-                { "title": "Slow Fermented Dough", "desc": "Naturally aged for 48 hours for effortless digestion and deep flavor." }
-            ],
-            "testimonials": [
-                { "quote": "Hands down the most authentic Neapolitan pizza in the city. The crust is light, airy, and deeply flavorful.", "author": "Marco Rossi", "role": "Food Critic" },
-                { "quote": "Incredible dining experience! The Tartufata pizza and house gnocchi were absolute perfection.", "author": "Elena Vance", "role": "Local Guide" }
-            ],
-            "cta_banner": {
-                "headline": "Craving Authentic Wood-Fired Pizza?",
-                "subheadline": "Order online for express pickup or reserve your table tonight.",
-                "button_text": "Order Online Now"
-            },
-            "stats": [
-                { "number": "900°F", "label": "Wood-Fired Oven" },
-                { "number": "48 Hrs", "label": "Dough Fermentation" },
-                { "number": "100%", "label": "Italian Ingredients" },
-                { "number": "4.9/5", "label": "Review Rating" }
-            ]
-        }
+    # Domain classification scoring
+    domain_scores: Dict[str, int] = {
+        'pizza': sum(1 for k in ['pizza', 'pizzeria', 'wood-fired', 'sourdough', 'neapolitan', 'calzone'] if k in combined_context),
+        'restaurant': sum(1 for k in ['restaurant', 'bistro', 'dining', 'chef', 'gourmet', 'steakhouse', 'grill', 'cuisine', 'dinner'] if k in combined_context),
+        'bakery': sum(1 for k in ['bakery', 'pastry', 'pastries', 'croissant', 'cake', 'bread', 'baked', 'cafe', 'coffee', 'espresso'] if k in combined_context),
+        'shoes_leather': sum(1 for k in ['shoe', 'shoes', 'boot', 'boots', 'leather', 'cobbler', 'footwear', 'bespoke leather', 'sneakers'] if k in combined_context),
+        'fashion': sum(1 for k in ['clothing', 'apparel', 'boutique', 'dress', 'wear', 'fashion', 'jewelry', 'wardrobe', 'couture'] if k in combined_context),
+        'dental': sum(1 for k in ['dental', 'dentist', 'teeth', 'whitening', 'smile', 'veneers', 'implants', 'orthodontic', 'cavity'] if k in combined_context),
+        'medical_health': sum(1 for k in ['clinic', 'medical', 'doctor', 'therapy', 'patient', 'healthcare', 'wellness', 'physiotherapy', 'chiropractic'] if k in combined_context),
+        'gym_fitness': sum(1 for k in ['gym', 'fitness', 'workout', 'trainer', 'training', 'crossfit', 'yoga', 'pilates', 'bodybuilding', 'muscle'] if k in combined_context),
+        'plumbing_trades': sum(1 for k in ['plumb', 'plumbing', 'drain', 'leak', 'pipe', 'water heater', 'hvac', 'electrician', 'roofing', 'contractor', 'repair service'] if k in combined_context),
+        'auto_repair': sum(1 for k in ['car repair', 'auto repair', 'mechanic', 'garage', 'vehicle', 'brakes', 'engine', 'transmission', 'detailing', 'tire'] if k in combined_context),
+        'saas_tech': sum(1 for k in ['software', 'saas', 'tech', 'app', 'ai', 'cloud', 'developer', 'startup', 'platform', 'analytics', 'dashboard'] if k in combined_context),
+        'dairy_farm': sum(1 for k in ['dairy', 'milk', 'farm', 'farming', 'cattle', 'cow', 'organic milk', 'butter', 'cheese', 'agriculture'] if k in combined_context),
+        'flowers_florist': sum(1 for k in ['flower', 'florist', 'plants', 'bouquet', 'bloom', 'roses', 'floral', 'botanical'] if k in combined_context),
+        'pet_care': sum(1 for k in ['pet', 'dog', 'cat', 'puppy', 'grooming', 'vet', 'animal', 'boarding'] if k in combined_context),
+        'hotel_hospitality': sum(1 for k in ['hotel', 'resort', 'stay', 'vacation', 'room', 'suites', 'booking', 'lodge', 'inn'] if k in combined_context),
+        'beauty_spa': sum(1 for k in ['salon', 'spa', 'massage', 'haircut', 'barber', 'facial', 'skincare', 'nails', 'esthetician'] if k in combined_context),
+        'real_estate': sum(1 for k in ['realtor', 'real estate', 'property', 'properties', 'homes', 'apartment', 'realty', 'listing'] if k in combined_context),
+        'cleaning': sum(1 for k in ['cleaning', 'maid', 'janitorial', 'carpet cleaning', 'wash', 'housekeeping', 'cleaners'] if k in combined_context),
+    }
 
-    elif is_car_or_repair:
-        return {
-            "brand_name": b_name,
-            "tagline": tagline or "Master Certified Auto Repair & Precision Diagnostics",
-            "navbar_items": ["Services", "Repairs", "About", "Reviews", "Contact"],
-            "hero": {
-                "headline": f"Certified Master Auto Repair by {b_name}",
-                "subheadline": "Full-service computerized diagnostics, engine performance tuning, brake overhauls, and routine maintenance with guaranteed parts.",
-                "badge_text": "CERTIFIED MASTER TECHNICIANS",
-                "cta_primary": "Book Service Online",
-                "cta_secondary": "View Repair Services"
-            },
-            "about": {
-                "title": "Precision Engineering & Honest Service",
-                "subtitle": "Trusted Automotive Specialists",
-                "story": f"At {b_name}, we treat your vehicle with unmatched precision. Equipped with factory diagnostic scanners and master certified technicians, we ensure your car runs safely and smoothly.",
-                "highlights": [
-                    "ASE Master Certified Technicians",
-                    "24-Month / 24,000-Mile Nationwide Warranty",
-                    "OEM Factory Diagnostic Computer Equipment"
-                ]
-            },
-            "micro_tags": ["Master Certified", "OEM Parts", "Full Warranty", "Fast Turnaround", "Computerized Diagnostics", "Safety First", "Top Rated", "Expert Service"],
-            "short_titles": ["Our Services", "Why Drivers Choose Us", "Diagnostic Capabilities", "Customer Testimonials", "Frequently Asked Questions", "Schedule Repair"],
-            "services_or_products": [
-                { "title": "Computerized Engine Diagnostics", "desc": "Complete electronic scan and sensor calibration to identify performance faults accurately.", "price": "$89.00", "tag": "Comprehensive Scan" },
-                { "title": "Precision Brake Service", "desc": "Ceramic brake pads, rotor resurfacing, fluid flush, and multi-point caliper safety inspection.", "price": "$179.00", "tag": "Safety Critical" },
-                { "title": "Transmission & Drivetrain", "desc": "Factory fluid exchange, clutch adjustment, and complete computerized gear sync inspection.", "price": "$220.00", "tag": "Drivetrain Care" },
-                { "title": "Full Synthetic Oil Service", "desc": "Premium synthetic oil, OEM filter replacement, fluid top-off, and 30-point safety check.", "price": "$69.00", "tag": "Maintenance Routine" }
-            ],
-            "faqs": [
-                { "question": "Do you provide a warranty on repairs and parts?", "answer": "Yes, all repair work is backed by our 24-month or 24,000-mile parts and labor warranty." },
-                { "question": "Do I need an appointment for diagnostic scans?", "answer": "Appointments are recommended for immediate service, but walk-ins are always welcomed." },
-                { "question": "What vehicle makes and models do you service?", "answer": "Our master technicians service domestic, European, and Asian vehicles of all years." },
-                { "question": "How long does a routine maintenance check take?", "answer": "Standard oil changes and 30-point inspections take approximately 30 to 45 minutes." }
-            ],
-            "features": [
-                { "title": "Transparent Estimates", "desc": "Detailed upfront quotes with digital inspection photos before any work begins." },
-                { "title": "OEM Quality Parts", "desc": "We use original equipment parts to protect your vehicle's factory warranty." },
-                { "title": "Fast Turnaround", "desc": "Same-day service on most routine maintenance and brake repairs." }
-            ],
-            "testimonials": [
-                { "quote": "Honest, knowledgeable mechanics who accurately diagnosed an electrical issue other shops missed. Outstanding service!", "author": "David Miller", "role": "Vehicle Owner" },
-                { "quote": "Fast turnaround, fair pricing, and clear explanations. My car drives like brand new.", "author": "Rachel Green", "role": "Loyal Customer" }
-            ],
-            "cta_banner": {
-                "headline": "Need Reliable Automotive Service Today?",
-                "subheadline": "Schedule your appointment online and receive a complimentary vehicle health scan.",
-                "button_text": "Book Appointment"
-            },
-            "stats": [
-                { "number": "20+ Yrs", "label": "Master Experience" },
-                { "number": "100%", "label": "OEM Grade Parts" },
-                { "number": "24k Mi", "label": "Warranty Covered" },
-                { "number": "4.9/5", "label": "Customer Rating" }
-            ]
-        }
+    best_domain = max(domain_scores, key=domain_scores.get)
+    best_score = domain_scores[best_domain]
+    detected_domain = best_domain if best_score >= 1 else 'generic'
 
-    elif is_fashion_or_clothing:
-        return {
-            "brand_name": b_name,
-            "tagline": tagline or "Contemporary Luxury Fashion & Sustainable Apparel",
-            "navbar_items": ["Shop", "Collection", "Story", "Reviews", "Contact"],
-            "hero": {
-                "headline": f"Elevate Your Signature Style with {b_name}",
-                "subheadline": "Discover seasonal designer apparel crafted from sustainable organic textiles, bespoke tailoring, and timeless silhouettes.",
-                "badge_text": "NEW SEASON COLLECTION",
-                "cta_primary": "Shop New Arrivals",
-                "cta_secondary": "Explore Lookbook"
-            },
-            "about": {
-                "title": "Conscious Fashion & Modern Elegance",
-                "subtitle": "The Philosophy of Timeless Style",
-                "story": f"At {b_name}, we believe true style transcends fast trends. We curate bespoke seasonal collections featuring organic European linens, fine silks, and precise handcrafted tailoring.",
-                "highlights": [
-                    "100% Sustainable & Ethical Sourcing",
-                    "Artisanal Tailoring & Limited Production Runs",
-                    "Complimentary Fit & Style Consultations"
-                ]
-            },
-            "micro_tags": ["New Season", "Sustainable", "Handcrafted", "Luxury Apparel", "Pure Linen", "Boutique Style", "Trending Now", "Exclusive"],
-            "short_titles": ["Featured Collection", "Our Craft Philosophy", "Why Choose Us", "Client Reviews", "Frequently Asked Questions", "Visit Our Boutique"],
-            "services_or_products": [
-                { "title": "Artisanal Silk Evening Dress", "desc": "Flowing 100% pure mulberry silk dress featuring graceful draped neckline and tailored waist.", "price": "$280.00", "tag": "New Arrival" },
-                { "title": "Structured Linen Blazer", "desc": "Tailored organic French linen blazer with horn buttons and breathable soft interior lining.", "price": "$220.00", "tag": "Best Seller" },
-                { "title": "Cashmere Knit Sweater", "desc": "Ultra-soft Mongolian cashmere knit with ribbed cuffs and relaxed contemporary silhouette.", "price": "$195.00", "tag": "Essential" },
-                { "title": "Handcrafted Leather Tote", "desc": "Vegetable-tanned full-grain leather tote with reinforced stitching and interior compartments.", "price": "$165.00", "tag": "Signature" }
-            ],
-            "faqs": [
-                { "question": "What is your return and exchange policy?", "answer": "We offer complimentary 30-day returns and exchanges on all unworn items in original packaging." },
-                { "question": "Are your garments sustainably and ethically made?", "answer": "Yes, our fabrics are certified organic and produced in audited, fair-wage European ateliers." },
-                { "question": "Do you offer in-store tailoring and alterations?", "answer": "We provide complimentary tailoring and hem adjustments on all our core collection garments." },
-                { "question": "How do I choose the correct fit and size?", "answer": "Each item page includes exact garment measurements, and our stylists are available for chat." }
-            ],
-            "features": [
-                { "title": "Organic Textiles", "desc": "Breathable natural fabrics that look stunning and feel gentle on your skin." },
-                { "title": "Bespoke Tailoring", "desc": "Precise pattern cutting designed to flatter diverse body types." },
-                { "title": "Limited Runs", "desc": "Exclusive small-batch production ensuring rare and distinctive designs." }
-            ],
-            "testimonials": [
-                { "quote": "The fabric quality and tailoring are remarkable. The linen blazer fits like a glove and feels extraordinary.", "author": "Chloe Laurent", "role": "Fashion Stylist" },
-                { "quote": "Finally a sustainable brand where the craftsmanship and aesthetics are equally breathtaking.", "author": "Maya Lin", "role": "Verified Customer" }
-            ],
-            "cta_banner": {
-                "headline": "Ready to Discover Your Signature Look?",
-                "subheadline": "Explore our curated seasonal collection or visit our flagship boutique.",
-                "button_text": "Shop The Collection"
-            },
-            "stats": [
-                { "number": "100%", "label": "Organic Linen & Silk" },
-                { "number": "Small", "label": "Batch Production" },
-                { "number": "30 Day", "label": "Hassle-Free Returns" },
-                { "number": "4.9/5", "label": "Style Rating" }
-            ]
-        }
+    # Domain specific defaults that blend with user description
+    if detected_domain == 'shoes_leather':
+        dom_tagline = "Handcrafted Bespoke Italian Leather Craft"
+        dom_nav = ["Shoes", "Boots", "Leather", "Craft", "Reviews", "Contact"]
+        dom_head = f"Handcrafted Bespoke Footwear by {b_name}"
+        dom_badge = "HANDCRAFTED LEATHER"
+        dom_cta1 = "Shop Shoes"
+        dom_cta2 = "View Collection"
+        dom_about_title = "The Art of Bespoke Leather Craft"
+        dom_about_sub = "Timeless Heritage & Precision"
+        dom_items = [
+            {"title": "Bespoke Oxford Shoes", "desc": "Hand-stitched full-grain leather with Goodyear welted leather soles.", "price": "$280.00", "tag": "Signature"},
+            {"title": "Handcrafted Leather Boots", "desc": "Rugged yet refined leather boots built for lifelong comfort and style.", "price": "$340.00", "tag": "Best Seller"},
+            {"title": "Classic Penny Loafers", "desc": "Supple Italian calfskin loafers crafted with unlined glove-soft comfort.", "price": "$240.00", "tag": "Popular"},
+            {"title": "Custom Derby Dress Shoes", "desc": "Tailored to your exact foot measurements in rich burnished leather.", "price": "$310.00", "tag": "Custom Fit"}
+        ]
+        dom_faqs = [
+            {"question": "What type of leather do you use?", "answer": "We exclusively source premium full-grain Italian calfskin and vegetable-tanned leathers."},
+            {"question": "Do you offer custom shoe sizing and bespoke fitting?", "answer": "Yes, we craft made-to-measure bespoke pairs tailored to your exact foot dimensions."},
+            {"question": "How do I care for my leather shoes?", "answer": "We recommend conditioning with natural beeswax cream and using cedar shoe trees daily."},
+            {"question": "What is your return and warranty policy?", "answer": "We guarantee our craftsmanship with lifetime recrafting and a 30-day satisfaction policy."}
+        ]
+        dom_features = [
+            {"title": "Full-Grain Leather", "desc": "Uncompromising durability, rich patina, and breathable all-day comfort."},
+            {"title": "Goodyear Welted", "desc": "Traditional welt construction allowing lifelong resoling and repair."},
+            {"title": "Handmade Precision", "desc": "Every single stitch is crafted by master artisans with meticulous care."}
+        ]
+        dom_tags = ["Full Grain", "Handcrafted", "Bespoke", "Goodyear Welt", "Italian Leather", "Custom Fit", "Top Rated", "Artisanal"]
 
-    elif is_fitness_or_gym:
-        return {
-            "brand_name": b_name,
-            "tagline": tagline or "Elite Strength, Functional Fitness & Athlete Training",
-            "navbar_items": ["Classes", "Trainers", "About", "Pricing", "Contact"],
-            "hero": {
-                "headline": f"Unlock Your Peak Potential with {b_name}",
-                "subheadline": "State-of-the-art training facilities, expert coaching, high-intensity functional training, and supportive community.",
-                "badge_text": "24/7 ACCESS FACILITY",
-                "cta_primary": "Claim Free Pass",
-                "cta_secondary": "Explore Classes"
-            },
-            "about": {
-                "title": "Built for Performance, Driven by Community",
-                "subtitle": "Transform Your Body & Mind",
-                "story": f"At {b_name}, we believe fitness is about empowering your life. We combine cutting-edge equipment, certified sports trainers, and motivating group classes to help you crush your goals.",
-                "highlights": [
-                    "24/7 Keyless Member Access",
-                    "Certified Performance Strength Coaches",
-                    "Full Recovery Lounge with Sauna & Cold Plunges"
-                ]
-            },
-            "micro_tags": ["24/7 Access", "Certified Trainers", "Peak Performance", "All Levels", "State of the Art", "Strength & Cardio", "Free Pass", "Top Rated"],
-            "short_titles": ["Membership Programs", "Our Training Pillars", "Class Schedule", "Member Success Stories", "Frequently Asked Questions", "Join Our Gym"],
-            "services_or_products": [
-                { "title": "High-Intensity Functional HIIT", "desc": "Metabolic conditioning circuits combining kettlebells, rowers, and dynamic bodyweight movements.", "price": "$25 / Class", "tag": "Popular" },
-                { "title": "1-on-1 Performance Coaching", "desc": "Customized periodized strength programming, biomechanics assessment, and nutrition strategy.", "price": "$75 / Session", "tag": "Personalized" },
-                { "title": "Athletic Strength & Powerlifting", "desc": "Barbell technique mastery, Olympic lifting platforms, and structured progressive overload.", "price": "$30 / Class", "tag": "Strength Focus" },
-                { "title": "Recovery & Mobility Yoga", "desc": "Guided myofascial release, joint mobility drills, and restorative deep stretch sessions.", "price": "$20 / Class", "tag": "Recovery" }
-            ],
-            "faqs": [
-                { "question": "What hours is the facility open to members?", "answer": "Our gym is open 24 hours a day, 7 days a week, 365 days a year with secure keyless app access." },
-                { "question": "Do you offer complimentary trial passes for newcomers?", "answer": "Yes! First-time visitors can claim a free 1-day pass to experience our equipment and classes." },
-                { "question": "Are personal training packages customized for beginners?", "answer": "Every training plan begins with an assessment to match your exact fitness level and goals." },
-                { "question": "What amenities and recovery tools are included?", "answer": "Members enjoy full locker rooms, infrared saunas, contrast cold plunges, and towel service." }
-            ],
-            "features": [
-                { "title": "Olympic Equipment", "desc": "Eleiko barbells, competition bumper plates, and turf functional sprint lanes." },
-                { "title": "Expert Coaching", "desc": "Degree-certified trainers focused on safe mechanics and continuous progress." },
-                { "title": "Recovery Zone", "desc": "Infrared saunas and contrast therapy to accelerate athletic muscle recovery." }
-            ],
-            "testimonials": [
-                { "quote": "The trainers and community here completely transformed my strength and daily energy. Incredible facility!", "author": "Marcus Brody", "role": "Member 2+ Years" },
-                { "quote": "Clean, top-tier equipment and 24/7 access make it easy to fit intense workouts into my busy schedule.", "author": "Sarah Jenkins", "role": "Crossfit Athlete" }
-            ],
-            "cta_banner": {
-                "headline": "Ready to Transform Your Strength & Health?",
-                "subheadline": "Claim your complimentary day pass or sign up online with zero enrollment fees.",
-                "button_text": "Claim Free Pass"
-            },
-            "stats": [
-                { "number": "24/7", "label": "Facility Access" },
-                { "number": "50+", "label": "Weekly Classes" },
-                { "number": "100%", "label": "Certified Coaches" },
-                { "number": "4.9/5", "label": "Member Rating" }
-            ]
-        }
+    elif detected_domain == 'dental':
+        dom_tagline = "Compassionate Dental Care & Radiant Smiles"
+        dom_nav = ["Services", "Care", "Doctors", "Reviews", "Book", "Contact"]
+        dom_head = f"Modern Gentle Dentistry at {b_name}"
+        dom_badge = "PAINLESS DENTAL CARE"
+        dom_cta1 = "Book Appointment"
+        dom_cta2 = "Our Dental Care"
+        dom_about_title = "Gentle Care, Advanced Technology"
+        dom_about_sub = "Your Comfort Comes First"
+        dom_items = [
+            {"title": "Cosmetic Teeth Whitening", "desc": "Professional in-office laser whitening for a bright radiant smile in one visit.", "price": "$199.00", "tag": "Popular"},
+            {"title": "Porcelain Dental Veneers", "desc": "Custom ultra-thin ceramic veneers designed to perfect your smile naturally.", "price": "$550.00", "tag": "Cosmetic"},
+            {"title": "Preventive Dental Cleaning", "desc": "Gentle ultrasonic cleaning, oral health exam, and comprehensive polishing.", "price": "$95.00", "tag": "Essential"},
+            {"title": "Dental Implant Restoration", "desc": "Permanent, natural-looking titanium implant crowns for missing teeth.", "price": "$850.00", "tag": "Restorative"}
+        ]
+        dom_faqs = [
+            {"question": "Is dental treatment painful at your clinic?", "answer": "No, we specialize in gentle, pain-free dentistry with modern comfort sedation options."},
+            {"question": "Do you accept dental insurance plans?", "answer": "Yes, we accept all major dental insurance PPO providers and offer flexible financing."},
+            {"question": "How quickly can I schedule an emergency visit?", "answer": "We reserve daily appointments for same-day dental emergencies and urgent relief."},
+            {"question": "How long does professional teeth whitening take?", "answer": "Our in-office whitening delivers immediate, noticeable results in just 45 minutes."}
+        ]
+        dom_features = [
+            {"title": "Pain-Free Comfort", "desc": "Relax with gentle techniques, warm blankets, and modern comfort sedation."},
+            {"title": "Digital 3D Scans", "desc": "Accurate digital imaging with zero messy impression trays or discomfort."},
+            {"title": "Emergency Care", "desc": "Same-day appointments available for prompt, compassionate tooth pain relief."}
+        ]
+        dom_tags = ["Painless", "Gentle Care", "Digital 3D", "Emergency Care", "Top Rated", "Cosmetic", "Certified", "Family Care"]
 
-    elif is_dairy_or_farm:
-        return {
-            "brand_name": b_name,
-            "tagline": tagline or "Pure Grass-Fed Dairy & Organic Farm Fresh Produce",
-            "navbar_items": ["Dairy", "Farm", "Story", "Reviews", "Contact"],
-            "hero": {
-                "headline": f"100% Organic Farm-Fresh Dairy by {b_name}",
-                "subheadline": "Pasteurized whole milk, golden churned butter, and artisanal cheeses crafted fresh daily from pasture-raised grass-fed cows.",
-                "badge_text": "ORGANIC & PASTURE RAISED",
-                "cta_primary": "Order Fresh Dairy",
-                "cta_secondary": "Visit Our Farm"
-            },
-            "about": {
-                "title": "Rooted in Nature, Committed to Pure Quality",
-                "subtitle": "Traditional Family Dairy Craft",
-                "story": f"At {b_name}, our cows graze on lush, certified organic green pastures. We preserve traditional dairy craft with zero synthetic hormones, delivering pure, wholesome nutrition directly to your family's table.",
-                "highlights": [
-                    "100% Grass-Fed Certified Organic Herd",
-                    "Non-Homogenized Cream-Top Whole Milk",
-                    "Traditional Artisanal Cheese & Butter Aging"
-                ]
-            },
-            "micro_tags": ["Farm Fresh", "100% Organic", "Grass Fed", "Artisanal", "Non-GMO", "Cream Top", "Raw Cheese", "Fresh Daily"],
-            "short_titles": ["Farm Dairy Products", "Our Organic Standards", "Sustainable Farming", "Customer Reviews", "Frequently Asked Questions", "Visit The Farm"],
-            "services_or_products": [
-                { "title": "Cream-Top Whole Organic Milk", "desc": "Gently low-temp pasteurized whole milk with thick natural cream rising to the top.", "price": "$5.50", "tag": "Farm Favorite" },
-                { "title": "Artisanal Farmstead Butter", "desc": "Small-batch churned golden butter with sea salt crystals and rich pasture flavor.", "price": "$6.75", "tag": "Best Seller" },
-                { "title": "Aged Farmhouse Cheddar", "desc": "Cave-aged raw milk cheddar with sharp savory notes and creamy crumbly texture.", "price": "$9.00", "tag": "Aged 12 Mo" },
-                { "title": "Organic Greek Cultured Yogurt", "desc": "Thick strained yogurt packed with live probiotics, natural protein, and velvet smoothness.", "price": "$4.50", "tag": "Daily Fresh" }
-            ],
-            "faqs": [
-                { "question": "Are your cows grass-fed and free of antibiotics?", "answer": "Yes, our cows graze on certified organic pastures with zero synthetic hormones or antibiotics." },
-                { "question": "Is your whole milk low-temperature pasteurized?", "answer": "We use gentle low-temp vat pasteurization to preserve natural enzymes and nutrients." },
-                { "question": "Where can we purchase your fresh dairy products?", "answer": "You can order online for home delivery or visit our on-farm market store daily." },
-                { "question": "Can families visit and tour the farm?", "answer": "Yes! We host guided weekend farm tours and milking demonstrations for families." }
-            ],
-            "features": [
-                { "title": "Pasture Raised", "desc": "Our cows roam freely on sunny green pastures year-round." },
-                { "title": "Zero Additives", "desc": "Pure dairy with no synthetic hormones, preservatives, or GMO feeds." },
-                { "title": "Farm to Table", "desc": "Bottled and delivered within 24 hours of milking for maximum freshness." }
-            ],
-            "testimonials": [
-                { "quote": "The cream-top milk and farmstead butter taste like real dairy should. Our kids love it!", "author": "Hannah Weber", "role": "Local Parent" },
-                { "quote": "Superior taste and texture. You can genuinely taste the pasture-raised quality in every single product.", "author": "Brian Miller", "role": "Chef & Customer" }
-            ],
-            "cta_banner": {
-                "headline": "Taste the Wholesome Goodness of Pure Dairy",
-                "subheadline": "Order convenient home delivery or stop by our farm shop today.",
-                "button_text": "Order Farm Fresh"
-            },
-            "stats": [
-                { "number": "100%", "label": "Organic Grass Fed" },
-                { "number": "24 Hrs", "label": "Farm to Table" },
-                { "number": "0%", "label": "Synthetic Hormones" },
-                { "number": "4.9/5", "label": "Customer Rating" }
-            ]
-        }
+    elif detected_domain == 'plumbing_trades':
+        dom_tagline = "24/7 Emergency Plumbing & Guaranteed Repairs"
+        dom_nav = ["Services", "Emergency", "Repairs", "Reviews", "Pricing", "Contact"]
+        dom_head = f"Master Certified Plumbing by {b_name}"
+        dom_badge = "24/7 EMERGENCY SERVICE"
+        dom_cta1 = "Call Emergency Service"
+        dom_cta2 = "View Repair Services"
+        dom_about_title = "Trusted Plumbing Expertise Since Day One"
+        dom_about_sub = "Licensed, Insured & Prompt"
+        dom_items = [
+            {"title": "Emergency Pipe Leak Repair", "desc": "Rapid electronic leak detection and immediate burst pipe repairs 24/7.", "price": "$120.00", "tag": "Emergency"},
+            {"title": "Hydro-Jet Drain Cleaning", "desc": "High-pressure clearing of stubborn sewer blockages and tree root intrusions.", "price": "$160.00", "tag": "Popular"},
+            {"title": "Water Heater Installation", "desc": "Energy-efficient tankless and traditional water heater repair and setup.", "price": "$450.00", "tag": "Guaranteed"},
+            {"title": "Fixture & Faucet Overhaul", "desc": "Complete replacement and repair of kitchen, bathroom, and shower valves.", "price": "$90.00", "tag": "Maintenance"}
+        ]
+        dom_faqs = [
+            {"question": "How fast do your plumbers arrive for emergencies?", "answer": "Our on-call technicians arrive within 30 to 45 minutes for urgent water emergencies."},
+            {"question": "Are your plumbing technicians licensed and insured?", "answer": "Yes, 100% of our plumbers are state master-licensed, background-checked, and insured."},
+            {"question": "Do you provide upfront pricing before starting work?", "answer": "Yes, we provide honest, transparent flat-rate pricing with zero hidden overtime fees."},
+            {"question": "Do you offer warranties on repairs and parts?", "answer": "All our plumbing repairs and parts include a comprehensive 1-year warranty guarantee."}
+        ]
+        dom_features = [
+            {"title": "24/7 Availability", "desc": "Always on call day and night for emergency leaks, burst pipes, and clogs."},
+            {"title": "Upfront Flat Pricing", "desc": "Clear, honest estimates before work begins with zero surprise fees."},
+            {"title": "Licensed Masters", "desc": "Certified master technicians equipped with state-of-the-art diagnostic gear."}
+        ]
+        dom_tags = ["24/7 Emergency", "Licensed", "Flat Pricing", "Fast Arrival", "Full Warranty", "Master Plumbers", "Top Rated", "Certified"]
 
-    elif is_restaurant_or_cafe:
-        return {
-            "brand_name": b_name,
-            "tagline": tagline or "Artisanal Baking, Specialty Coffee & Fresh Pastries",
-            "navbar_items": ["Menu", "Pastries", "Story", "Reviews", "Contact"],
-            "hero": {
-                "headline": f"Artisanal Bakery & Specialty Coffee by {b_name}",
-                "subheadline": "Organic slow-fermented sourdough breads, flaky French butter croissants, bespoke celebration cakes, and espresso.",
-                "badge_text": "BAKED FRESH DAILY",
-                "cta_primary": "Order Bakery Online",
-                "cta_secondary": "View Pastry Menu"
-            },
-            "about": {
-                "title": "Handcrafted with Passion & European Butter",
-                "subtitle": "The Art of Slow Fermentation",
-                "story": f"At {b_name}, baking is an art form. We slow-ferment our sourdough for 24 hours using stone-ground organic flours and pure European butter to craft golden, crusty loaves and delicate pastries.",
-                "highlights": [
-                    "24-Hour Wild Yeast Sourdough Fermentation",
-                    "Laminated with Pure French European Butter",
-                    "Single-Origin Specialty Espresso & Coffee"
-                ]
-            },
-            "micro_tags": ["Baked Fresh", "Organic Sourdough", "French Butter", "Artisanal", "Handcrafted", "Pure Cocoa", "Daily Special", "Best Choice"],
-            "short_titles": ["Our Bakery Menu", "Artisan Methods", "Why Customers Love Us", "Guest Testimonials", "Frequently Asked Questions", "Visit Our Bakery"],
-            "services_or_products": [
-                { "title": "Traditional Sourdough Batard", "desc": "Wild-fermented for 24 hours with a blistered golden crust and tender honeycomb crumb.", "price": "$8.50", "tag": "House Signature" },
-                { "title": "Flaky French Butter Croissant", "desc": "Folded with 84% European churned butter for 27 airy, melt-in-your-mouth golden layers.", "price": "$4.50", "tag": "Morning Favorite" },
-                { "title": "Artisanal Pain au Chocolat", "desc": "Crisp golden laminated pastry filled with two batons of Belgian semi-sweet dark chocolate.", "price": "$5.25", "tag": "Best Seller" },
-                { "title": "Specialty Flat White Coffee", "desc": "Double shot of single-origin espresso with micro-foamed organic steamed milk.", "price": "$4.75", "tag": "Barista Special" }
-            ],
-            "faqs": [
-                { "question": "What time is your bread fresh out of the oven?", "answer": "Our sourdough loaves and baguettes come out hot and fresh daily at 7:00 AM and 1:00 PM." },
-                { "question": "Do you offer vegan or gluten-friendly baked goods?", "answer": "Yes, we bake fresh vegan pastries and gluten-friendly loaves every single morning." },
-                { "question": "Can I pre-order bespoke celebration cakes?", "answer": "Yes, you can order custom birthday and wedding cakes online with 48 hours notice." },
-                { "question": "Do you offer catering for corporate events?", "answer": "We prepare breakfast pastry boxes, artisan sandwich platters, and coffee carafes for events." }
-            ],
-            "features": [
-                { "title": "Organic Flour", "desc": "Stone-ground unbleached flours with no synthetic additives." },
-                { "title": "French Butter", "desc": "Laminated with 84% European butter for extraordinary flaky layers." },
-                { "title": "Baked Every Morning", "desc": "Everything on our shelves is baked fresh before dawn daily." }
-            ],
-            "testimonials": [
-                { "quote": "The sourdough crust and croissants are identical to the finest bakeries in Paris. Absolutely world-class!", "author": "Sophie Martin", "role": "Food Critic" },
-                { "quote": "Best coffee and bakery in the neighborhood. The pain au chocolat is an absolute weekend staple.", "author": "Liam Vance", "role": "Regular Guest" }
-            ],
-            "cta_banner": {
-                "headline": "Craving Warm, Freshly Baked Pastries?",
-                "subheadline": "Order online for express bakery pickup or visit our warm cafe today.",
-                "button_text": "Order Bakery Now"
-            },
-            "stats": [
-                { "number": "100%", "label": "Organic Flours" },
-                { "number": "24 Hrs", "label": "Dough Ferment" },
-                { "number": "Daily", "label": "Fresh Baking" },
-                { "number": "4.9/5", "label": "Customer Rating" }
-            ]
-        }
+    elif detected_domain == 'pizza':
+        dom_tagline = "Wood-Fired Neapolitan Pizza & Authentic Craft"
+        dom_nav = ["Menu", "Pizzas", "Story", "Reviews", "Order", "Contact"]
+        dom_head = f"Wood-Fired Pizza by {b_name}"
+        dom_badge = "WOOD-FIRED AUTHENTIC"
+        dom_cta1 = "Order Pizza Online"
+        dom_cta2 = "View Full Menu"
+        dom_about_title = "Old-World Italian Heritage & Craft"
+        dom_about_sub = "Slow Fermentation & Pure Taste"
+        dom_items = [
+            {"title": "Margherita Verace", "desc": "San Marzano tomatoes, buffalo mozzarella, fresh basil, and extra virgin olive oil.", "price": "$16.50", "tag": "Classic"},
+            {"title": "Diavola Piccante", "desc": "Spicy soppressata, crushed calabrian chili, smoked provolone, and hot honey.", "price": "$19.00", "tag": "Chef Special"},
+            {"title": "Tartufo e Funghi", "desc": "Roasted wild forest mushrooms, creamy fontina cheese, white truffle oil, and thyme.", "price": "$21.50", "tag": "Signature"},
+            {"title": "Burrata Gnocchi", "desc": "Handcrafted potato gnocchi tossed in slow-simmered pomodoro with fresh burrata.", "price": "$18.00", "tag": "Handmade"}
+        ]
+        dom_faqs = [
+            {"question": "What style of pizza do you bake?", "answer": "We bake authentic Neapolitan-style pizza in a 900°F wood-fired volcanic brick oven."},
+            {"question": "Do you offer gluten-friendly or vegan options?", "answer": "Yes, we offer house-made gluten-friendly dough and dairy-free artisan vegan mozzarella."},
+            {"question": "Can I reserve a table online?", "answer": "Yes, table reservations can be made easily online for parties of all sizes."},
+            {"question": "Do you deliver fresh hot pizzas?", "answer": "We offer express local delivery in specialized temperature-controlled insulated bags."}
+        ]
+        dom_features = [
+            {"title": "900°F Brick Oven", "desc": "Blistered to perfection for a light, airy, leopard-spotted sourdough crust."},
+            {"title": "Imported DOP Craft", "desc": "San Marzano tomatoes, Italian flours, and fresh cheeses imported weekly."},
+            {"title": "48-Hour Ferment", "desc": "Naturally slow-aged dough for effortless digestion and deep artisan flavor."}
+        ]
+        dom_tags = ["Wood Fired", "Fresh Daily", "Neapolitan", "Artisanal", "DOP Certified", "Hand Tossed", "House Special", "Best Seller"]
+
+    elif detected_domain == 'saas_tech':
+        dom_tagline = "Intelligent Cloud Platform & Automated Workflows"
+        dom_nav = ["Features", "Solutions", "Platform", "Pricing", "Reviews", "Contact"]
+        dom_head = f"Next-Gen Digital Platform by {b_name}"
+        dom_badge = "AI-POWERED PLATFORM"
+        dom_cta1 = "Start Free Trial"
+        dom_cta2 = "Request Demo"
+        dom_about_title = "Built for Scale, Security & Speed"
+        dom_about_sub = "Empowering Modern Teams"
+        dom_items = [
+            {"title": "Cloud Analytics Engine", "desc": "Real-time data visualization, predictive insights, and automated report exports.", "price": "$49/mo", "tag": "Core"},
+            {"title": "Automated Workflow Studio", "desc": "No-code event triggers, custom webhooks, and seamless multi-app connections.", "price": "$89/mo", "tag": "Popular"},
+            {"title": "Enterprise Security Suite", "desc": "End-to-end SOC2 compliance, role-based access control, and audit logs.", "price": "$199/mo", "tag": "Enterprise"},
+            {"title": "Custom API Integrations", "desc": "High-throughput REST and GraphQL APIs with guaranteed 99.99% uptime SLAs.", "price": "Custom", "tag": "Developer"}
+        ]
+        dom_faqs = [
+            {"question": "How quickly can we integrate the platform?", "answer": "Most teams deploy our lightweight SDK and launch integrations in under 15 minutes."},
+            {"question": "Is my company data encrypted and secure?", "answer": "Yes, all data is protected with 256-bit AES encryption at rest and TLS 1.3 in transit."},
+            {"question": "Do you offer a free trial?", "answer": "Yes, we offer a full-featured 14-day free trial with no credit card required to start."},
+            {"question": "Can we export our data at any time?", "answer": "Yes, you have full ownership and can export your datasets in JSON or CSV anytime."}
+        ]
+        dom_features = [
+            {"title": "Real-Time Sync", "desc": "Sub-millisecond data synchronization across all connected cloud endpoints."},
+            {"title": "99.99% Uptime", "desc": "Enterprise high-availability architecture with redundant global datacenters."},
+            {"title": "Bank-Grade Security", "desc": "SOC2 certified, GDPR compliant, and audited by independent security firms."}
+        ]
+        dom_tags = ["AI-Powered", "Cloud Native", "99.99% Uptime", "SOC2 Certified", "Fast Setup", "Real-Time", "Top Rated", "Enterprise"]
 
     else:
-        # Dynamic contextual synthesis from user's business description
-        clean_desc_lead = (business_description.strip() if business_description else f"Premier products and services by {b_name}")
-        return {
-            "brand_name": b_name,
-            "tagline": tagline or f"Authentic Quality & Dedicated Service at {b_name}",
-            "navbar_items": ["Offerings", "Services", "About", "Reviews", "Contact"],
-            "hero": {
-                "headline": f"Discover Premium Quality with {b_name}",
-                "subheadline": clean_desc_lead,
-                "badge_text": "PREMIUM CRAFT & QUALITY",
-                "cta_primary": "Explore Offerings",
-                "cta_secondary": "Contact Our Team"
-            },
-            "about": {
-                "title": f"Crafted with Passion & Dedication",
-                "subtitle": f"The Story Behind {b_name}",
-                "story": f"At {b_name}, our journey is rooted in delivering the finest experience. We focus on rigorous quality standards, meticulous attention to detail, and personalized care for every customer.",
-                "highlights": [
-                    f"100% Dedicated to Quality & Detail",
-                    f"Friendly, Knowledgeable & Attentive Team",
-                    f"Trusted by Hundreds of Delighted Customers"
-                ]
-            },
-            "micro_tags": ["Top Quality", "Handcrafted", "Best Choice", "Certified", "Dedicated", "Popular", "Signature", "Verified"],
-            "short_titles": ["Our Offerings", "Our Philosophy", "Why Choose Us", "Client Reviews", "Frequently Asked Questions", "Get in Touch"],
-            "services_or_products": [
-                { "title": f"Signature {b_name} Selection", "desc": "Our most popular offering, featuring premium craftsmanship and finest standards.", "price": "Featured", "tag": "Best Choice" },
-                { "title": "Custom Specialty Option", "desc": "Tailored specifically according to your individual preferences and requests.", "price": "Custom", "tag": "Special Pick" },
-                { "title": "Popular Daily Favorite", "desc": "A customer favorite prepared fresh daily with meticulous care and dedication.", "price": "Popular", "tag": "Top Rated" },
-                { "title": "Exclusive Premium Package", "desc": "Complete all-inclusive package designed for maximum delight and value.", "price": "Special", "tag": "Exclusive" }
-            ],
-            "faqs": [
-                { "question": f"What services does {b_name} specialize in?", "answer": f"We specialize in delivering premium quality {cat or 'solutions'} tailored to your exact needs." },
-                { "question": "How can I book or place an order?", "answer": "You can easily order online or get in touch with our team via email or phone." },
-                { "question": "Do you offer custom requests and packages?", "answer": "Yes, we work closely with you to tailor custom packages to your requirements." },
-                { "question": "What is your satisfaction guarantee?", "answer": "We stand behind all our offerings with a full commitment to your total delight." }
-            ],
-            "features": [
-                { "title": "Unmatched Quality", "desc": "Every single detail is prepared with immense care and passion." },
-                { "title": "Customer First", "desc": "We provide a warm, responsive, and welcoming experience." },
-                { "title": "Guaranteed Delight", "desc": "We back all our offerings with a total commitment to satisfaction." }
-            ],
-            "testimonials": [
-                { "quote": f"The quality and passion at {b_name} are unmatched. Exactly what I was looking for!", "author": "Alex Morgan", "role": "Satisfied Customer" },
-                { "quote": "Remarkable attention to detail, friendly service, and unbeatable quality.", "author": "Samira Patel", "role": "Loyal Guest" }
-            ],
-            "cta_banner": {
-                "headline": f"Ready to Experience the Difference with {b_name}?",
-                "subheadline": f"Visit us or get in touch today to explore our full range of offerings.",
-                "button_text": "Get in Touch"
-            },
-            "stats": [
-                { "number": "100%", "label": "Customer Satisfaction" },
-                { "number": "5k+", "label": "Delighted Clients" },
-                { "number": "4.9/5", "label": "Review Score" },
-                { "number": "Daily", "label": "Fresh Craftsmanship" }
+        # Generic Domain Synthesizer that deeply incorporates user's description
+        lead_offering = user_offerings[0] if user_offerings else (user_keywords[0] if user_keywords else "Offerings")
+        dom_tagline = f"Exceptional {lead_offering} & Dedicated Craftsmanship"
+        dom_nav = ["Offerings", "Services", "Story", "Reviews", "Contact"]
+        dom_head = f"Discover Premium {lead_offering} at {b_name}"
+        dom_badge = "PREMIUM QUALITY & CRAFT"
+        dom_cta1 = "Explore Offerings"
+        dom_cta2 = "Contact Our Team"
+        dom_about_title = "Crafted with Passion & Dedicated Care"
+        dom_about_sub = "Uncompromising Standards"
+        
+        # Build items from user offerings if available
+        dom_items = []
+        if user_offerings:
+            for idx, off in enumerate(user_offerings[:4]):
+                dom_items.append({
+                    "title": off,
+                    "desc": f"Premium {off.lower()} crafted with extreme precision and dedicated attention to detail.",
+                    "price": f"${29 + idx * 15}.00",
+                    "tag": "Featured" if idx == 0 else ("Popular" if idx == 1 else "Signature")
+                })
+        while len(dom_items) < 4:
+            idx = len(dom_items)
+            dom_items.append({
+                "title": f"Signature {b_name} Selection",
+                "desc": "Our most popular offering, featuring premium craftsmanship and finest standards.",
+                "price": f"${35 + idx * 10}.00",
+                "tag": "Best Seller" if idx == 0 else "Special Pick"
+            })
+
+        dom_faqs = [
+            {"question": f"What makes {b_name} stand out?", "answer": "We combine highest quality materials, rigorous standards, and personalized service tailored directly to your needs."},
+            {"question": "How can I place an order or book a consultation?", "answer": "You can easily order online or get in touch with our team via email or phone."},
+            {"question": "Do you offer custom requests and special orders?", "answer": "Yes! We are delighted to accommodate custom orders and bespoke requests."},
+            {"question": "What is your satisfaction guarantee?", "answer": "We back all our offerings with a full commitment to your total delight and satisfaction."}
+        ]
+        dom_features = [
+            {"title": "Unmatched Quality", "desc": "Every single detail is prepared with immense care, passion, and precision."},
+            {"title": "Customer First", "desc": "We provide a warm, responsive, and welcoming experience for every client."},
+            {"title": "Guaranteed Delight", "desc": "We back all our offerings with a total commitment to your satisfaction."}
+        ]
+        dom_tags = ["Top Quality", "Handcrafted", "Best Choice", "Certified", "Dedicated", "Popular", "Signature", "Verified"]
+
+    # If user provided custom offerings from description, integrate them into items
+    if user_offerings and len(user_offerings) >= 2:
+        for idx, off in enumerate(user_offerings[:4]):
+            if idx < len(dom_items):
+                dom_items[idx]["title"] = off
+                dom_items[idx]["desc"] = f"Top-grade {off.lower()} prepared with rigorous standards and dedicated care."
+
+    # Build final hero headline and subheadline from actual description
+    final_tagline = tagline.strip() if tagline and tagline.strip() else dom_tagline
+    
+    if desc_raw:
+        clean_sub = desc_raw if len(desc_raw) <= 120 else (desc_raw[:117] + "...")
+        final_hero_sub = clean_sub
+        final_story = f"At {b_name}, our journey is rooted in delivering the finest experience. {desc_raw}. We focus on rigorous quality standards, meticulous attention to detail, and personalized care for every customer."
+    else:
+        final_hero_sub = f"Discover the finest quality products and dedicated personalized service at {b_name}."
+        final_story = f"At {b_name}, we are committed to delivering the highest standard of quality, craftsmanship, and customer delight."
+
+    # Section headings pool
+    short_titles = [
+        dom_about_title, "Signature Offerings", "Why Choose Us", "Client Reviews", "Frequently Asked Questions", "Get in Touch"
+    ]
+
+    # Medium phrases pool (25-45 chars each)
+    medium_phrases = [
+        dom_about_sub,
+        final_tagline,
+        "Handcrafted with precision and passion daily",
+        "Rooted in tradition and unwavering quality",
+        "Dedicated to an unforgettable experience",
+        "Discover our finest seasonal selections"
+    ]
+
+    # Domain paragraphs pool (> 50 chars)
+    domain_paragraphs = [
+        final_hero_sub,
+        final_story,
+        f"Every single offering at {b_name} is crafted with extreme precision, dedication, and attention to detail to ensure you receive the finest experience possible.",
+        f"We take immense pride in our craftsmanship and unwavering dedication to customer satisfaction. Discover what sets us apart from the rest.",
+        f"From initial concept to final delivery, our team focuses on quality ingredients, rigorous standards, and personalized service tailored to your exact needs."
+    ]
+
+    # Cleaned nav items (max 14 chars)
+    nav_items = dom_nav if dom_nav else ["Offerings", "Services", "Story", "Reviews", "Contact"]
+
+    return {
+        "brand_name": b_name,
+        "tagline": final_tagline,
+        "navbar_items": nav_items,
+        "hero": {
+            "headline": dom_head,
+            "subheadline": final_hero_sub,
+            "badge_text": dom_badge,
+            "cta_primary": dom_cta1,
+            "cta_secondary": dom_cta2
+        },
+        "about": {
+            "title": dom_about_title,
+            "subtitle": dom_about_sub,
+            "story": final_story,
+            "highlights": [
+                f"100% Dedicated to Quality & Detail",
+                f"Friendly, Knowledgeable & Attentive Team",
+                f"Trusted by Hundreds of Delighted Customers"
             ]
-        }
+        },
+        "micro_tags": dom_tags if dom_tags else ["Top Quality", "Handcrafted", "Best Choice", "Certified", "Dedicated", "Popular", "Signature", "Verified"],
+        "short_titles": short_titles,
+        "medium_phrases": medium_phrases,
+        "domain_paragraphs": domain_paragraphs,
+        "services_or_products": dom_items,
+        "faqs": dom_faqs,
+        "features": dom_features,
+        "testimonials": [
+            {
+                "quote": f"The quality and craftsmanship at {b_name} exceeded all our expectations. Exactly what we were looking for!",
+                "author": "Alex Morgan",
+                "role": "Verified Customer"
+            },
+            {
+                "quote": f"Remarkable attention to detail, friendly communication, and unbeatable reliability from {b_name}.",
+                "author": "Samira Patel",
+                "role": "Regular Client"
+            },
+            {
+                "quote": f"Outstanding experience from start to finish. Highly recommend {b_name} to anyone seeking premier quality.",
+                "author": "Marcus Vance",
+                "role": "Loyal Guest"
+            }
+        ],
+        "cta_banner": {
+            "headline": f"Ready to Experience the Difference with {b_name}?",
+            "subheadline": f"Get in touch with our team today to explore our full range of offerings.",
+            "button_text": dom_cta1 or "Get Started Now"
+        },
+        "stats": [
+            {"number": "100%", "label": "Satisfaction"},
+            {"number": "15k+", "label": "Happy Clients"},
+            {"number": "4.9/5", "label": "Review Score"},
+            {"number": "Daily", "label": "Fresh Craft"}
+        ],
+        "action_ctas": [dom_cta1, dom_cta2, "Order Online", "Book Now", "View Details", "Get Started", "Learn More", "Contact Us"]
+    }
+
