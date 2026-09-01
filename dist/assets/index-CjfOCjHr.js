@@ -1105,424 +1105,724 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
 
             // 1. Direct Span Class Targets & Placeholders (Header & Footer brand text only)
+
             if (busTitle) {
+
               document.querySelectorAll('header .navbar-brand, nav .navbar-brand, span.business-name, .business-name, span.site-name, .site-name, span.site-title, .site-title, span.brand-name, .brand-name, span.company-name, .company-name, header [data-editable="title"], nav [data-editable="title"], footer [data-editable="title"]').forEach(function(el) {
+
                 if (el.closest('.hero, .hero-section, .hero-area, .main-slider, .home-slider, #hero, #home')) return;
+
                 el.textContent = busTitle;
+
               });
+
             }
+
+
 
             if (busTagline) {
+
               document.querySelectorAll('span.business-tagline, .business-tagline, span.tagline, .tagline, span.subtitle, .subtitle, span.hero-sub, [data-editable="tagline"]').forEach(function(el) {
+
                 el.textContent = busTagline;
+
               });
+
             }
+
+
 
             if (contactEmail) {
+
               document.querySelectorAll('span.business-email, .business-email, span.email, .email, span.contact-email, .contact-email, [data-editable="contact_email"]').forEach(function(el) {
+
                 el.textContent = contactEmail;
+
                 if (el.tagName === 'A') el.href = 'mailto:' + contactEmail;
+
                 if (el.parentElement && el.parentElement.tagName === 'A') el.parentElement.href = 'mailto:' + contactEmail;
+
               });
+
             }
+
+
 
             if (contactPhone) {
+
               var cleanP = contactPhone.replace(/[^0-9+]/g, '');
+
               document.querySelectorAll('span.business-phone, .business-phone, span.phone, .phone, span.contact-phone, .contact-phone, [data-editable="contact_phone"]').forEach(function(el) {
+
                 el.textContent = contactPhone;
+
                 if (el.tagName === 'A') el.href = 'tel:' + cleanP;
+
                 if (el.parentElement && el.parentElement.tagName === 'A') el.parentElement.href = 'tel:' + cleanP;
+
               });
+
             }
+
+
 
             // Helper to set all image and lazyload attributes (strictly targets <img> elements only)
+
             function setImgAllAttrs(imgEl, targetUrl) {
+
               if (!targetUrl || !imgEl || imgEl.tagName !== 'IMG') return;
+
               imgEl.src = targetUrl;
+
               imgEl.srcset = targetUrl;
-              imgEl.setAttribute('src', targetUrl);
-              imgEl.setAttribute('srcset', targetUrl);
+
               ['data-src', 'data-original', 'data-lazy', 'data-lazy-src', 'data-img-url', 'data-thumb', 'data-zoom-image', 'data-hover-src', 'data-retina', 'data-srcset', 'data-lazyload'].forEach(function(attr) {
-                imgEl.setAttribute(attr, targetUrl);
+
+                if (imgEl.hasAttribute(attr)) imgEl.setAttribute(attr, targetUrl);
+
               });
+
             }
 
-            function setBgImage(el, targetUrl) {
-              if (!targetUrl || !el) return;
-              el.style.setProperty('background-image', "url('" + targetUrl + "')", 'important');
-              ['data-background', 'data-bg', 'data-bg-image', 'data-background-image', 'data-src', 'data-lazy-bg'].forEach(function(attr) {
-                if (el.hasAttribute(attr)) el.setAttribute(attr, targetUrl);
-              });
-            }
+
 
             // 2. User Logo Replacement (Image Mode vs Text Mode across ALL templates)
+
             var logoContainers = document.querySelectorAll(
+
               'header .navbar-brand, nav .navbar-brand, .navbar-brand, header .logo, nav .logo, ' +
+
               '.site-logo, .header-logo, .brand-logo, .brand, .logo, .site-branding, .logo-box, ' +
+
               '.logo-area, .logo-holder, .custom-logo-link, span.logo, span.business-logo, ' +
+
               '.business-logo, .header__logo, .header_logo, .brand-area, .footer-logo, .footer__logo, ' +
+
               '.main-logo, [data-editable="logo"], [data-logo="business_logo"], [data-logo="logo"], img[data-logo]'
+
             );
 
+
+
             if (logoUrl) {
+
               logoContainers.forEach(function(el) {
+
                 var img = el.tagName === 'IMG' ? el : el.querySelector('img');
+
                 if (img) {
+
                   setImgAllAttrs(img, logoUrl);
+
                   img.alt = busTitle || 'Logo';
+
                   img.style.setProperty('max-height', '52px', 'important');
+
                   img.style.setProperty('max-width', '260px', 'important');
+
                   img.style.setProperty('object-fit', 'contain', 'important');
+
                   img.style.setProperty('width', 'auto', 'important');
+
                 } else if (['IMG', 'SVG'].indexOf(el.tagName) === -1) {
+
                   el.innerHTML = '<img src="' + logoUrl + '" alt="' + (busTitle || 'Logo') + '" style="max-height:52px;max-width:260px;object-fit:contain;width:auto;" />';
+
                 }
+
               });
+
+
 
               var logoImgs = document.querySelectorAll('header img, nav img, .navbar-brand img, .header-logo img, .site-logo img, .footer-logo img, .footer-brand img');
+
               logoImgs.forEach(function(img) {
+
                 if (img.getAttribute('data-image')) return;
+
                 setImgAllAttrs(img, logoUrl);
+
                 img.style.setProperty('max-height', '52px', 'important');
+
                 img.style.setProperty('max-width', '260px', 'important');
+
                 img.style.setProperty('object-fit', 'contain', 'important');
+
                 img.style.setProperty('width', 'auto', 'important');
+
               });
+
             } else if (busTitle) {
+
               // Text logo mode: Replace template logo image with bold text brand name
+
               logoContainers.forEach(function(el) {
+
                 var img = el.tagName === 'IMG' ? el : el.querySelector('img');
+
                 if (img) {
+
                   var span = document.createElement('span');
+
                   span.className = 'business-title-text';
+
                   span.textContent = busTitle;
+
                   span.style.fontSize = '1.45rem';
+
                   span.style.fontWeight = '800';
+
                   span.style.letterSpacing = '-0.02em';
+
                   span.style.color = 'inherit';
+
                   span.style.textDecoration = 'none';
+
                   span.style.display = 'inline-block';
+
                   if (el.tagName === 'IMG') {
+
                     el.replaceWith(span);
+
                   } else {
+
                     el.innerHTML = '';
+
                     el.appendChild(span);
+
                   }
+
                 } else {
+
                   el.textContent = busTitle;
+
                 }
+
               });
+
             }
 
-            // 3. Full-Page & Multi-Banner Pexels Business Images Replacement (Strictly targets <img> tags and background-images)
+
+
+            // 3. Full-Page & Multi-Banner Pexels Business Images Replacement (Strictly targets <img> tags only)
+
             var poolUrls = [];
+
             if (Array.isArray(imagePoolArr) && imagePoolArr.length > 0) {
+
               poolUrls = imagePoolArr.map(function(item) { return item && item.url ? item.url : ''; }).filter(Boolean);
+
             }
+
             if (poolUrls.length === 0 && imagesMap && typeof imagesMap === 'object') {
+
               poolUrls = Object.values(imagesMap).filter(Boolean);
+
             }
+
             if (poolUrls.length === 0 && heroImgUrl) {
+
               poolUrls = [heroImgUrl];
+
             }
+
             if (poolUrls.length === 0) {
-              var busDesc = ${JSON.stringify(r.business_description||``)};
-              var corpusK = (busTitle + " " + busTagline + " " + busDesc).toLowerCase();
+
+              var corpusK = (busTitle + " " + busTagline).toLowerCase();
+
               if (/(?:pizza|italian|pasta|bistro|restaurant|cafe|coffee|bakery|food|dine|grill|bar|kitchen)/i.test(corpusK)) {
+
                 poolUrls = [
+
                   "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1200&q=80",
+
                   "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1590947132387-155cc02f3212?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80"
+
                 ];
+
               } else if (/(?:gym|fitness|workout|trainer|training|crossfit|yoga|athlete|muscle|health)/i.test(corpusK)) {
+
                 poolUrls = [
+
                   "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&q=80",
+
                   "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&q=80"
+
                 ];
+
               } else if (/(?:flower|boutique|floral|plant|garden|bloom|rose)/i.test(corpusK)) {
+
                 poolUrls = [
+
                   "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=1200&q=80",
+
                   "https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1563245372-f21724e3856d?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1508610048659-a06b669e3321?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=800&q=80"
+
                 ];
-              } else if (/(?:dental|dentist|clinic|medical|doctor|hospital|health|care|smile|patient|therapy)/i.test(corpusK)) {
-                poolUrls = [
-                  "https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=1200&q=80",
-                  "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=800&q=80",
-                  "https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=800&q=80",
-                  "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&q=80"
-                ];
-              } else if (/(?:fashion|luxury|clothing|jewelry|apparel|watch|wear|leather|shoes|style)/i.test(corpusK)) {
-                poolUrls = [
-                  "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200&q=80",
-                  "https://images.unsplash.com/photo-1445205170230-053b83016050?w=800&q=80",
-                  "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=800&q=80",
-                  "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80"
-                ];
-              } else if (/(?:car|auto|repair|mechanic|garage|vehicle|motor|detailing|tire)/i.test(corpusK)) {
-                poolUrls = [
-                  "https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=1200&q=80",
-                  "https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=800&q=80",
-                  "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=800&q=80",
-                  "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80"
-                ];
-              } else if (/(?:dairy|milk|farm|farming|organic|cheese|butter|purity|agriculture)/i.test(corpusK)) {
-                poolUrls = [
-                  "https://images.unsplash.com/photo-1527153857715-3908f2ae5e81?w=1200&q=80",
-                  "https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=800&q=80",
-                  "https://images.unsplash.com/photo-1570042225831-d98fa7577f1e?w=800&q=80"
-                ];
+
               } else {
+
                 poolUrls = [
+
                   "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80",
+
                   "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&q=80",
+
                   "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=800&q=80"
+
                 ];
+
               }
+
             }
+
+
 
             var cardImgUrls = poolUrls.length > 1 ? poolUrls.slice(1) : poolUrls;
 
+
+
             if (poolUrls.length > 0) {
+
               var livePoolIdx = 1; // poolUrls[0] is hero / slide 1 banner
+
               var processedImgs = new Set();
 
+
+
               function getActualSlides(container) {
+
                 // 1. Revolution Slider / flexslider / ul slider
+
                 var revSlides = container.querySelectorAll('.rev_slider ul > li, .tp-banner ul > li, .tp-banner-container ul > li, ul.slides > li, .rslides > li');
+
                 if (revSlides && revSlides.length > 0) {
+
                   var filtered = [];
+
                   revSlides.forEach(function(li) {
+
                     var cls = (li.className || '').toLowerCase();
+
                     if (!/(?:bullet|dot|arrow|thumb|nav|tab|indicator)/i.test(cls)) {
+
                       filtered.push(li);
+
                     }
+
                   });
+
                   if (filtered.length > 0) return filtered;
+
                 }
+
+
 
                 // 2. Swiper
+
                 var swiperSlides = container.querySelectorAll('.swiper-wrapper > .swiper-slide');
+
                 if (!swiperSlides || swiperSlides.length === 0) swiperSlides = container.querySelectorAll('.swiper-slide');
+
                 if (swiperSlides && swiperSlides.length > 0) return Array.from(swiperSlides);
 
+
+
                 // 3. Owl Carousel
+
                 var owlSlides = container.querySelectorAll('.owl-stage > .owl-item, .owl-carousel > .item, .owl-carousel > div, .owl-item, .owl-carousel .item');
+
                 if (owlSlides && owlSlides.length > 0) {
+
                   var topOwl = [];
+
                   owlSlides.forEach(function(s) {
+
                     var isNested = false;
+
                     for (var i = 0; i < owlSlides.length; i++) {
+
                       if (owlSlides[i] !== s && owlSlides[i].contains(s)) {
+
                         isNested = true;
+
                         break;
+
                       }
+
                     }
+
                     if (!isNested) topOwl.push(s);
+
                   });
+
                   if (topOwl.length > 0) return topOwl;
+
                 }
+
+
 
                 // 4. Slick Slider
+
                 var slickSlides = container.querySelectorAll('.slick-track > .slick-slide, .slick-slide');
+
                 if (slickSlides && slickSlides.length > 0) return Array.from(slickSlides);
 
+
+
                 // 5. Bootstrap Carousel
+
                 var bsSlides = container.querySelectorAll('.carousel-inner > .carousel-item, .carousel-item');
+
                 if (bsSlides && bsSlides.length > 0) return Array.from(bsSlides);
 
+
+
                 // 6. Generic slide classes
+
                 var rawSlides = container.querySelectorAll('[class*="slide-item"], [class*="slider-item"], [class*="single-slide"], [class*="single-slider"], [class*="slide-inner"], .slide, .single-hero-slide');
+
                 if (rawSlides && rawSlides.length > 0) {
+
                   var topSlides = [];
+
                   rawSlides.forEach(function(s) {
+
                     var isNested = false;
+
                     for (var i = 0; i < rawSlides.length; i++) {
+
                       if (rawSlides[i] !== s && rawSlides[i].contains(s)) {
+
                         isNested = true;
+
                         break;
+
                       }
+
                     }
+
                     if (!isNested) topSlides.push(s);
+
                   });
+
                   if (topSlides.length > 0) return topSlides;
+
                 }
+
+
 
                 // 7. Direct child divs in slider container if multiple child divs have img
+
                 var directChildren = Array.from(container.children).filter(function(c) {
+
                   return ['DIV', 'LI', 'ARTICLE', 'SECTION'].indexOf(c.tagName) !== -1;
+
                 });
+
                 if (directChildren.length >= 2) {
+
                   var withImgs = directChildren.filter(function(c) {
+
                     return c.querySelector('img');
+
                   });
+
                   if (withImgs.length >= 2) return withImgs;
+
                 }
+
+
 
                 return [];
+
               }
 
-              // Step A: Discover top-level sliders and replace their <img> elements & background-images
+
+
+              // Step A: Discover top-level sliders and replace their <img> elements
+
               var sliderSelectors = '.rev_slider, .tp-banner, .swiper-container, .swiper, .owl-carousel, .slick-slider, .carousel, [class*="slider-area"], [class*="hero-slider"], [class*="banner-slider"], [class*="main-slider"], .ak-slider, [class*="slider_wrap"], [class*="rev_slider_wrapper"], [class*="home-slider"]';
+
               var allSliders = document.querySelectorAll(sliderSelectors);
+
               var topSliders = [];
+
               allSliders.forEach(function(sc) {
+
                 var isNested = false;
+
                 for (var i = 0; i < allSliders.length; i++) {
+
                   if (allSliders[i] !== sc && allSliders[i].contains(sc)) {
+
                     isNested = true;
+
                     break;
+
                   }
+
                 }
+
                 if (!isNested) topSliders.push(sc);
+
               });
+
+
 
               var handledSlideEls = new Set();
+
               var globalSlideIdx = 0;
 
+
+
               topSliders.forEach(function(sc) {
+
                 var actualSlides = getActualSlides(sc);
+
                 var validSlides = [];
+
                 actualSlides.forEach(function(sl) {
+
                   if (!handledSlideEls.has(sl)) {
+
                     validSlides.push(sl);
+
                     handledSlideEls.add(sl);
+
                   }
+
                 });
 
+
+
                 if (validSlides.length > 0) {
+
                   validSlides.forEach(function(slideEl) {
+
                     var slideBannerUrl = "";
+
                     if (globalSlideIdx === 0) {
+
                       slideBannerUrl = heroImgUrl || poolUrls[0] || "";
+
                     } else {
+
                       slideBannerUrl = poolUrls[livePoolIdx % poolUrls.length] || heroImgUrl;
+
                       livePoolIdx++;
+
                     }
+
                     globalSlideIdx++;
 
-                    // Check for background images on slide element itself
-                    setBgImage(slideEl, slideBannerUrl);
+
 
                     var slideImgs = Array.from(slideEl.querySelectorAll('img')).filter(function(img) {
+
                       return !processedImgs.has(img);
+
                     });
+
+
 
                     var bgImgEl = null;
+
                     for (var i = 0; i < slideImgs.length; i++) {
+
                       var sCls = (slideImgs[i].className || '').toLowerCase();
+
                       if (/(?:rev-slidebg|ak-hero-bg|main-slider__bg|slide-bg|hero-bg|bg-img|object-cover|slidebg)/i.test(sCls)) {
+
                         bgImgEl = slideImgs[i];
+
                         break;
+
                       }
+
                     }
+
                     if (!bgImgEl && slideImgs.length > 0) {
+
                       bgImgEl = slideImgs[0];
+
                     }
+
+
 
                     if (bgImgEl && slideBannerUrl) {
+
                       setImgAllAttrs(bgImgEl, slideBannerUrl);
+
                       processedImgs.add(bgImgEl);
+
                     }
 
+
+
                     slideImgs.forEach(function(otherImg) {
+
                       if (processedImgs.has(otherImg)) return;
+
                       var layerUrl = poolUrls[livePoolIdx % poolUrls.length];
+
                       livePoolIdx++;
+
                       setImgAllAttrs(otherImg, layerUrl);
+
                       processedImgs.add(otherImg);
+
                     });
+
                   });
+
                 }
+
               });
 
-              // Step B: Standalone hero sections (replaces <img> elements & background-images)
+
+
+              // Step B: Standalone hero sections (replaces <img> elements only)
+
               document.querySelectorAll('section, header, div.hero, div.banner, div.masthead, main').forEach(function(sec) {
+
                 var sCls = (sec.className || '').toLowerCase();
+
                 var sId = (sec.id || '').toLowerCase();
+
                 var isHero = /(?:hero|banner|masthead|showcase|intro|welcome)/i.test(sCls) || /(?:hero|banner|masthead|showcase|intro|welcome)/i.test(sId);
+
                 var isEx = /(?:client|partner|sponsor|logo|footer|sidebar|hero-content|hero-caption|hero-text|hero-title|hero-box|banner-content|banner-text|banner-inner|caption|container|row|col-)/i.test(sCls);
+
                 if (isHero && !isEx) {
+
                   if (sec.closest('.hero-content, .hero-caption, .hero-text, .hero-title, .banner-content, .banner-text, .container, .row')) return;
-                  var hTarget = livePoolIdx > 1 ? poolUrls[livePoolIdx % poolUrls.length] : (heroImgUrl || poolUrls[0]);
-                  setBgImage(sec, hTarget);
 
                   var secImgs = Array.from(sec.querySelectorAll('img')).filter(function(img) {
+
                     return !processedImgs.has(img) && !img.closest('.logo, header, nav, footer, .navbar-brand');
+
                   });
+
                   secImgs.forEach(function(simg) {
+
                     var simgCls = (simg.className || '').toLowerCase();
+
                     if (simgCls.indexOf('logo') !== -1) return;
+
                     var tUrl = livePoolIdx > 1 ? poolUrls[livePoolIdx % poolUrls.length] : (heroImgUrl || poolUrls[0]);
+
                     livePoolIdx++;
+
                     setImgAllAttrs(simg, tUrl);
+
                     processedImgs.add(simg);
+
                   });
+
                 }
+
               });
 
-              // Step C: All Background Images & Parallax / Section Background Containers
-              var bgContainers = document.querySelectorAll(
-                '[data-background], [data-bg], [data-bg-image], [data-background-image], [data-lazy-bg], ' +
-                '[style*="background-image"], [style*="background: url"], [style*="background:url"], ' +
-                '.hero-bg, .slide-bg, .main-slider__bg, .banner-bg, .bg-image, .bg-img, [class*="hero-bg"], [class*="slide-bg"]'
-              );
-              bgContainers.forEach(function(bEl) {
-                if (processedImgs.has(bEl)) return;
-                var bCls = (bEl.className || '').toLowerCase();
-                if (/(?:logo|brand|icon|flag|payment)/i.test(bCls)) return;
-                var tBg = (livePoolIdx <= 1) ? (heroImgUrl || poolUrls[0]) : poolUrls[livePoolIdx % poolUrls.length];
-                livePoolIdx++;
-                setBgImage(bEl, tBg);
-                processedImgs.add(bEl);
-              });
 
-              // Step D: All remaining <img> tags across the entire page
+
+              // Step C: All remaining <img> tags across the entire page
+
               document.querySelectorAll('img').forEach(function(img) {
+
                 if (processedImgs.has(img)) return;
+
                 var pClasses = (img.parentElement ? img.parentElement.className : '').toLowerCase();
+
                 var iClasses = (img.className || '').toLowerCase();
+
                 var iAlt = (img.alt || '').toLowerCase();
+
                 var iId = (img.id || '').toLowerCase();
+
                 var iSrc = (img.getAttribute('src') || '').toLowerCase();
 
+
+
                 if (pClasses.indexOf('logo') !== -1 || iClasses.indexOf('logo') !== -1 || iAlt.indexOf('logo') !== -1 || iId.indexOf('logo') !== -1 || iSrc.indexOf('logo') !== -1 || img.hasAttribute('data-logo')) {
+
                   if (logoUrl) {
+
                     setImgAllAttrs(img, logoUrl);
+
                   }
+
                   processedImgs.add(img);
+
                   return;
+
                 }
+
+
 
                 if (iSrc.endsWith('.svg') || iSrc.endsWith('.ico') || /(?:flag|payment|visa|mastercard|paypal|cart-icon|arrow-|close|search-icon)/i.test(iSrc) || /(?:flag|payment|visa|mastercard|paypal|cart-icon|arrow-|close|search-icon)/i.test(iClasses)) {
+
                   return;
+
                 }
+
+
 
                 if (img.hasAttribute('data-image')) {
+
                   var role = (img.getAttribute('data-image') || '').toLowerCase().trim();
+
                   if (imagesMap && imagesMap[role]) {
+
                     setImgAllAttrs(img, imagesMap[role]);
+
                     processedImgs.add(img);
+
                     return;
+
                   }
+
                 }
 
+
+
                 var targetSrc = poolUrls[livePoolIdx % poolUrls.length];
+
                 livePoolIdx++;
+
                 setImgAllAttrs(img, targetSrc);
+
                 processedImgs.add(img);
+
               });
+
             }
+
+
 
             // 5.5. Full-Page Length-Aware & Semantic AI Copywriting Live Injection
 
@@ -1640,785 +1940,1420 @@ Please change the parent <Route path="${e}"> to <Route path="${e===`/`?`*`:`${e}
 
 
 
-            var singleWordPool = (aiContent && aiContent.micro_tags) || microTagsArr || [
-              "Fresh", "Artisanal", "Best", "Quality", "Pure", "Prime", "Select", "Choice", "Authentic", "Craft"
-            ];
-
-            function fitTextToLength(target, orig, maxLeeway, wordPool) {
-              if (!orig) return target || "";
-              var origClean = (orig || "").trim();
-              if (!origClean) return "";
-              var origLen = origClean.length;
-              var origWords = origClean.split(' ').filter(Boolean).length;
-              var targetClean = String(target || "").replace(/\r/g, ' ').replace(/\n/g, ' ').replace(/\t/g, ' ').trim();
-              if (!targetClean) return origClean;
-              var maxAllowed = origLen + (typeof maxLeeway === 'number' ? maxLeeway : 3);
-
-              var res = "";
-              if (origWords === 1) {
-                var tWords = targetClean.split(' ').filter(Boolean);
-                if (tWords.length === 1 && targetClean.length <= maxAllowed) {
-                  res = targetClean;
-                } else if (Array.isArray(wordPool) && wordPool.length > 0) {
-                  var bestW = "";
-                  for (var i = 0; i < wordPool.length; i++) {
-                    var cand = (wordPool[i] || "").trim().split(' ')[0];
-                    if (cand && cand.length <= maxAllowed) {
-                      if (!bestW || Math.abs(cand.length - origLen) < Math.abs(bestW.length - origLen)) {
-                        bestW = cand;
-                      }
-                    }
-                  }
-                  if (bestW) {
-                    res = bestW;
-                  } else {
-                    var firstW = tWords[0] || targetClean;
-                    res = firstW.length <= maxAllowed ? firstW : firstW.substring(0, maxAllowed).trim();
-                  }
-                } else {
-                  var firstW2 = tWords[0] || targetClean;
-                  res = firstW2.length <= maxAllowed ? firstW2 : firstW2.substring(0, maxAllowed).trim();
-                }
-              } else {
-                if (targetClean.length <= maxAllowed) {
-                  res = targetClean;
-                } else {
-                  var words = targetClean.split(' ').filter(Boolean);
-                  var accum = [];
-                  var curLen = 0;
-                  for (var wIdx = 0; wIdx < words.length; wIdx++) {
-                    var w = words[wIdx];
-                    var nextLen = curLen + (accum.length > 0 ? 1 : 0) + w.length;
-                    if (nextLen <= maxAllowed) {
-                      accum.push(w);
-                      curLen = nextLen;
-                    } else {
-                      break;
-                    }
-                  }
-                  if (accum.length > 0) {
-                    res = accum.join(' ');
-                    res = res.replace(/[,;:\-\s]+$/, '');
-                    var danglingWords = ['and', 'or', 'with', 'of', 'in', 'to', 'for', 'the', 'a', 'an'];
-                    var resWords = res.split(' ').filter(Boolean);
-                    if (resWords.length > 1 && danglingWords.indexOf(resWords[resWords.length - 1].toLowerCase()) !== -1) {
-                      resWords.pop();
-                      res = resWords.join(' ');
-                    }
-                    if (origClean.endsWith('.') && !res.endsWith('.')) {
-                      if (res.length + 1 <= maxAllowed) res += '.';
-                    }
-                  } else {
-                    var fWord = words[0] || targetClean;
-                    res = fWord.substring(0, maxAllowed).trim();
-                  }
-                }
-              }
-
-              if (origClean === origClean.toUpperCase() && origClean.length >= 2) {
-                res = res.toUpperCase();
-              } else if (origClean[0] === origClean[0].toUpperCase() && origClean.slice(1) === origClean.slice(1).toLowerCase()) {
-                if (res.indexOf(' ') !== -1) {
-                  res = res.split(' ').map(function(txt) {
-                    return txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase();
-                  }).join(' ');
-                } else {
-                  res = res.charAt(0).toUpperCase() + res.slice(1).toLowerCase();
-                }
-              } else if (origClean === origClean.toLowerCase()) {
-                res = res.toLowerCase();
-              }
-
-              if (res.length > maxAllowed) {
-                res = res.substring(0, maxAllowed).trim();
-              }
-
-              return res;
-            }
-
-            function setTagTextPreservingChildren(tag, newText) {
-              if (!tag || newText === undefined || newText === null) return;
-              var innerSpan = tag.querySelector('span');
-              if (innerSpan && !innerSpan.querySelector('svg, img, i')) {
-                innerSpan.textContent = newText;
-                return;
-              }
-              var innerA = tag.querySelector('a');
-              if (innerA && !innerA.querySelector('svg, img, i')) {
-                innerA.textContent = newText;
-                return;
-              }
-              var hasIcon = tag.querySelector('svg, img, i');
-              if (hasIcon) {
-                var replaced = false;
-                for (var bi = 0; bi < tag.childNodes.length; bi++) {
-                  var cNode = tag.childNodes[bi];
-                  if (cNode.nodeType === 3 && cNode.nodeValue.trim().length > 0) {
-                    cNode.nodeValue = ' ' + newText.trim() + ' ';
-                    replaced = true;
-                    break;
-                  }
-                }
-                if (!replaced) {
-                  tag.appendChild(document.createTextNode(' ' + newText.trim()));
-                }
-              } else {
-                tag.textContent = newText;
-              }
-            }
-
             var processedDOMElements = new Set();
 
+
+
             // Step 0: Category-Specific Dynamic Navigation & Footer Menu Items
+
             var corpusText = "";
+
             try {
+
               var sText = Array.isArray(servicesArr) ? servicesArr.map(function(s) {
+
                 return s && typeof s === 'object' ? (s.title || s.name || s.tag || '') : String(s || '');
+
               }).join(' ') : '';
+
               var mText = Array.isArray(microTagsArr) ? microTagsArr.join(' ') : '';
+
               corpusText = (busTitle + " " + busTagline + " " + sText + " " + mText).toLowerCase();
+
             } catch(e) {
+
               corpusText = (busTitle + " " + busTagline).toLowerCase();
+
             }
+
             var catMenuDefaults = [];
+
             if (/(?:pizza|italian|pasta|bistro|restaurant|cafe|coffee|bakery|food|dine|grill|bar|kitchen)/i.test(corpusText)) {
+
               catMenuDefaults = ["Menu", "Pizzas", "Story", "Specials", "Reviews", "Gallery", "Chefs", "Contact", "Locations", "Order"];
+
             } else if (/(?:gym|fitness|workout|trainer|training|crossfit|yoga|athlete|muscle|health)/i.test(corpusText)) {
+
               catMenuDefaults = ["Classes", "Trainers", "Story", "Plans", "Reviews", "Schedule", "Workouts", "Contact", "Facilities", "Join"];
+
             } else if (/(?:dental|dentist|clinic|medical|doctor|hospital|health|care|smile|patient|therapy)/i.test(corpusText)) {
+
               catMenuDefaults = ["Services", "Doctors", "Story", "Care", "Reviews", "Treatments", "Clinic", "Contact", "Hours", "Book"];
+
             } else if (/(?:fashion|luxury|clothing|jewelry|boutique|apparel|watch|wear|leather|shoes|style)/i.test(corpusText)) {
+
               catMenuDefaults = ["Collection", "Lookbook", "Story", "Artisans", "Reviews", "Catalog", "Boutique", "Contact", "Shipping", "Shop"];
+
             } else if (/(?:car|auto|repair|mechanic|garage|vehicle|motor|detailing|tire|service)/i.test(corpusText)) {
+
               catMenuDefaults = ["Services", "Repairs", "Story", "Pricing", "Reviews", "Fleet", "Garage", "Contact", "Warranty", "Quote"];
+
             } else if (/(?:dairy|milk|farm|farming|organic|cheese|butter|purity|agriculture)/i.test(corpusText)) {
+
               catMenuDefaults = ["Products", "Farm", "Story", "Quality", "Reviews", "Dairy", "Organic", "Contact", "Purity", "Order"];
+
             } else if (/(?:software|saas|tech|app|digital|cloud|security|platform|agency|consulting)/i.test(corpusText)) {
+
               catMenuDefaults = ["Features", "Solutions", "Story", "Pricing", "Reviews", "Integrations", "Company", "Contact", "Security", "Demo"];
+
             } else {
+
               catMenuDefaults = ["Offerings", "Services", "Story", "Highlights", "Reviews", "Specialties", "Company", "Contact", "Pricing", "Get Started"];
+
             }
+
+
 
             var rawNavItems = (content.navbar_items || (aiContent && aiContent.navbar_items) || []);
+
             var catNavItems = [];
+
             (rawNavItems.concat(catMenuDefaults)).forEach(function(item) {
+
               if (typeof item === 'string') {
+
                 var clean = item.trim();
+
                 if (clean && clean.length <= 14) {
+
                   var cleanLower = clean.toLowerCase();
+
                   var exists = catNavItems.some(function(c) { return c.toLowerCase() === cleanLower; });
+
                   if (!exists) catNavItems.push(clean);
+
                 }
+
               }
+
             });
+
+
 
             // 0A. Dynamic Navbar Menu Items Replacement (Acc to business category, same count, concise characters)
+
             var navLinks = document.querySelectorAll(
+
               'header nav ul li a, nav ul li a, .navbar-nav li a, .main-menu li a, .navigation li a, ' +
+
               'header ul.menu li a, .dropdown-menu li a, .header-navigation a, ul.menu a, .site-nav a, ' +
+
               '.nav-menu a, header a.nav-link, nav a.nav-link, nav a'
+
             );
+
             var navIdx = 0;
+
             navLinks.forEach(function(navA) {
+
               if (processedDOMElements.has(navA) || navA.closest('footer, aside')) return;
+
               var navCls = (navA.className || '').toLowerCase();
+
               if (/(?:navbar-brand|brand|logo|cart|search|social|user|toggle|btn-close)/i.test(navCls)) return;
+
               if (navA.querySelector('svg, img, i') && (navA.textContent || '').trim().length <= 1) return;
 
+
+
               var oTxt = (navA.textContent || '').trim();
+
               if (!oTxt || oTxt.length < 2) return;
+
               var oLower = oTxt.toLowerCase();
 
+
+
               var targetWord = "";
+
               if (oLower === 'home' || oLower === 'index' || oLower === 'main') {
+
                 targetWord = oTxt === oTxt.toUpperCase() ? "HOME" : "Home";
+
               } else if ((oLower === 'contact' || oLower === 'contact us') && (navIdx >= 3 || oLower.indexOf('contact') !== -1)) {
+
                 targetWord = oTxt === oTxt.toUpperCase() ? "CONTACT" : "Contact";
+
               } else {
+
                 var chosen = catNavItems[navIdx % catNavItems.length];
+
                 navIdx++;
+
                 targetWord = oTxt === oTxt.toUpperCase() ? chosen.toUpperCase() : chosen;
+
               }
+
+
 
               var innerSpan = navA.querySelector('span');
+
               if (innerSpan && !innerSpan.querySelector('svg, img, i')) {
+
                 innerSpan.textContent = targetWord;
+
                 processedDOMElements.add(innerSpan);
+
               } else {
+
                 navA.textContent = targetWord;
+
               }
+
               processedDOMElements.add(navA);
+
             });
+
+
 
             // 0B. Dynamic Footer Menu Items Replacement (Tailored to business category, same count, concise characters)
+
             var footerLinks = document.querySelectorAll(
+
               'footer ul li a, footer .footer-links a, footer .footer-nav a, footer .widget a, ' +
+
               'footer .footer-menu a, [class*="footer"] ul li a, [class*="footer"] .footer-nav a, footer a'
+
             );
+
             var fNavIdx = 0;
+
             footerLinks.forEach(function(fA) {
+
               if (processedDOMElements.has(fA)) return;
+
               var fCls = (fA.className || '').toLowerCase();
+
               if (/(?:footer-logo|brand|logo|social|social-icon|copyright)/i.test(fCls)) return;
+
               if (fA.querySelector('svg, img, i') && (fA.textContent || '').trim().length <= 1) return;
 
+
+
               var fTxt = (fA.textContent || '').trim();
+
               if (!fTxt || fTxt.length < 2) return;
+
               var fLower = fTxt.toLowerCase();
+
               if (/(?:privacy|terms|condition|cookie|copyright|all rights|policy|disclaimer|sitemap|@|tel:|mailto:)/i.test(fLower)) return;
+
               if (/(?:facebook|twitter|instagram|linkedin|youtube|github|pinterest|tiktok)/i.test(fLower)) return;
+
               if (/\d{3,}/.test(fTxt)) return;
 
+
+
               var chosenF = catNavItems[fNavIdx % catNavItems.length];
+
               fNavIdx++;
+
               var targetFWord = fTxt === fTxt.toUpperCase() ? chosenF.toUpperCase() : chosenF;
 
+
+
               var innerSpan = fA.querySelector('span');
+
               if (innerSpan && !innerSpan.querySelector('svg, img, i')) {
+
                 innerSpan.textContent = targetFWord;
+
                 processedDOMElements.add(innerSpan);
+
               } else {
+
                 fA.textContent = targetFWord;
+
               }
+
               processedDOMElements.add(fA);
+
             });
+
+
 
             // 0C. Footer Column Widget Headers
+
             document.querySelectorAll('footer .widget-title, footer .footer-title, footer h4, footer h5, footer h3, footer h6').forEach(function(fHead) {
+
               if (processedDOMElements.has(fHead)) return;
+
               var fhCls = (fHead.className || '').toLowerCase();
+
               if (/(?:logo|brand|business-name)/i.test(fhCls)) return;
+
               var fhTxt = (fHead.textContent || '').trim();
+
               if (!fhTxt || fhTxt.length < 2) return;
+
               var fhLower = fhTxt.toLowerCase();
+
               if (/(?:about|company|who we are)/i.test(fhLower)) {
+
                 fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "ABOUT US" : "About Us";
+
                 processedDOMElements.add(fHead);
+
               } else if (/(?:link|quick link|navigate|navigation|explore|menu|service)/i.test(fhLower)) {
+
                 fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "EXPLORE" : "Explore";
+
                 processedDOMElements.add(fHead);
+
               } else if (/(?:contact|get in touch|reach us|address|location)/i.test(fhLower)) {
+
                 fHead.textContent = fhTxt === fhTxt.toUpperCase() ? "CONTACT" : "Contact Us";
+
                 processedDOMElements.add(fHead);
+
               }
+
             });
+
+
 
             // Step 1: FAQs & Accordions Paired Replacement (Question + Answer)
+
             var faqCards = document.querySelectorAll('.accordion-item, .faq-item, .accordion-card, .toggle, .panel, dl, [class*="faq-item"], [class*="accordion-item"]');
+
             var topFaqCards = [];
+
             faqCards.forEach(function(fc) {
+
               var isNested = false;
+
               for (var i = 0; i < faqCards.length; i++) {
+
                 if (faqCards[i] !== fc && faqCards[i].contains(fc)) {
+
                   isNested = true;
+
                   break;
+
                 }
+
               }
+
               if (!isNested) topFaqCards.push(fc);
+
             });
+
+
 
             topFaqCards.forEach(function(fEl, fIdx) {
+
               var fData = faqsArr[fIdx % faqsArr.length];
+
               var qEl = fEl.querySelector('.accordion-button, .faq-question, .question, dt, .toggle-title, [data-bs-toggle="collapse"], [data-toggle="collapse"], .card-header h4, .card-header h5, .panel-title, h4, h5');
+
               var aEl = fEl.querySelector('.accordion-body, .faq-answer, .answer, dd, .card-body, .panel-body, .toggle-content, .collapse p, p');
 
+
+
               if (qEl && !processedDOMElements.has(qEl)) {
+
                 var innerBtn = qEl.querySelector('button, a');
+
                 if (innerBtn) {
+
                   innerBtn.textContent = fData.question;
+
                   processedDOMElements.add(innerBtn);
+
                 } else {
+
                   qEl.textContent = fData.question;
+
                 }
+
                 processedDOMElements.add(qEl);
+
               }
+
+
 
               if (aEl && aEl !== qEl && !processedDOMElements.has(aEl)) {
+
                 aEl.textContent = fData.answer;
+
                 processedDOMElements.add(aEl);
+
               }
+
             });
+
+
 
             // Step 2: Card-Level Unified Semantic Replacement (Title + Desc + Tag + Price + Image)
+
             var cardSelectors = (
+
               'article, .short-item, [class*="short-item"], ' +
+
               '.single-product, .product-card, .product-item, .product__item, .product-wrap, .product-box, .single_product, .shop-item, .shop-card, ' +
+
               '.single-service, .service-card, .service-item, .service_item, .service-box, .service-block, .single-item, ' +
+
               '.menu-item, .single-menu-item, .dish-card, .dish-item, .food-card, .food-item, ' +
+
               '.tour-item, .package-card, .room-item, .hotel-card, .listing-item, .property-card, ' +
+
               '.portfolio-item, .portfolio-card, .team-card, .team-item, .member-item, ' +
+
               '.pricing-card, .pricing-box, .feature-box, .feature-card, .feature-item, .card, ' +
+
               '[class*="product-item"], [class*="product-card"], [class*="single-product"], [class*="product__"], ' +
+
               '[class*="service-item"], [class*="service-card"], [class*="service-box"], [class*="single-service"], [class*="services_item"], ' +
+
               '[class*="ak-service"], [class*="menu-item"], [class*="dish-item"], [class*="food-item"], [class*="pricing-card"], [class*="feature-box"]'
+
             );
+
             var rawCards = Array.from(document.querySelectorAll(cardSelectors));
 
+
+
             // Add grid columns and article/div blocks that contain image/icon + heading
+
             document.querySelectorAll('article, div, li').forEach(function(el) {
+
               if (rawCards.indexOf(el) !== -1) return;
+
               if (el.closest('nav, footer, header') || /(?:header|footer|slider|banner|hero|nav|menu-bar|modal)/i.test(el.className || '')) return;
+
               if (el.querySelector('h2, h3, h4, h5, h6') && (el.querySelector('img') || el.querySelector('[class*="price"], [class*="cost"], [class*="badge"], [class*="tag"], [class*="icon"]'))) {
+
                 var subH = el.querySelectorAll('h2, h3, h4, h5, h6');
+
                 var subI = el.querySelectorAll('img');
+
                 if (subH.length >= 1 && subH.length <= 3 && subI.length <= 2) {
+
                   rawCards.push(el);
+
                 }
+
               }
+
             });
+
+
 
             // Retain leaf card elements (exclude outer grid/section wrappers that contain child cards)
+
             var topCards = [];
+
             rawCards.forEach(function(c) {
+
               var hasChildCard = false;
+
               for (var i = 0; i < rawCards.length; i++) {
+
                 if (rawCards[i] !== c && c.contains(rawCards[i])) {
+
                   hasChildCard = true;
+
                   break;
+
                 }
+
               }
+
               if (!hasChildCard && topFaqCards.indexOf(c) === -1 && !/(?:hero|main-slider|rev_slider|home-slider|header|nav|footer)/i.test(c.className || '')) {
+
                 topCards.push(c);
+
               }
+
             });
+
+
 
             topCards.forEach(function(cardEl, cIdx) {
+
               if (servicesArr.length === 0) return;
+
               var itmData = servicesArr[cIdx % servicesArr.length];
 
+
+
               // Title in Card
+
               var titleEl = cardEl.querySelector('h2, h3, h4, h5, h6, .title, .item-title, .product-title, .service-title, [class*="title"], [class*="heading"]');
+
               if (titleEl && !processedDOMElements.has(titleEl)) {
+
                 var innerA = titleEl.querySelector('a');
+
                 if (innerA) {
+
                   innerA.textContent = itmData.title;
+
                   processedDOMElements.add(innerA);
+
                 } else {
+
                   titleEl.textContent = itmData.title;
+
                 }
+
                 processedDOMElements.add(titleEl);
+
               }
+
+
 
               // Tag / Badge in Card
+
               var badgeEl = cardEl.querySelector('.tag, .badge, .card-tag, .tag-badge, .cat-name, .category, .subheading, .portfolio-caption-subheading, .collection__category');
+
               if (badgeEl && !processedDOMElements.has(badgeEl)) {
+
                 badgeEl.textContent = itmData.tag || microTagsArr[cIdx % microTagsArr.length];
+
                 processedDOMElements.add(badgeEl);
+
               }
+
+
 
               // Price in Card
+
               var priceEl = cardEl.querySelector('.price, .bistro-price, .cost, .amount, [class*="price"]');
+
               if (priceEl && !processedDOMElements.has(priceEl) && itmData.price) {
+
                 priceEl.textContent = itmData.price;
+
                 processedDOMElements.add(priceEl);
+
               }
+
+
 
               // Description in Card (Strictly Paired with Title!)
+
               var descEl = cardEl.querySelector('p, .desc, .text, .info, .timeline-body, [class*="desc"]');
+
               if (descEl && !processedDOMElements.has(descEl)) {
+
                 var oLen = (descEl.textContent || '').trim().length;
+
                 if (oLen <= 25) {
+
                   descEl.textContent = itmData.tag || microTagsArr[cIdx % microTagsArr.length];
+
                 } else {
+
                   descEl.textContent = itmData.desc || itmData.description || "";
+
                 }
+
                 processedDOMElements.add(descEl);
+
               }
+
+
 
               // Card Image Replacement
+
               if (cardImgUrls.length > 0) {
+
                 var tCardImg = cardImgUrls[cIdx % cardImgUrls.length];
+
                 cardEl.querySelectorAll('img').forEach(function(cimg) {
+
                   setImgAllAttrs(cimg, tCardImg);
+
                   cimg.alt = itmData.title;
+
                   processedImgs.add(cimg);
+
                 });
+
               }
+
+
 
               // Button in Card
+
               var btnEl = cardEl.querySelector('button, a.btn, a[class*="btn"], a.cta, .add-to-cart, .btn-cart');
+
               if (btnEl && !processedDOMElements.has(btnEl)) {
+
                 var bTxt = (btnEl.textContent || '').trim();
+
                 if (bTxt.length <= 25) {
+
                   btnEl.textContent = bTxt.toLowerCase().indexOf('order') !== -1 ? "Order Now" : "View Details";
+
                   processedDOMElements.add(btnEl);
+
                 }
+
               }
+
             });
+
+
 
             // Step 3: Hero & Masthead & Slider Headline Replacement
+
             // Strictly replaces text only without modifying text size, alignment, fonts, colors, or inline styles
+
             var heroHeadlinePool = [(heroObj && heroObj.headline) || busTitle, busTagline || "Exceptional Quality", (heroObj && heroObj.headline) || busTitle];
+
             var heroHeadIdx = 0;
 
+
+
             document.querySelectorAll(
-              '#hero-slider-wrapper, [id*="hero-slider"], [id*="hero_slider"], [id*="hero-wrapper"], [data-editable="hero_image"], ' +
+
               '.hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, .masthead, .intro-section, ' +
+
               '.showcase, .welcome-section, .rev_slider, .swiper-container, .swiper, .carousel, ' +
+
               '#hero, #home, #intro, #home-hero-container, [class*="hero-"], [class*="slider-"], [class*="masthead"], ' +
+
               'main > section:first-child, main > div:first-child'
+
             ).forEach(function(hSec) {
+
               if (hSec.closest('header, nav, footer, aside, [id*="banner-container"], [id*="header-container"], [id*="navbar-container"], [class*="announcement"], [class*="top-bar"], [class*="header"]') || /(?:footer|sidebar|client|partner|announcement|header|navbar|top-bar)/i.test(hSec.className || '')) return;
+
               if (/(?:banner-container|header-container|navbar-container|announcement)/i.test(hSec.id || '')) return;
 
+
+
               // 1. Target leaf heading elements ONLY (H1 first, then H2/H3, then leaf elements with heading title classes)
+
+              // Never target container divs (.hero-caption, .tp-caption, .slider-caption, etc.)
+
               var heroTitleEls = [];
+
               var h1s = Array.from(hSec.querySelectorAll('h1'));
+
               if (h1s.length > 0) {
+
                 heroTitleEls = h1s;
+
               } else {
+
                 var h2h3s = Array.from(hSec.querySelectorAll('h2, h3')).filter(function(h) {
+
                   return !h.closest('nav, footer, header, aside');
+
                 });
+
                 if (h2h3s.length > 0) {
+
                   heroTitleEls = h2h3s;
+
                 } else {
+
                   hSec.querySelectorAll('div, span, h4').forEach(function(cand) {
+
                     var cCls = (cand.className || '').toLowerCase();
-                    if (cCls.indexOf('title') !== -1 || cCls.indexOf('heading') !== -1 || cCls.indexOf('banner-title') !== -1 || cCls.indexOf('hero-title') !== -1) {
+
+                    if (/(?:\btitle\b|\bheading\b|\bmain-title\b|\bbanner-title\b|\bhero-title\b)/i.test(cCls)) {
+
                       if (!cand.querySelector('h1, h2, h3, p, div, section, article, ul, ol, form')) {
+
                         heroTitleEls.push(cand);
+
                       }
+
                     }
+
                   });
+
                 }
+
               }
+
+
 
               heroTitleEls.forEach(function(ht) {
+
                 if (processedDOMElements.has(ht) || ht.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container')) return;
+
                 var targetH = heroHeadlinePool[heroHeadIdx % heroHeadlinePool.length];
+
                 heroHeadIdx++;
 
-                var origH = (ht.textContent || '').trim();
-                var fitH = fitTextToLength(targetH, origH, 3, singleWordPool);
-                setTagTextPreservingChildren(ht, fitH);
+
+
+                // Pure in-place text replacement: do not modify style, font size, font family, color, or alignment
+
+                var innerA = ht.querySelector('a');
+
+                var childSpans = Array.from(ht.querySelectorAll('span')).filter(function(s) { return s.children.length === 0; });
+
+                if (innerA) {
+
+                  var innerASpans = Array.from(innerA.querySelectorAll('span')).filter(function(s) { return s.children.length === 0; });
+
+                  if (innerASpans.length === 1) {
+
+                    innerASpans[0].textContent = targetH;
+
+                    processedDOMElements.add(innerASpans[0]);
+
+                  } else if (innerASpans.length === 2) {
+
+                    var aWords = targetH.split(' ').filter(Boolean);
+
+                    if (aWords.length >= 2) {
+
+                      innerASpans[0].textContent = aWords[0] + ' ';
+
+                      innerASpans[1].textContent = aWords.slice(1).join(' ');
+
+                    } else {
+
+                      innerASpans[0].textContent = targetH;
+
+                      innerASpans[1].textContent = '';
+
+                    }
+
+                    processedDOMElements.add(innerASpans[0]);
+
+                    processedDOMElements.add(innerASpans[1]);
+
+                  } else {
+
+                    innerA.textContent = targetH;
+
+                  }
+
+                  processedDOMElements.add(innerA);
+
+                } else if (childSpans.length === 1) {
+
+                  childSpans[0].textContent = targetH;
+
+                  processedDOMElements.add(childSpans[0]);
+
+                } else if (childSpans.length === 2) {
+
+                  var hWords = targetH.split(' ').filter(Boolean);
+
+                  if (hWords.length >= 2) {
+
+                    childSpans[0].textContent = hWords[0] + ' ';
+
+                    childSpans[1].textContent = hWords.slice(1).join(' ');
+
+                  } else {
+
+                    childSpans[0].textContent = targetH;
+
+                    childSpans[1].textContent = '';
+
+                  }
+
+                  processedDOMElements.add(childSpans[0]);
+
+                  processedDOMElements.add(childSpans[1]);
+
+                } else if (childSpans.length > 2) {
+
+                  var allWords = targetH.split(' ').filter(Boolean);
+
+                  childSpans.forEach(function(sp, idx) {
+
+                    if (idx < allWords.length) {
+
+                      sp.textContent = (idx < childSpans.length - 1 ? allWords[idx] + ' ' : allWords.slice(idx).join(' '));
+
+                    } else {
+
+                      sp.textContent = '';
+
+                    }
+
+                    processedDOMElements.add(sp);
+
+                  });
+
+                } else {
+
+                  ht.textContent = targetH;
+
+                }
+
                 processedDOMElements.add(ht);
+
               });
+
+
 
               // 2. Subtitle: leaf paragraph or subtitle element only
+
               var heroSub = hSec.querySelector('p.subtitle, p.sub-title, p.subheading, p.tagline, p.lead, p.hero-text, p.desc, div.subtitle, span.subtitle, p');
+
               if (heroSub && !processedDOMElements.has(heroSub) && !heroSub.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container') && !heroSub.querySelector('h1, h2, h3, div')) {
-                var candSub = (heroObj && heroObj.subheadline) || busTagline || "";
-                var origSub = (heroSub.textContent || '').trim();
-                var fitSub = fitTextToLength(candSub, origSub, 4, singleWordPool);
-                setTagTextPreservingChildren(heroSub, fitSub);
+
+                heroSub.textContent = (heroObj && heroObj.subheadline) || busTagline || "";
+
                 processedDOMElements.add(heroSub);
+
               }
+
+
 
               // 3. Badge / Kicker (leaf element only)
+
               var heroBadge = hSec.querySelector('.badge, .tag, .pill, .kicker, .hero-badge, [class*="badge"], [class*="kicker"]');
+
               if (heroBadge && !processedDOMElements.has(heroBadge) && !heroBadge.closest('nav, footer, header, aside, .announcement-bar, #top-banner-container, #header-container, #navbar-container') && !heroBadge.querySelector('h1, h2, h3, p, div')) {
-                var candBadge = (heroObj && heroObj.badge_text) || "PREMIUM QUALITY";
-                var origBadge = (heroBadge.textContent || '').trim();
-                var fitBadge = fitTextToLength(candBadge, origBadge, 2, singleWordPool);
-                setTagTextPreservingChildren(heroBadge, fitBadge);
+
+                heroBadge.textContent = (heroObj && heroObj.badge_text) || "PREMIUM QUALITY";
+
                 processedDOMElements.add(heroBadge);
+
               }
+
+
 
               // 4. Hero Action Buttons (Buttons with text only, preserving icons)
+
               var heroBtns = Array.from(hSec.querySelectorAll('a.btn, button.btn, a[class*="btn"], button[class*="btn"], a.cta, .hero-btn, [class*="hero-btn"]')).filter(function(b) {
+
                 if (b.closest('nav, header, aside, footer, .announcement-bar, #top-banner-container, #header-container, #navbar-container, .header-tools, .header-right, .nav-right')) return false;
+
                 if (b.querySelector('svg, img, i') && b.textContent.trim().length <= 1) return false;
+
                 return true;
+
               });
+
+
+
+              function setHeroBtnText(btnEl, btnText) {
+
+                if (!btnEl || !btnText) return;
+
+                var bSpan = btnEl.querySelector('span');
+
+                if (bSpan && !bSpan.querySelector('svg, img, i')) {
+
+                  bSpan.textContent = btnText;
+
+                  processedDOMElements.add(bSpan);
+
+                } else {
+
+                  var hasIcon = btnEl.querySelector('svg, img, i');
+
+                  if (hasIcon) {
+
+                    var replacedNode = false;
+
+                    for (var bi = 0; bi < btnEl.childNodes.length; bi++) {
+
+                      var cNode = btnEl.childNodes[bi];
+
+                      if (cNode.nodeType === 3 && cNode.nodeValue.trim().length > 0) {
+
+                        cNode.nodeValue = ' ' + btnText + ' ';
+
+                        replacedNode = true;
+
+                        break;
+
+                      }
+
+                    }
+
+                    if (!replacedNode) {
+
+                      btnEl.appendChild(document.createTextNode(' ' + btnText));
+
+                    }
+
+                  } else {
+
+                    btnEl.textContent = btnText;
+
+                  }
+
+                }
+
+                processedDOMElements.add(btnEl);
+
+              }
+
+
 
               if (heroBtns.length >= 1 && !processedDOMElements.has(heroBtns[0])) {
-                var origB1 = (heroBtns[0].textContent || '').trim();
-                var fitB1 = fitTextToLength((heroObj && heroObj.cta_primary) || "Get Started", origB1, 2, singleWordPool);
-                setTagTextPreservingChildren(heroBtns[0], fitB1);
-                processedDOMElements.add(heroBtns[0]);
+
+                setHeroBtnText(heroBtns[0], (heroObj && heroObj.cta_primary) || "Get Started");
+
               }
+
               if (heroBtns.length >= 2 && !processedDOMElements.has(heroBtns[1])) {
-                var origB2 = (heroBtns[1].textContent || '').trim();
-                var fitB2 = fitTextToLength((heroObj && heroObj.cta_secondary) || "Explore More", origB2, 2, singleWordPool);
-                setTagTextPreservingChildren(heroBtns[1], fitB2);
-                processedDOMElements.add(heroBtns[1]);
+
+                setHeroBtnText(heroBtns[1], (heroObj && heroObj.cta_secondary) || "Explore Offerings");
+
               }
+
+
+
+              // Mark all remaining elements inside hero section as processed so later steps (6 & 7) never overwrite hero text
+
+              hSec.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, a, button').forEach(function(elInHero) {
+
+                processedDOMElements.add(elInHero);
+
+              });
+
             });
+
+
 
             // Step 4: Stats & Counters (Number + Short 1-3 Word Label)
+
             var statBlocks = document.querySelectorAll('.stat, .counter, .funfact, .achievement, .count-box, [class*="stat"], [class*="counter"]');
+
             var topStats = [];
+
             statBlocks.forEach(function(sb) {
+
               var isNested = false;
+
               for (var i = 0; i < statBlocks.length; i++) {
+
                 if (statBlocks[i] !== sb && statBlocks[i].contains(sb)) {
+
                   isNested = true;
+
                   break;
+
                 }
+
               }
+
               if (!isNested) topStats.push(sb);
+
             });
+
+
 
             topStats.forEach(function(sEl, sIdx) {
+
               var sData = statsArr[sIdx % statsArr.length];
+
               var numEl = sEl.querySelector('.counter-value, .number, [data-to], h2, h3, h4, strong');
+
               var labelEl = sEl.querySelector('p, span, h5, h6, .counter-title, .label, .stat-title');
 
+
+
               if (numEl && !processedDOMElements.has(numEl)) {
+
                 numEl.textContent = sData.number;
+
                 processedDOMElements.add(numEl);
+
               }
+
               if (labelEl && labelEl !== numEl && !processedDOMElements.has(labelEl)) {
-                labelEl.textContent = fitTextToLength(sData.label, (labelEl.textContent || '').trim(), 2, singleWordPool);
+
+                labelEl.textContent = sData.label;
+
                 processedDOMElements.add(labelEl);
+
               }
+
             });
+
+
 
             // 4.9. Announcement Bar Text Replacement (In-Place Text Only - Strict Layout & Icon Protection)
+
             var announcementText = (aiContent && aiContent.tagline) || busTagline || ("WELCOME TO " + (busTitle ? busTitle.toUpperCase() : "OUR STORE") + " — PREMIER QUALITY & DEDICATED SERVICE");
+
             document.querySelectorAll('#announcement-text, .announcement-text, aside p, .announcement-bar p, .top-bar p, .top-banner p, [class*="announcement"] p, [id*="announcement"] p').forEach(function(ap) {
+
               if (ap.closest('#header-container, #navbar-container, nav, .navbar')) return;
+
               if (ap.querySelector('button, svg, img')) return;
+
               ap.textContent = announcementText.toUpperCase();
+
               processedDOMElements.add(ap);
+
             });
+
+
+
+
 
             // Step 4: Section Intro Badges & Subtitle Kickers (.badge, .sub-title, .kicker)
+
             document.querySelectorAll('.badge, .sub-title, .subtitle, .kicker, .section-subtitle, span.tag, [class*="sub-title"], [class*="section-subtitle"]').forEach(function(badge, bIdx) {
+
               if (processedDOMElements.has(badge)) return;
+
               if (badge.closest('nav, footer, script, style, head, .copyright, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
+
               if (badge.querySelector('img, svg')) return;
 
+
+
               var bTxt = (badge.textContent || '').trim();
+
               if (!bTxt || bTxt.length > 30 || bTxt.length < 2) return;
 
-              var fitBadge = fitTextToLength(microTagsArr[bIdx % microTagsArr.length], bTxt, 2, singleWordPool);
-              setTagTextPreservingChildren(badge, fitBadge);
+
+
+              badge.textContent = microTagsArr[bIdx % microTagsArr.length];
+
               processedDOMElements.add(badge);
+
             });
+
+
 
             // Step 5: Trust Features & Benefits Grid
-            var trustBenefits = (aiContent && aiContent.features && aiContent.features.length > 0) ? aiContent.features : (content.features && content.features.length > 0 ? content.features : [
+
+            var trustBenefits = [
+
               { title: "Premium Quality", desc: "Every single offering is prepared using top-grade standards with meticulous attention to detail." },
+
               { title: "Fast & Reliable", desc: "We pride ourselves on swift, dependable service delivered directly to your doorstep." },
+
               { title: "100% Satisfaction", desc: "Customer delight is our utmost priority with dedicated support and attention." },
+
               { title: "Handcrafted Excellence", desc: "Rooted in authentic tradition, crafted with passion and dedicated perfection." }
-            ]);
+
+            ];
 
             document.querySelectorAll('#home-features-container .feature, #home-features-container .feature-box, .features .feature, .features .feature-box, .service-box, .feature-card, [class*="feature-box"], [class*="features-box"]').forEach(function(fc, fIdx) {
+
               var tBenefit = trustBenefits[fIdx % trustBenefits.length];
+
               var hEl = fc.querySelector('h3, h4, h5, h6, .title, strong');
+
               var pEl = fc.querySelector('p, .desc, .text, span');
+
               if (hEl && !processedDOMElements.has(hEl)) {
-                var fitFTitle = fitTextToLength(tBenefit.title, (hEl.textContent || '').trim(), 3, singleWordPool);
-                setTagTextPreservingChildren(hEl, fitFTitle);
+
+                hEl.textContent = tBenefit.title;
+
                 processedDOMElements.add(hEl);
+
               }
+
               if (pEl && !processedDOMElements.has(pEl) && pEl !== hEl) {
-                var fitFDesc = fitTextToLength(tBenefit.desc, (pEl.textContent || '').trim(), 4, singleWordPool);
-                setTagTextPreservingChildren(pEl, fitFDesc);
+
+                pEl.textContent = tBenefit.desc;
+
                 processedDOMElements.add(pEl);
+
               }
+
             });
+
+
 
             // Step 6: Remaining Headings & Title Elements (Length-Aware)
+
             var titleSelectors = (
+
               'h1, h2, h3, h4, h5, h6, .title, .sub-title, .subtitle, .section-title, .heading, .subheading, ' +
+
               '.portfolio-caption-heading, .portfolio-caption-subheading, .timeline-heading, .slide-title, .banner-title, [class*="title"], [class*="heading"]'
+
             );
+
             var allTitles = document.querySelectorAll(titleSelectors);
+
             var hIdx = 0;
+
             allTitles.forEach(function(h) {
+
               if (processedDOMElements.has(h)) return;
+
               if (h.closest('script, style, head, nav, footer, .copyright, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
+
               if (h.querySelector('img, svg') && !h.textContent.trim()) return;
+
               var hClasses = (h.className || '').toLowerCase();
+
               if (/(?:copyright|email|phone|logo|brand|announcement|nav-link|menu-item)/i.test(hClasses)) return;
 
+
+
               var oTxt = (h.textContent || '').trim();
+
               if (!oTxt || oTxt.length < 2) return;
+
               var oWords = oTxt.split(' ').filter(Boolean).length;
+
               var oLen = oTxt.length;
+
+
 
               var targetHText = "";
+
               if (h.tagName === 'H1' || hClasses.indexOf('banner-title') !== -1 || hClasses.indexOf('hero') !== -1) {
+
                 targetHText = (heroObj && heroObj.headline) || busTitle;
+
               } else if (oWords <= 3 || oLen <= 25) {
+
                 targetHText = microTagsArr[hIdx % microTagsArr.length];
+
               } else if (oWords <= 6 || oLen <= 45) {
+
                 targetHText = shortTitlesArr[hIdx % shortTitlesArr.length];
+
               } else {
+
                 targetHText = sectionHeadings[hIdx % sectionHeadings.length];
+
               }
+
               hIdx++;
 
-              var fitHText = fitTextToLength(targetHText, oTxt, 3, singleWordPool);
-              setTagTextPreservingChildren(h, fitHText);
+
+
+              var innerA = h.querySelector('a');
+
+              var innerSpan = h.querySelector('span');
+
+              if (innerA) {
+
+                innerA.textContent = targetHText;
+
+                processedDOMElements.add(innerA);
+
+              } else if (innerSpan && !innerSpan.querySelector('img, svg')) {
+
+                innerSpan.textContent = targetHText;
+
+                processedDOMElements.add(innerSpan);
+
+              } else {
+
+                h.textContent = targetHText;
+
+              }
+
               processedDOMElements.add(h);
+
             });
+
+
 
             // Step 7: Remaining Paragraphs (<p>) (Strict Length Budgeting)
+
             var allP = document.querySelectorAll('p');
+
             var pIdx = 0;
+
             allP.forEach(function(p) {
+
               if (processedDOMElements.has(p)) return;
-              if (p.closest('script, style, head, .copyright, .footer-bottom, footer, nav, .navbar-nav, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
+
+              if (p.closest('script, style, head, .copyright, footer, nav, .announcement-bar, #announcement-bar, #announcement-bar-container, #top-banner-container, #header-container, #navbar-container')) return;
+
               var pClasses = (p.className || '').toLowerCase();
+
               if (/(?:copyright|email|phone|logo|brand|price|author|date|time|announcement|nav-link|menu-item)/i.test(pClasses)) return;
 
+
+
               var oTxt = (p.textContent || '').trim();
+
               if (!oTxt || oTxt.length < 2) return;
+
               var oWords = oTxt.split(' ').filter(Boolean).length;
+
               var oLen = oTxt.length;
 
-              var targetP = "";
+
+
               if (oWords <= 3 || oLen <= 25) {
-                targetP = microTagsArr[pIdx % microTagsArr.length];
+
+                p.textContent = microTagsArr[pIdx % microTagsArr.length];
+
               } else if (oWords <= 8 || oLen <= 65) {
-                targetP = mediumPhrases[pIdx % mediumPhrases.length];
+
+                p.textContent = mediumPhrases[pIdx % mediumPhrases.length];
+
               } else if (oWords <= 20 || oLen <= 140) {
-                targetP = (servicesArr.length > 0 ? servicesArr[pIdx % servicesArr.length].desc : mediumPhrases[pIdx % mediumPhrases.length]) || "";
+
+                p.textContent = (servicesArr.length > 0 ? servicesArr[pIdx % servicesArr.length].desc : mediumPhrases[pIdx % mediumPhrases.length]) || "";
+
               } else {
-                targetP = domainParas[pIdx % domainParas.length];
+
+                p.textContent = domainParas[pIdx % domainParas.length];
+
               }
+
               pIdx++;
 
-              var fitPText = fitTextToLength(targetP, oTxt, 4, singleWordPool);
-              setTagTextPreservingChildren(p, fitPText);
               processedDOMElements.add(p);
+
             });
+
+
 
             // Step 8: Testimonials & Reviews
+
             if (testimonialsArr && testimonialsArr.length > 0) {
+
               var tCards = document.querySelectorAll('.testimonial, .testimonial-item, .quote-item, .review, blockquote');
+
               tCards.forEach(function(tc, idx) {
+
                 if (idx < testimonialsArr.length) {
+
                   var tData = testimonialsArr[idx];
+
                   var qEl = tc.querySelector('p, blockquote, .quote');
-                  if (qEl && tData.quote) {
-                    var origQ = (qEl.textContent || '').trim();
-                    var fitQ = fitTextToLength(tData.quote, origQ, 4, singleWordPool);
-                    setTagTextPreservingChildren(qEl, '"' + fitQ.replace(/^["']|["']$/g, '') + '"');
-                  }
+
+                  if (qEl && tData.quote) qEl.textContent = '"' + tData.quote.replace(/^["']|["']$/g, '') + '"';
+
                   var aEl = tc.querySelector('.author, .name, .client-name, h4, h5, strong');
-                  if (aEl && tData.author) {
-                    var origA = (aEl.textContent || '').trim();
-                    var fitA = fitTextToLength(tData.author, origA, 2, singleWordPool);
-                    setTagTextPreservingChildren(aEl, fitA);
-                  }
+
+                  if (aEl && tData.author) aEl.textContent = tData.author;
+
                   var rEl = tc.querySelector('.role, .title, .designation, span');
-                  if (rEl && rEl !== aEl && tData.role) {
-                    var origR = (rEl.textContent || '').trim();
-                    var fitR = fitTextToLength(tData.role, origR, 2, singleWordPool);
-                    setTagTextPreservingChildren(rEl, fitR);
-                  }
+
+                  if (rEl && rEl !== aEl && tData.role) rEl.textContent = tData.role;
+
                 }
+
               });
+
             }
+
+
 
             // Step 9: Action Buttons & CTAs (Concise 1-3 Words)
+
             var ctaBtns = document.querySelectorAll('button.btn, a.btn, a[class*="btn"], button[class*="btn"], a.cta');
+
             var ctaLabels = [(heroObj && heroObj.cta_primary) || "Get Started", (heroObj && heroObj.cta_secondary) || "Explore More", "Order Online", "Book Now", "View Details"];
+
             var ctaIdx = 0;
+
             ctaBtns.forEach(function(btn) {
+
               if (processedDOMElements.has(btn)) return;
+
               if (btn.closest('nav, .navbar-nav, .social, .social-links, header, .navbar, aside, footer, #header-container, #navbar-container, #top-banner-container, #announcement-bar-container, .announcement-bar, .top-bar, .header-tools, .header-right, .nav-right, .header-actions, .hero, .hero-section, .main-slider, .home-slider, .hero-slider, .masthead, #hero, #home')) return;
+
               if (btn.querySelector('img, svg, i') && btn.textContent.trim().length <= 1) return;
 
+
+
               var bTxt = (btn.textContent || '').trim();
+
               if (bTxt && bTxt.length <= 30 && bTxt.length >= 2) {
-                var candCta = ctaLabels[ctaIdx % ctaLabels.length];
+
+                btn.textContent = ctaLabels[ctaIdx % ctaLabels.length];
+
                 ctaIdx++;
-                var fitCta = fitTextToLength(candCta, bTxt, 2, singleWordPool);
-                setTagTextPreservingChildren(btn, fitCta);
+
                 processedDOMElements.add(btn);
+
               }
+
             });
+
+
 
             // 6. Dismiss any lingering preloaders
+
             document.querySelectorAll('.ps-loading, .loading, .is-loading, .preloader, .page-loader, #preloader, #page-loader').forEach(function(p) {
+
               p.classList.remove('ps-loading', 'loading', 'is-loading');
+
               p.style.display = 'none';
+
             });
+
             if (document.body) {
+
               document.body.classList.remove('ps-loading', 'loading', 'is-loading');
+
               document.body.style.opacity = '1';
+
               document.body.style.visibility = 'visible';
+
             }
+
+
 
             if (busTitle) {
+
               var brandTexts = document.querySelectorAll('header .navbar-brand, nav .navbar-brand, footer .footer-logo, .site-logo, header [data-editable="title"], nav [data-editable="title"], footer [data-editable="title"]');
+
               brandTexts.forEach(function(el) {
+
                 if (processedDOMElements.has(el)) return;
+
                 if (el.tagName !== 'IMG' && !el.querySelector('img, svg, a')) {
-                  var origBrand = (el.textContent || '').trim();
-                  var fitBrand = fitTextToLength(busTitle, origBrand, 3, singleWordPool);
-                  setTagTextPreservingChildren(el, fitBrand);
+
+                  el.textContent = busTitle;
+
                   processedDOMElements.add(el);
+
                 }
+
               });
+
             }
+
+
 
           } catch(err) {
+
           } finally {
+
             isWebcraftRunning = false;
+
             if (observerInstance && totalDriverRuns < MAX_DRIVER_RUNS) {
+
               try {
+
                 observerInstance.observe(document.body || document.documentElement, { childList: true, subtree: true });
+
               } catch(e) {}
+
             }
+
           }
+
         }
+
+
 
         // 1. Initial Immediate & DOMContentLoaded Driver Runs
+
         if (document.readyState === 'loading') {
+
           document.addEventListener('DOMContentLoaded', function() {
+
             setTimeout(runWebcraftDriver, 20);
+
           });
+
         } else {
+
           runWebcraftDriver();
+
         }
 
+
+
         // 2. Controlled Staged Multi-Interval Execution during page load
-        [30, 100, 250, 500, 900, 1500, 2500, 4000].forEach(function(delay) {
+
+        [80, 400, 1500].forEach(function(delay) {
+
           setTimeout(runWebcraftDriver, delay);
+
         });
 
-        // 3. Ultra-Lightweight MutationObserver with automatic disconnect after 8s
+
+
+        // 3. Ultra-Lightweight MutationObserver with automatic disconnect after 3.5s
+
         try {
+
           var webcraftDebounceTimer = null;
+
           observerInstance = new MutationObserver(function(mutations) {
+
             if (isUserScrolling || isWebcraftRunning || totalDriverRuns >= MAX_DRIVER_RUNS) return;
+
             var hasSignificantNodes = false;
+
             for (var i = 0; i < mutations.length; i++) {
+
               if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
+
                 for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+
                   var node = mutations[i].addedNodes[j];
+
                   if (node.nodeType === 1 && (node.tagName === 'DIV' || node.tagName === 'SECTION' || node.tagName === 'ARTICLE' || node.tagName === 'MAIN')) {
+
                     hasSignificantNodes = true;
+
                     break;
+
                   }
+
                 }
+
               }
+
               if (hasSignificantNodes) break;
+
             }
+
             if (hasSignificantNodes) {
+
               if (webcraftDebounceTimer) clearTimeout(webcraftDebounceTimer);
+
               webcraftDebounceTimer = setTimeout(runWebcraftDriver, 120);
+
             }
+
           });
+
           observerInstance.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
-          // Disconnect observer after 8s to eliminate all background CPU overhead
+
+
+          // Disconnect observer after 3.5s to eliminate all background CPU overhead
+
           setTimeout(function() {
+
             try { observerInstance.disconnect(); } catch(e) {}
-          }, 8000);
+
+          }, 3500);
+
         } catch(obsErr) {}
 
+
+
       <\/script>
+
     `;return y&&b?(x=i.replace(/(<head[^>]*>)/i,`$1\n${C}`),x=x.replace(/<\/body>/i,`${w}\n</body>`)):x=b?`<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>${l}</title>\n${C}\n</head>\n${i.replace(/<\/body>/i,`${w}\n</body>`)}`:`
+
         <!DOCTYPE html>
+
         <html lang="en">
+
         <head>
+
           <meta charset="UTF-8" />
+
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
           <title>${l}</title>
+
           ${C}
+
         </head>
+
         <body>
+
           <div id="app-root" style="width: 100%; min-height: 100vh; margin: 0; padding: 0;">${i}</div>
+
           ${w}
+
         </body>
+
         </html>
-      `,x},[u,d]=(0,_.useState)(()=>l());return(0,_.useEffect)(()=>{let e=l();d(e)},[e,t,n,r,a,i]),(0,z.jsx)(`div`,{ref:c,style:{width:`100%`,height:`100%`,flex:1,display:`flex`,flexDirection:`column`,justifyContent:`center`,alignItems:`center`,background:`#09090b`,padding:i===`desktop`?`0`:`1.5rem`,boxSizing:`border-box`,overflow:`hidden`},children:(0,z.jsx)(`iframe`,{ref:s,srcDoc:u||void 0,onLoad:()=>{o&&o()},title:`Imported GitHub Template Preview`,sandbox:`allow-scripts allow-forms allow-popups allow-modals`,style:{width:i===`mobile`?`375px`:i===`tablet`?`768px`:`100%`,maxWidth:`100%`,height:`100%`,border:i===`desktop`?`none`:`8px solid #27272a`,borderRadius:i===`desktop`?`0px`:`24px`,background:`#ffffff`,boxShadow:i===`desktop`?`none`:`0 20px 50px rgba(0,0,0,0.6)`,margin:`0 auto`,transition:`width 0.3s ease, border-radius 0.3s ease`,boxSizing:`border-box`}},`${r.business_name}_${e.length}_${t.length}_${i}`)})},Vr=()=>{let e=lt(),t=ot(),n=()=>{let e=t.state?.generatedData||t.state?.websiteData;if(e)return e;let n=t.state?.previews;if(n&&n.length>0)return n[0];try{let e=sessionStorage.getItem(`webcraft_current_website`);if(e)return JSON.parse(e)}catch{}return null},r=()=>{let e=t.state?.previews;if(e&&e.length>0)return e;let r=n();if(r)return[r];try{let e=sessionStorage.getItem(`webcraft_previews_list`);if(e)return JSON.parse(e)}catch{}return[]},i=n(),[a]=(0,_.useState)(r()),[o,s]=(0,_.useState)(0),[c,l]=(0,_.useState)(`desktop`),[u,d]=(0,_.useState)(!1),[f,p]=(0,_.useState)(!0),[m,h]=(0,_.useState)(!1),[g,v]=(0,_.useState)(!1),[y,b]=(0,_.useState)(!1),[x,ee]=(0,_.useState)(!0),[S,C]=(0,_.useState)(`text`),w=a[o]||i;(0,_.useEffect)(()=>{if(w)try{sessionStorage.setItem(`webcraft_current_website`,JSON.stringify(w))}catch{}if(a.length>0)try{sessionStorage.setItem(`webcraft_previews_list`,JSON.stringify(a))}catch{}},[w,a]);let[T,E]=(0,_.useState)(()=>{if(w?.content||w?.business_name){let e=w?.content||{};return{business_name:e.business_name||w?.business_name||`My Custom Web Platform`,business_description:e.business_description||w?.business_description||``,logo_url:e.logo_url||w?.logo_url||``,hero_image_url:e.hero_image_url||e.images?.hero||w?.images?.hero||``,images:e.images||w?.images||{},image_pool:e.image_pool||w?.image_pool||[],tagline:e.tagline||w?.tagline||``,primary_color:e.primary_color||w?.primary_color||`#2563eb`,contact_email:e.contact_email||w?.contact_email||``,contact_phone:e.contact_phone||w?.contact_phone||``,ai_content:e.ai_content||null,hero:e.hero||e.ai_content?.hero||{},about:e.about||e.ai_content?.about||{},services:e.services||e.ai_content?.services_or_products||[],testimonials:e.testimonials||e.ai_content?.testimonials||[],features:e.features||e.ai_content?.features||[],stats:e.stats||e.ai_content?.stats||[],cta_banner:e.cta_banner||e.ai_content?.cta_banner||{},micro_tags:e.micro_tags||e.ai_content?.micro_tags||[],short_titles:e.short_titles||e.ai_content?.short_titles||[],medium_phrases:e.medium_phrases||e.ai_content?.medium_phrases||[],domain_paragraphs:e.domain_paragraphs||e.ai_content?.domain_paragraphs||[],navbar_items:e.navbar_items||e.ai_content?.navbar_items||[]}}try{let e=sessionStorage.getItem(`webcraft_editable_content`);if(e)return JSON.parse(e)}catch{}return{business_name:`My Custom Web Platform`,business_description:``,logo_url:``,hero_image_url:``,images:{},image_pool:[],tagline:``,primary_color:`#2563eb`,contact_email:``,contact_phone:``,ai_content:null,hero:{},about:{},services:[],testimonials:[],features:[],stats:[],cta_banner:{},micro_tags:[],short_titles:[],medium_phrases:[],domain_paragraphs:[],navbar_items:[]}}),[D,O]=(0,_.useState)(!1),te=async()=>{O(!0);try{let e=await wr.generateAiCopy({business_name:T.business_name||w?.business_name||``,business_description:T.business_description||w?.business_description||``,category:w?.category_name||``,tagline:T.tagline||``});if(e.success&&e.data){let t=e.data;E(e=>({...e,ai_content:t,tagline:t.tagline||e.tagline,hero:t.hero||e.hero,about:t.about||e.about,services:t.services_or_products||e.services,testimonials:t.testimonials||e.testimonials,features:t.features||e.features,stats:t.stats||e.stats,cta_banner:t.cta_banner||e.cta_banner}))}}catch(e){console.error(`Failed to generate AI copy:`,e)}finally{O(!1)}};(0,_.useEffect)(()=>{try{sessionStorage.setItem(`webcraft_editable_content`,JSON.stringify(T))}catch{}},[T]);let ne=w?.price||w?.category_price||w?.content?.price||w?.amount||499,[k,A]=(0,_.useState)(`processing`),[j,re]=(0,_.useState)(``),[M,N]=(0,_.useState)(``),[ie,ae]=(0,_.useState)(``),[P,oe]=(0,_.useState)(``),[F,I]=(0,_.useState)(``),[se,L]=(0,_.useState)(!1),[ce,le]=(0,_.useState)(``),[ue,de]=(0,_.useState)(!1),fe=async(e=!1)=>{L(!0),le(``);let t=T.business_name||`My Website`,n=`Template ${o+1}`;try{let r=await wr.initiatePhonePePayment({business_name:t,template_name:n,amount:ne});if(L(!1),r.success&&r.data){let t=r.data.merchant_transaction_id,n=r.data.checkout_url||r.data.redirect_url,i=r.data.upi_intent_string||``;re(t);try{sessionStorage.setItem(`webcraft_last_txn_id`,t)}catch{}N(n||``),ae(i),oe(r.data.qr_code_url||(i?`https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(i)}`:``)),e&&n&&n.startsWith(`http`)?window.location.href=n:le(`Scan the QR code with PhonePe / GPay / Paytm or click Proceed to PhonePe Checkout.`)}else{let e=r.error||r.message||`Unable to connect to PhonePe Gateway. Please verify credentials.`;le(`❌ ${e}`)}}catch{L(!1),le(`❌ Connection error. Please try launching PhonePe Checkout again.`)}},pe=async()=>{v(!0),A(`processing`),await fe(!1)},me=async()=>{if(!j)return;de(!0),le(``);let e=T.business_name||`My Website`,t=`Template ${o+1}`;try{let n=await wr.verifyPhonePePayment({merchant_transaction_id:j,business_name:e,template_name:t});if(n.success&&n.data?.is_paid&&n.data?.status===`SUCCESS`){let r=n.data?.whatsapp_message||`I have paid on your website for ${e} using ${t} (Txn ID: ${j}). Now please help me making my website live.`,i=n.data?.whatsapp_url||`https://wa.me/919106312511?text=${encodeURIComponent(r)}`;I(i),A(`success`),setTimeout(()=>{window.open(i,`_blank`,`noopener,noreferrer`)},1500)}else if(n.data?.status===`FAILED`){let e=n.data?.message||n.error||`Payment was not completed or expired on PhonePe. Please click "Retry Payment" to start a new session.`;le(`❌ ${e}`)}else le(`⏳ Payment is pending on PhonePe. Please complete payment on the PhonePe checkout page.`)}catch{le(`⏳ Payment is pending verification with PhonePe. Please complete your payment.`)}finally{de(!1)}};(0,_.useEffect)(()=>{let e=null;return g&&k===`processing`&&j&&(e=setInterval(()=>{let t=T.business_name||`My Website`,n=`Template ${o+1}`;wr.verifyPhonePePayment({merchant_transaction_id:j,business_name:t,template_name:n}).then(r=>{if(r.success&&r.data?.is_paid&&r.data?.status===`SUCCESS`){let i=r.data?.whatsapp_message||`I have paid on your website for ${t} using ${n} (Txn ID: ${j}). Now please help me making my website live.`,a=r.data?.whatsapp_url||`https://wa.me/919106312511?text=${encodeURIComponent(i)}`;I(a),A(`success`),clearInterval(e),setTimeout(()=>{window.open(a,`_blank`,`noopener,noreferrer`)},1200)}else r.data?.status===`FAILED`&&le(r.data?.message||r.error||`❌ Payment session expired on PhonePe. Click Retry Payment to try again.`)}).catch(()=>{})},3500)),()=>{e&&clearInterval(e)}},[g,k,j,T.business_name,o]),(0,_.useEffect)(()=>{let e=new URLSearchParams(window.location.search),t=e.get(`merchantTransactionId`)||e.get(`txnId`)||e.get(`transactionId`)||sessionStorage.getItem(`webcraft_last_txn_id`);if(t&&(e.get(`merchantTransactionId`)||e.get(`txnId`))){re(t),v(!0),A(`processing`);let e=T.business_name||`My Website`,n=`Template ${o+1}`;wr.verifyPhonePePayment({merchant_transaction_id:t,business_name:e,template_name:n}).then(r=>{if(r.success&&r.data?.is_paid&&r.data?.status===`SUCCESS`){let i=r.data?.whatsapp_message||`I have paid on your website for ${e} using ${n} (Txn ID: ${t}). Now please help me making my website live.`,a=r.data?.whatsapp_url||`https://wa.me/919106312511?text=${encodeURIComponent(i)}`;I(a),A(`success`),setTimeout(()=>{window.open(a,`_blank`,`noopener,noreferrer`)},1500)}else r.data?.status===`FAILED`?le(r.data?.message||r.error||`❌ Payment was not completed. Click Retry Payment to launch a new session.`):le(`⏳ Checking payment status with PhonePe servers...`)}).catch(()=>{})}},[]),(0,_.useEffect)(()=>{let e=e=>{e.key===`Escape`&&u&&d(!1)};return window.addEventListener(`keydown`,e),()=>window.removeEventListener(`keydown`,e)},[u]),(0,_.useEffect)(()=>{if(u){p(!0);let e=setTimeout(()=>{p(!1)},2500);return()=>clearTimeout(e)}},[u]);let[he,ge]=(0,_.useState)({html:w?.source_code_html||``,css:w?.source_code_css||``,js:w?.source_code_js||``});(0,_.useEffect)(()=>{let e=a[o]||i;e&&(e.content&&E(t=>({...t,business_name:e.content.business_name||e.business_name||t.business_name,business_description:e.content.business_description||e.business_description||t.business_description,logo_url:e.content.logo_url===void 0?t.logo_url:e.content.logo_url,hero_image_url:e.content.hero_image_url||e.content.images?.hero||e.images?.hero||t.hero_image_url,images:e.content.images||e.images||t.images,image_pool:e.content.image_pool||e.image_pool||t.image_pool,tagline:e.content.tagline||t.tagline,primary_color:e.content.primary_color||t.primary_color,contact_email:e.content.contact_email||t.contact_email,contact_phone:e.content.contact_phone||t.contact_phone,hero:e.content.hero||t.hero,about:e.content.about||t.about,services:e.content.services||t.services,testimonials:e.content.testimonials||t.testimonials,features:e.content.features||t.features,faqs:e.content.faqs||t.faqs,stats:e.content.stats||t.stats,cta_banner:e.content.cta_banner||t.cta_banner,micro_tags:e.content.micro_tags||t.micro_tags,short_titles:e.content.short_titles||t.short_titles,medium_phrases:e.content.medium_phrases||t.medium_phrases,domain_paragraphs:e.content.domain_paragraphs||t.domain_paragraphs,navbar_items:e.content.navbar_items||t.navbar_items,ai_content:e.content.ai_content||t.ai_content})),ge({html:e.source_code_html||``,css:e.source_code_css||``,js:e.source_code_js||``}))},[o,a]);let _e=c===`tablet`?{highlight:`Not liking the tablet view?`,body:`No worries! It's all 100% customizable to your exact needs. Please contact us for more details.`}:c===`mobile`?{highlight:`Not liking the phone view?`,body:`No worries! It's all 100% customizable to your exact needs. Please contact us for more details.`}:{highlight:`Don't like this design or a section?`,body:`No worries! Every section & layout is 100% customizable to your exact needs. Contact us for custom tweaks.`};return(0,_.useEffect)(()=>{!he.html&&w&&wr.getGitHubTemplateSource(void 0,w.business_type,w.template_id).then(e=>{e.success&&e.data&&ge({html:e.data.source_code_html||``,css:e.data.source_code_css||``,js:e.data.source_code_js||``})})},[w?.business_type,he.html]),(0,_.useEffect)(()=>{if(he.html){let e=Tr(he.html);C(e)}},[he.html]),(0,z.jsxs)(`div`,{style:{height:`100vh`,width:`100vw`,background:`#f8fafc`,display:`flex`,flexDirection:`column`,color:`#09090b`,overflow:`hidden`},children:[(0,z.jsx)(`header`,{className:`preview-header`,style:{background:`rgba(255, 255, 255, 0.92)`,backdropFilter:`blur(20px) saturate(180%)`,WebkitBackdropFilter:`blur(20px) saturate(180%)`,borderBottom:`1px solid rgba(226, 232, 240, 0.85)`,padding:`0 1.25rem`,height:`56px`,flexShrink:0,zIndex:100,boxShadow:`0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.015)`,display:`flex`,alignItems:`center`},children:(0,z.jsxs)(`div`,{className:`preview-header-inner`,style:{display:`flex`,alignItems:`center`,justifyContent:`space-between`,width:`100%`,gap:`1rem`},children:[(0,z.jsxs)(`div`,{className:`preview-header-brand`,style:{display:`flex`,alignItems:`center`,gap:`0.75rem`,flexShrink:0},children:[(0,z.jsxs)(`button`,{onClick:()=>e(`/`),style:{background:`#f8fafc`,border:`1px solid #e2e8f0`,color:`#475569`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.35rem`,fontSize:`0.8rem`,fontWeight:600,padding:`0.35rem 0.65rem`,borderRadius:`8px`,transition:`all 0.15s ease`},title:`Back to Home`,children:[(0,z.jsx)(Bn,{size:14}),` `,(0,z.jsx)(`span`,{children:`Home`})]}),(0,z.jsx)(`div`,{style:{height:`18px`,width:`1px`,background:`#e2e8f0`}}),(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.5rem`},children:[(0,z.jsx)(`div`,{style:{width:`26px`,height:`26px`,borderRadius:`7px`,background:`linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)`,display:`flex`,alignItems:`center`,justifyContent:`center`,boxShadow:`0 2px 6px rgba(59, 130, 246, 0.25)`},children:(0,z.jsx)(pr,{size:13,color:`#ffffff`})}),(0,z.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`},children:[(0,z.jsx)(`span`,{style:{fontSize:`0.88rem`,fontWeight:800,color:`#0f172a`,maxWidth:`150px`,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`,lineHeight:1.2},title:T.business_name,children:T.business_name}),(0,z.jsxs)(`span`,{style:{fontSize:`0.66rem`,color:`#059669`,fontWeight:700,display:`flex`,alignItems:`center`,gap:`0.2rem`},children:[(0,z.jsx)(`span`,{style:{width:`5px`,height:`5px`,borderRadius:`50%`,background:`#10b981`,display:`inline-block`}}),a.length,` Variations`]})]})]})]}),a&&a.length>1&&(0,z.jsx)(`div`,{className:`custom-scrollbar`,style:{display:`flex`,alignItems:`center`,background:`#f1f5f9`,padding:`3px`,borderRadius:`9999px`,border:`1px solid rgba(226, 232, 240, 0.9)`,gap:`2px`,overflowX:`auto`,boxShadow:`inset 0 1px 2px rgba(0, 0, 0, 0.03)`,flex:`0 1 auto`},children:a.map((e,t)=>{let n=o===t;return(0,z.jsxs)(`button`,{onClick:()=>s(t),style:{padding:`0.32rem 0.85rem`,borderRadius:`9999px`,border:`none`,background:n?`#ffffff`:`transparent`,color:n?`#0f172a`:`#64748b`,fontSize:`0.78rem`,fontWeight:n?700:500,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.35rem`,whiteSpace:`nowrap`,transition:`all 0.18s cubic-bezier(0.16, 1, 0.3, 1)`,boxShadow:n?`0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04)`:`none`},children:[n&&(0,z.jsx)(`span`,{style:{width:`6px`,height:`6px`,borderRadius:`50%`,background:`#2563eb`,display:`inline-block`,boxShadow:`0 0 6px rgba(37, 99, 235, 0.6)`}}),(0,z.jsxs)(`span`,{children:[`Template `,t+1]})]},e.website_id||t)})}),(0,z.jsxs)(`div`,{className:`preview-actions`,style:{display:`flex`,alignItems:`center`,gap:`0.65rem`,flexShrink:0},children:[(0,z.jsxs)(`div`,{className:`preview-viewport-switcher`,style:{display:`flex`,background:`#f1f5f9`,padding:`3px`,borderRadius:`9999px`,border:`1px solid rgba(226, 232, 240, 0.9)`,gap:`2px`},children:[(0,z.jsxs)(`button`,{onClick:()=>l(`desktop`),style:{padding:`0.32rem 0.55rem`,borderRadius:`9999px`,border:`none`,background:c===`desktop`?`#ffffff`:`transparent`,color:c===`desktop`?`#0f172a`:`#64748b`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.3rem`,fontSize:`0.75rem`,fontWeight:700,boxShadow:c===`desktop`?`0 2px 6px rgba(0,0,0,0.06)`:`none`,transition:`all 0.15s ease`},title:`Desktop View`,children:[(0,z.jsx)(ir,{size:14}),` `,(0,z.jsx)(`span`,{children:`Desktop`})]}),(0,z.jsx)(`button`,{onClick:()=>l(`tablet`),style:{padding:`0.32rem 0.55rem`,borderRadius:`9999px`,border:`none`,background:c===`tablet`?`#ffffff`:`transparent`,color:c===`tablet`?`#0f172a`:`#64748b`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.3rem`,fontSize:`0.75rem`,fontWeight:700,boxShadow:c===`tablet`?`0 2px 6px rgba(0,0,0,0.06)`:`none`,transition:`all 0.15s ease`},title:`Tablet View`,children:(0,z.jsx)(hr,{size:14})}),(0,z.jsx)(`button`,{onClick:()=>l(`mobile`),style:{padding:`0.32rem 0.55rem`,borderRadius:`9999px`,border:`none`,background:c===`mobile`?`#ffffff`:`transparent`,color:c===`mobile`?`#0f172a`:`#64748b`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.3rem`,fontSize:`0.75rem`,fontWeight:700,boxShadow:c===`mobile`?`0 2px 6px rgba(0,0,0,0.06)`:`none`,transition:`all 0.15s ease`},title:`Mobile View`,children:(0,z.jsx)(fr,{size:14})}),(0,z.jsx)(`button`,{onClick:()=>d(!0),style:{padding:`0.32rem 0.65rem`,borderRadius:`9999px`,border:`none`,background:`transparent`,color:`#475569`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.3rem`,fontSize:`0.75rem`,fontWeight:600,transition:`all 0.15s ease`},title:`Whole Screen View (Full Display)`,children:(0,z.jsx)(er,{size:14})})]}),(0,z.jsxs)(`button`,{onClick:()=>b(!y),className:`preview-editor-btn`,style:{padding:`0.38rem 0.85rem`,borderRadius:`9999px`,background:y?`#eff6ff`:`#ffffff`,border:y?`1px solid #bfdbfe`:`1px solid #e2e8f0`,color:y?`#2563eb`:`#334155`,fontSize:`0.78rem`,fontWeight:600,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.4rem`,boxShadow:`0 1px 2px rgba(0,0,0,0.04)`,transition:`all 0.15s ease`},children:[(0,z.jsx)(dr,{size:13,color:y?`#2563eb`:`#6366f1`}),(0,z.jsx)(`span`,{children:y?`Close Editor`:`Customize`})]}),(0,z.jsxs)(`button`,{onClick:pe,className:`preview-publish-btn`,style:{padding:`0.44rem 1.15rem`,borderRadius:`9999px`,background:`linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)`,border:`none`,color:`white`,fontSize:`0.8rem`,fontWeight:700,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.45rem`,boxShadow:`0 4px 14px rgba(79, 70, 229, 0.35)`,whiteSpace:`nowrap`,transition:`all 0.2s cubic-bezier(0.16, 1, 0.3, 1)`},children:[(0,z.jsx)(qn,{size:14}),(0,z.jsxs)(`span`,{children:[`Publish • ₹`,ne,`/mo`]})]})]})]})}),(0,z.jsxs)(`div`,{className:`preview-main-wrapper`,style:{flex:1,height:`calc(100vh - 56px)`,display:`flex`,position:`relative`,overflow:`hidden`},children:[y&&(0,z.jsxs)(`aside`,{className:`preview-editor-sidebar`,style:{width:`340px`,height:`100%`,background:`#ffffff`,borderRight:`1px solid #e4e4e7`,padding:`1.5rem`,overflowY:`auto`,display:`flex`,flexDirection:`column`,gap:`1.2rem`,zIndex:20,flexShrink:0,boxShadow:`2px 0 10px rgba(0,0,0,0.03)`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,alignItems:`center`,borderBottom:`1px solid #e4e4e7`,paddingBottom:`0.75rem`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.5rem`},children:[(0,z.jsx)(or,{size:18,color:`#2563eb`}),(0,z.jsx)(`h3`,{style:{fontSize:`1rem`,fontWeight:800,margin:0,color:`#09090b`},children:`Live Customizer`})]}),(0,z.jsx)(`button`,{onClick:()=>b(!1),style:{background:`transparent`,border:`none`,color:`#64748b`,cursor:`pointer`},children:(0,z.jsx)(vr,{size:18})})]}),(0,z.jsxs)(`div`,{style:{padding:`0.85rem`,background:`#f8fafc`,borderRadius:`8px`,border:`1px solid #e4e4e7`,marginBottom:`0.5rem`},children:[(0,z.jsxs)(`div`,{style:{marginBottom:`0.6rem`},children:[(0,z.jsx)(`span`,{style:{fontSize:`0.7rem`,fontWeight:700,color:`#64748b`,textTransform:`uppercase`,letterSpacing:`0.04em`},children:`Template Logo Detection`}),(0,z.jsx)(`div`,{style:{fontSize:`0.82rem`,fontWeight:700,color:`#09090b`},children:S===`text`?`🔤 Text Logo Format`:`🖼️ Image Logo Format`})]}),S===`text`?(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.78rem`,color:`#475569`,marginBottom:`0.3rem`,fontWeight:600},children:`Brand / Logo Text`}),(0,z.jsx)(`input`,{type:`text`,value:T.business_name,onChange:e=>E(t=>({...t,business_name:e.target.value})),style:{width:`100%`,padding:`0.5rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}):(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.78rem`,color:`#475569`,marginBottom:`0.3rem`,fontWeight:600},children:`Logo Image URL`}),(0,z.jsx)(`input`,{type:`text`,value:T.logo_url,onChange:e=>E(t=>({...t,logo_url:e.target.value})),style:{width:`100%`,padding:`0.5rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]})]}),(0,z.jsxs)(`div`,{style:{padding:`1rem`,background:`#eff6ff`,borderRadius:`10px`,border:`1px solid #bfdbfe`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`space-between`,marginBottom:`0.5rem`},children:[(0,z.jsxs)(`span`,{style:{fontSize:`0.75rem`,fontWeight:800,color:`#1d4ed8`,textTransform:`uppercase`,letterSpacing:`0.04em`,display:`flex`,alignItems:`center`,gap:`0.35rem`},children:[(0,z.jsx)(pr,{size:14,color:`#2563eb`}),` AI Copywriting Engine`]}),(0,z.jsx)(`span`,{style:{fontSize:`0.65rem`,background:`#dbeafe`,color:`#1e40af`,padding:`1px 6px`,borderRadius:`4px`,fontWeight:700},children:`Gemini AI`})]}),(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.78rem`,color:`#1e3a8a`,marginBottom:`0.35rem`,fontWeight:600},children:`Business Description / Context`}),(0,z.jsx)(`textarea`,{rows:3,value:T.business_description,onChange:e=>E({...T,business_description:e.target.value}),placeholder:`e.g. Wood-fired pizza store with organic sourdough crust, San Marzano tomatoes, and craft Italian gelatos...`,style:{width:`100%`,padding:`0.5rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #93c5fd`,color:`#09090b`,fontSize:`0.82rem`,resize:`vertical`}}),(0,z.jsx)(`button`,{onClick:te,disabled:D,style:{width:`100%`,marginTop:`0.6rem`,padding:`0.55rem`,borderRadius:`6px`,background:`linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)`,border:`none`,color:`#ffffff`,fontSize:`0.82rem`,fontWeight:700,cursor:D?`not-allowed`:`pointer`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.4rem`,boxShadow:`0 2px 8px rgba(37, 99, 235, 0.3)`,opacity:D?.7:1},children:D?(0,z.jsxs)(z.Fragment,{children:[(0,z.jsx)(cr,{size:14,className:`spin-icon`}),(0,z.jsx)(`span`,{children:`Writing Custom Copy with AI...`})]}):(0,z.jsxs)(z.Fragment,{children:[(0,z.jsx)(pr,{size:14}),(0,z.jsx)(`span`,{children:`✨ AI Generate Website Text`})]})})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Business Title / Name`}),(0,z.jsx)(`input`,{type:`text`,value:T.business_name,onChange:e=>E({...T,business_name:e.target.value}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Hero Main Headline`}),(0,z.jsx)(`input`,{type:`text`,value:T.hero?.headline||``,placeholder:`Main hero banner heading...`,onChange:e=>E({...T,hero:{...T.hero,headline:e.target.value}}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Tagline / Subtitle`}),(0,z.jsx)(`input`,{type:`text`,value:T.hero?.subheadline||T.tagline||``,onChange:e=>E({...T,tagline:e.target.value,hero:{...T.hero,subheadline:e.target.value}}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`About Us / Story Narrative`}),(0,z.jsx)(`textarea`,{rows:3,value:T.about?.story||``,placeholder:`Story about your business, craftsmanship, or mission...`,onChange:e=>E({...T,about:{...T.about,story:e.target.value}}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`,resize:`vertical`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Hero Banner Image URL`}),(0,z.jsx)(`input`,{type:`text`,value:T.hero_image_url,onChange:e=>E({...T,hero_image_url:e.target.value}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Contact Email`}),(0,z.jsx)(`input`,{type:`email`,value:T.contact_email,onChange:e=>E({...T,contact_email:e.target.value}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Contact Phone`}),(0,z.jsx)(`input`,{type:`text`,value:T.contact_phone,onChange:e=>E({...T,contact_phone:e.target.value}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsx)(`div`,{style:{marginTop:`auto`,paddingTop:`1rem`,borderTop:`1px solid #e4e4e7`},children:(0,z.jsx)(`span`,{style:{fontSize:`0.75rem`,color:`#64748b`},children:`Changes auto-apply live inside the preview canvas.`})})]}),(0,z.jsxs)(`main`,{className:`preview-main-container`,style:{flex:1,height:`100%`,background:`#f8fafc`,display:`flex`,alignItems:`center`,justifyContent:`center`,padding:u?0:c===`desktop`?`0.75rem 1.25rem`:`1.25rem`,overflow:`hidden`,position:`relative`},children:[(0,z.jsx)(`div`,{className:`preview-iframe-box`,style:{position:u?`fixed`:`relative`,top:u?0:`auto`,left:u?0:`auto`,width:u?`100vw`:c===`desktop`?`100%`:c===`tablet`?`768px`:`375px`,height:u?`100vh`:c===`desktop`?`100%`:c===`tablet`?`92%`:`85%`,maxHeight:u?`100vh`:`100%`,zIndex:u?99999:`auto`,background:`#ffffff`,borderRadius:u?0:c===`desktop`?`12px`:`28px`,boxShadow:u?`none`:c===`desktop`?`0 12px 35px -10px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)`:`0 25px 60px -15px rgba(0, 0, 0, 0.25)`,border:u?`none`:c===`desktop`?`1px solid rgba(226, 232, 240, 0.85)`:`8px solid #1e293b`,overflow:`hidden`,transition:`all 0.3s cubic-bezier(0.16, 1, 0.3, 1)`},children:(0,z.jsx)(Br,{html:he.html,css:he.css,js:he.js,content:T,viewportMode:u?`desktop`:c,repoUrl:w?.github_source?.repo_url||w?.repo_url||``})}),x&&(0,z.jsxs)(`div`,{className:`preview-floating-notice`,style:{position:`absolute`,bottom:`1.25rem`,left:`50%`,transform:`translateX(-50%)`,zIndex:90,background:`rgba(255, 255, 255, 0.94)`,backdropFilter:`blur(20px)`,WebkitBackdropFilter:`blur(20px)`,border:`1px solid rgba(226, 232, 240, 0.85)`,borderRadius:`9999px`,padding:`0.45rem 1rem`,boxShadow:`0 12px 32px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)`,display:`flex`,alignItems:`center`,gap:`0.75rem`,maxWidth:`640px`,width:`calc(100% - 2.5rem)`,transition:`all 0.3s cubic-bezier(0.16, 1, 0.3, 1)`},children:[(0,z.jsx)(`div`,{style:{width:`28px`,height:`28px`,borderRadius:`50%`,background:`linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)`,border:`1px solid #bfdbfe`,display:`flex`,alignItems:`center`,justifyContent:`center`,flexShrink:0},children:(0,z.jsx)(pr,{size:14,color:`#2563eb`})}),(0,z.jsx)(`div`,{style:{flex:1,minWidth:0},children:(0,z.jsxs)(`div`,{style:{fontSize:`0.82rem`,fontWeight:800,color:`#09090b`,display:`flex`,alignItems:`center`,gap:`0.4rem`},children:[(0,z.jsx)(`span`,{children:_e.highlight}),(0,z.jsx)(`span`,{style:{fontSize:`0.65rem`,background:`#ecfdf5`,color:`#065f46`,border:`1px solid #a7f3d0`,padding:`1px 6px`,borderRadius:`9999px`,fontWeight:700},children:`100% Customizable`})]})}),(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.5rem`,flexShrink:0},children:[(0,z.jsxs)(`button`,{onClick:pe,style:{background:`linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)`,border:`none`,color:`#ffffff`,padding:`0.32rem 0.8rem`,borderRadius:`9999px`,cursor:`pointer`,fontSize:`0.75rem`,fontWeight:700,display:`flex`,alignItems:`center`,gap:`0.35rem`,boxShadow:`0 2px 8px rgba(37, 99, 235, 0.3)`},children:[(0,z.jsx)(qn,{size:13}),` Publish Now`]}),(0,z.jsx)(`button`,{onClick:()=>ee(!1),style:{background:`transparent`,border:`none`,color:`#94a3b8`,cursor:`pointer`,display:`flex`,alignItems:`center`,padding:`3px`},title:`Dismiss notice`,children:(0,z.jsx)(vr,{size:14})})]})]})]})]}),g&&(0,z.jsx)(`div`,{style:{position:`fixed`,top:0,left:0,right:0,bottom:0,background:`rgba(15, 23, 42, 0.5)`,backdropFilter:`blur(8px)`,zIndex:1e3,display:`flex`,alignItems:`center`,justifyContent:`center`,padding:`1.5rem 1rem`,overflowY:`auto`},children:(0,z.jsxs)(`div`,{className:`custom-scrollbar`,style:{background:`#ffffff`,border:`1px solid #e4e4e7`,borderRadius:`20px`,padding:`1.75rem`,maxWidth:`520px`,width:`100%`,maxHeight:`90vh`,overflowY:`auto`,boxShadow:`0 25px 60px -15px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05)`,margin:`auto`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,alignItems:`center`,marginBottom:`1.25rem`,borderBottom:`1px solid #e4e4e7`,paddingBottom:`0.85rem`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.65rem`},children:[(0,z.jsx)(`div`,{style:{width:`36px`,height:`36px`,borderRadius:`10px`,background:`linear-gradient(135deg, #5f259f 0%, #7c3aed 100%)`,display:`flex`,alignItems:`center`,justifyContent:`center`,boxShadow:`0 4px 12px rgba(95, 37, 159, 0.35)`},children:(0,z.jsx)(qn,{size:20,color:`white`})}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`div`,{style:{fontSize:`0.72rem`,fontWeight:800,color:`#7c3aed`,textTransform:`uppercase`,letterSpacing:`0.05em`},children:`PhonePe Payment Gateway`}),(0,z.jsx)(`h3`,{style:{fontSize:`1.15rem`,fontWeight:800,margin:0,color:`#09090b`},children:`Pay & Publish Website`})]})]}),(0,z.jsx)(`button`,{onClick:()=>{v(!1)},style:{background:`transparent`,border:`none`,color:`#64748b`,cursor:`pointer`,padding:`4px`},children:(0,z.jsx)(vr,{size:20})})]}),(0,z.jsxs)(`div`,{style:{background:`#f8fafc`,border:`1px solid #e4e4e7`,borderRadius:`12px`,padding:`1rem`,marginBottom:`1.25rem`},children:[(0,z.jsxs)(`div`,{style:{fontSize:`0.75rem`,fontWeight:800,color:`#64748b`,textTransform:`uppercase`,marginBottom:`0.75rem`,display:`flex`,justifyContent:`space-between`,alignItems:`center`},children:[(0,z.jsx)(`span`,{children:`Order Summary`}),(0,z.jsxs)(`span`,{style:{color:`#059669`,display:`flex`,alignItems:`center`,gap:`3px`,fontWeight:700},children:[(0,z.jsx)($n,{size:12}),` PhonePe Encrypted`]})]}),(0,z.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`,gap:`0.6rem`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,fontSize:`0.88rem`},children:[(0,z.jsx)(`span`,{style:{color:`#64748b`},children:`Website Name:`}),(0,z.jsx)(`strong`,{style:{color:`#09090b`},children:T.business_name})]}),(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,fontSize:`0.88rem`},children:[(0,z.jsx)(`span`,{style:{color:`#64748b`},children:`Selected Template:`}),(0,z.jsxs)(`span`,{style:{color:`#2563eb`,fontWeight:700},children:[`Template `,o+1]})]}),(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,fontSize:`0.88rem`},children:[(0,z.jsx)(`span`,{style:{color:`#64748b`},children:`Publishing & Hosting:`}),(0,z.jsx)(`span`,{style:{color:`#059669`,fontWeight:700},children:`Lifetime Access + Domain Setup`})]}),(0,z.jsx)(`div`,{style:{height:`1px`,background:`#e2e8f0`,margin:`0.2rem 0`}}),(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,alignItems:`center`},children:[(0,z.jsx)(`span`,{style:{fontSize:`0.95rem`,fontWeight:800,color:`#09090b`},children:`Total Amount Payable:`}),(0,z.jsxs)(`span`,{style:{fontSize:`1.4rem`,fontWeight:900,color:`#7c3aed`},children:[`₹`,ne,`/month`]})]})]})]}),k===`processing`&&(0,z.jsxs)(`div`,{style:{textAlign:`center`,padding:`0.25rem 0`},children:[(0,z.jsx)(`h4`,{style:{fontSize:`1.1rem`,fontWeight:800,color:`#09090b`,margin:`0 0 0.35rem 0`},children:se?`Connecting to PhonePe Gateway...`:`PhonePe Standard Checkout`}),(0,z.jsxs)(`p`,{style:{fontSize:`0.85rem`,color:`#64748b`,margin:`0 0 1rem 0`,lineHeight:1.4},children:[`Complete payment of `,(0,z.jsxs)(`strong`,{style:{color:`#09090b`},children:[`₹`,ne,`/month`]}),` via PhonePe Checkout (UPI, Cards, NetBanking, QR).`]}),(0,z.jsx)(`div`,{style:{background:`#f8fafc`,border:`1px solid #e2e8f0`,borderRadius:`16px`,padding:`1.25rem`,textAlign:`center`,marginBottom:`1.1rem`,boxShadow:`0 4px 15px rgba(0, 0, 0, 0.04)`},children:se?(0,z.jsxs)(`div`,{style:{padding:`2rem 0`,display:`flex`,flexDirection:`column`,alignItems:`center`,gap:`0.75rem`},children:[(0,z.jsx)(cr,{size:32,color:`#7c3aed`,className:`spin-icon`}),(0,z.jsx)(`span`,{style:{fontSize:`0.85rem`,color:`#64748b`,fontWeight:600},children:`Generating secure PhonePe Checkout session...`})]}):(0,z.jsxs)(z.Fragment,{children:[P&&(0,z.jsx)(`div`,{style:{background:`white`,padding:`12px`,borderRadius:`16px`,display:`inline-block`,border:`2px solid #7c3aed`,boxShadow:`0 4px 20px rgba(124, 58, 237, 0.2)`,marginBottom:`0.75rem`},children:(0,z.jsx)(`a`,{href:ie||`#`,style:{cursor:ie?`pointer`:`default`,display:`block`},children:(0,z.jsx)(`img`,{src:P,alt:`UPI Payment QR Code`,style:{width:`200px`,height:`200px`,display:`block`,borderRadius:`8px`}})})}),(0,z.jsxs)(`div`,{style:{fontSize:`0.88rem`,color:`#09090b`,fontWeight:800,marginBottom:`0.2rem`},children:[`Scan & Pay ₹`,ne,` via Any UPI App`]}),(0,z.jsxs)(`div`,{style:{fontSize:`0.75rem`,color:`#64748b`},children:[`PhonePe • Google Pay • Paytm • BHIM • UPI ID: `,(0,z.jsx)(`strong`,{style:{color:`#7c3aed`},children:`m23cuq5thr1lw@ybl`})]})]})}),ce&&(0,z.jsx)(`div`,{style:{background:`#f5f3ff`,border:`1px solid #ddd6fe`,color:`#6d28d9`,padding:`0.65rem 0.85rem`,borderRadius:`8px`,fontSize:`0.8rem`,marginBottom:`1rem`,fontWeight:600,textAlign:`left`},children:ce}),(0,z.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`,gap:`0.65rem`,marginBottom:`1rem`},children:[ie&&(0,z.jsxs)(`a`,{href:ie,style:{width:`100%`,padding:`0.8rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #10b981 0%, #059669 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.92rem`,textDecoration:`none`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.55rem`,boxShadow:`0 4px 14px rgba(16, 185, 129, 0.3)`,boxSizing:`border-box`},children:[(0,z.jsx)(fr,{size:17}),` Pay with UPI App (PhonePe / GPay)`]}),M?(0,z.jsxs)(`button`,{onClick:()=>{window.location.href=M},style:{width:`100%`,padding:`0.85rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #5f259f 0%, #7c3aed 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.95rem`,cursor:`pointer`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.55rem`,boxShadow:`0 4px 18px rgba(95, 37, 159, 0.35)`,boxSizing:`border-box`},children:[(0,z.jsx)(qn,{size:18}),` Pay with Cards / NetBanking / PG `,(0,z.jsx)(Jn,{size:15})]}):(0,z.jsxs)(`button`,{onClick:()=>fe(!1),disabled:se,style:{width:`100%`,padding:`0.85rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #5f259f 0%, #7c3aed 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.92rem`,cursor:`pointer`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.55rem`,boxShadow:`0 4px 18px rgba(95, 37, 159, 0.35)`,boxSizing:`border-box`},children:[(0,z.jsx)(cr,{size:16,className:se?`spin-icon`:``}),se?`Connecting...`:`Retry Payment`]}),(0,z.jsxs)(`button`,{onClick:me,disabled:ue||!j,style:{width:`100%`,padding:`0.8rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #10b981 0%, #059669 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.88rem`,cursor:`pointer`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.5rem`,opacity:ue||!j?.7:1,boxShadow:`0 2px 10px rgba(16, 185, 129, 0.25)`},children:[ue?(0,z.jsx)(cr,{size:16,className:`spin-icon`}):(0,z.jsx)(ur,{size:16}),ue?`Verifying with PhonePe Server...`:`I Have Completed Payment - Verify Now`]})]}),(0,z.jsx)(`div`,{style:{fontSize:`0.73rem`,color:`#64748b`,fontWeight:600,marginTop:`0.5rem`},children:`🔒 Auto-verifying server status in real time`})]}),k===`success`&&(0,z.jsxs)(`div`,{style:{textAlign:`center`,padding:`1rem 0`},children:[(0,z.jsx)(`div`,{style:{width:`68px`,height:`68px`,borderRadius:`50%`,background:`#ecfdf5`,border:`2px solid #10b981`,display:`flex`,alignItems:`center`,justifyContent:`center`,margin:`0 auto 1rem auto`,boxShadow:`0 4px 20px rgba(16, 185, 129, 0.25)`},children:(0,z.jsx)(Gn,{size:38,color:`#059669`})}),(0,z.jsx)(`h4`,{style:{fontSize:`1.3rem`,fontWeight:900,color:`#059669`,margin:`0 0 0.35rem 0`},children:`✓ Payment Successful!`}),(0,z.jsxs)(`div`,{style:{display:`inline-block`,padding:`3px 12px`,background:`#ecfdf5`,border:`1px solid #a7f3d0`,borderRadius:`20px`,fontSize:`0.75rem`,fontWeight:800,color:`#059669`,marginBottom:`1rem`},children:[`Txn Ref: `,j]}),(0,z.jsxs)(`p`,{style:{fontSize:`0.88rem`,color:`#475569`,lineHeight:1.5,marginBottom:`1.25rem`},children:[`Your payment of `,(0,z.jsxs)(`strong`,{style:{color:`#09090b`},children:[`₹`,ne]}),` via PhonePe was completed! Opening WhatsApp to make your site "`,(0,z.jsx)(`strong`,{style:{color:`#09090b`},children:T.business_name}),`" live...`]}),(0,z.jsxs)(`a`,{href:F,target:`_blank`,rel:`noopener noreferrer`,style:{width:`100%`,padding:`0.85rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #25D366 0%, #128C7E 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.9rem`,textDecoration:`none`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.5rem`,boxShadow:`0 4px 18px rgba(37, 211, 102, 0.35)`,boxSizing:`border-box`},children:[(0,z.jsx)(nr,{size:18}),` Proceed to WhatsApp to Make Site Live `,(0,z.jsx)(Jn,{size:15})]})]})]})}),u&&(0,z.jsxs)(`div`,{onMouseEnter:()=>h(!0),onMouseLeave:()=>h(!1),onClick:()=>{!f&&!m&&d(!1)},style:{position:`fixed`,top:`1.25rem`,right:`1.75rem`,zIndex:1e5,display:`flex`,alignItems:`center`,background:f||m?`rgba(255, 255, 255, 0.96)`:`rgba(255, 255, 255, 0.92)`,backdropFilter:`blur(16px)`,padding:`0.45rem`,paddingLeft:f||m?`1rem`:`0.45rem`,paddingRight:`0.45rem`,borderRadius:`30px`,border:f||m?`1px solid #e2e8f0`:`1px solid #fecaca`,boxShadow:f||m?`0 12px 35px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)`:`0 8px 25px rgba(0, 0, 0, 0.08)`,transition:`all 0.45s cubic-bezier(0.16, 1, 0.3, 1)`,overflow:`hidden`,cursor:`pointer`,maxWidth:f||m?`620px`:`44px`,height:`44px`,boxSizing:`border-box`},title:f||m?`Full Screen Controls`:`Click to exit or hover to expand controls (Press Esc)`,children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.85rem`,opacity:f||m?1:0,maxWidth:f||m?`540px`:`0px`,transform:f||m?`scale(1)`:`scale(0.95)`,transformOrigin:`right center`,transition:`opacity 0.35s ease, max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s ease`,overflow:`hidden`,whiteSpace:`nowrap`,pointerEvents:f||m?`auto`:`none`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.55rem`,fontSize:`0.85rem`,fontWeight:800,color:`#09090b`},children:[(0,z.jsx)(pr,{size:16,color:`#2563eb`}),(0,z.jsxs)(`span`,{children:[T.business_name,` — Full Screen Live Preview`]})]}),(0,z.jsx)(`div`,{style:{height:`16px`,width:`1px`,background:`#e4e4e7`,flexShrink:0}}),(0,z.jsxs)(`button`,{onClick:e=>{e.stopPropagation(),d(!1)},style:{background:`#fef2f2`,border:`1px solid #fecaca`,color:`#dc2626`,padding:`0.35rem 0.85rem`,borderRadius:`20px`,cursor:`pointer`,fontSize:`0.78rem`,fontWeight:700,display:`flex`,alignItems:`center`,gap:`0.4rem`,boxShadow:`0 2px 6px rgba(220, 38, 38, 0.15)`,whiteSpace:`nowrap`,flexShrink:0,transition:`all 0.2s ease`},title:`Exit full screen preview mode (Press Esc)`,children:[(0,z.jsx)(rr,{size:14}),` Exit Full Screen`]})]}),(0,z.jsx)(`div`,{onClick:e=>{e.stopPropagation(),d(!1)},style:{width:`32px`,height:`32px`,borderRadius:`50%`,background:f||m?`#fee2e2`:`#ef4444`,display:`flex`,alignItems:`center`,justifyContent:`center`,flexShrink:0,marginLeft:f||m?`0.6rem`:`0`,transition:`all 0.35s cubic-bezier(0.16, 1, 0.3, 1)`,boxShadow:f||m?`none`:`0 2px 8px rgba(239, 68, 68, 0.35)`},title:`Exit Full Screen`,children:(0,z.jsx)(vr,{size:16,color:f||m?`#dc2626`:`#ffffff`})})]})]})},Hr=()=>{let{pathname:e}=ot();return(0,_.useEffect)(()=>{window.scrollTo(0,0),document.documentElement.scrollTop=0,document.body.scrollTop=0,document.querySelectorAll(`.app-container, main, body, #root`).forEach(e=>{e&&(e.scrollTop=0)})},[e]),null};function Ur(){return(0,z.jsxs)(yn,{children:[(0,z.jsx)(Hr,{}),(0,z.jsxs)(Pt,{children:[(0,z.jsx)(Mt,{path:`/`,element:(0,z.jsx)(Rr,{})}),(0,z.jsx)(Mt,{path:`/create`,element:(0,z.jsx)(zr,{})}),(0,z.jsx)(Mt,{path:`/preview`,element:(0,z.jsx)(Vr,{})}),(0,z.jsx)(Mt,{path:`*`,element:(0,z.jsx)(Rr,{})})]})]})}(0,v.createRoot)(document.getElementById(`root`)).render((0,z.jsx)(_.StrictMode,{children:(0,z.jsx)(Ur,{})}));
+
+      `,x},[u,d]=(0,_.useState)(()=>l());return(0,_.useEffect)(()=>{let e=l();d(e)},[e,t,n,r,a,i]),(0,z.jsx)(`div`,{ref:c,style:{width:`100%`,height:`100%`,flex:1,display:`flex`,flexDirection:`column`,justifyContent:`center`,alignItems:`center`,background:`#09090b`,padding:i===`desktop`?`0`:`1.5rem`,boxSizing:`border-box`,overflow:`hidden`},children:(0,z.jsx)(`iframe`,{ref:s,srcDoc:u||void 0,onLoad:()=>{o&&o()},title:`Imported GitHub Template Preview`,sandbox:`allow-scripts allow-forms allow-popups allow-modals`,style:{width:i===`mobile`?`375px`:i===`tablet`?`768px`:`100%`,maxWidth:`100%`,height:`100%`,border:i===`desktop`?`none`:`8px solid #27272a`,borderRadius:i===`desktop`?`0px`:`24px`,background:`#ffffff`,boxShadow:i===`desktop`?`none`:`0 20px 50px rgba(0,0,0,0.6)`,margin:`0 auto`,transition:`width 0.3s ease, border-radius 0.3s ease`,boxSizing:`border-box`}})})},Vr=()=>{let e=lt(),t=ot(),n=()=>{let e=t.state?.generatedData||t.state?.websiteData;if(e)return e;let n=t.state?.previews;if(n&&n.length>0)return n[0];try{let e=sessionStorage.getItem(`webcraft_current_website`);if(e)return JSON.parse(e)}catch{}return null},r=()=>{let e=t.state?.previews;if(e&&e.length>0)return e;let r=n();if(r)return[r];try{let e=sessionStorage.getItem(`webcraft_previews_list`);if(e)return JSON.parse(e)}catch{}return[]},i=n(),[a]=(0,_.useState)(r()),[o,s]=(0,_.useState)(0),[c,l]=(0,_.useState)(`desktop`),[u,d]=(0,_.useState)(!1),[f,p]=(0,_.useState)(!0),[m,h]=(0,_.useState)(!1),[g,v]=(0,_.useState)(!1),[y,b]=(0,_.useState)(!1),[x,ee]=(0,_.useState)(!0),[S,C]=(0,_.useState)(`text`),w=a[o]||i;(0,_.useEffect)(()=>{if(w)try{sessionStorage.setItem(`webcraft_current_website`,JSON.stringify(w))}catch{}if(a.length>0)try{sessionStorage.setItem(`webcraft_previews_list`,JSON.stringify(a))}catch{}},[w,a]);let[T,E]=(0,_.useState)(()=>{if(w?.content||w?.business_name){let e=w?.content||{};return{business_name:e.business_name||w?.business_name||`My Custom Web Platform`,business_description:e.business_description||w?.business_description||``,logo_url:e.logo_url||w?.logo_url||``,hero_image_url:e.hero_image_url||e.images?.hero||w?.images?.hero||``,images:e.images||w?.images||{},image_pool:e.image_pool||w?.image_pool||[],tagline:e.tagline||w?.tagline||``,primary_color:e.primary_color||w?.primary_color||`#2563eb`,contact_email:e.contact_email||w?.contact_email||``,contact_phone:e.contact_phone||w?.contact_phone||``,services:e.services||[],testimonials:e.testimonials||[],ai_content:e.ai_content||null}}try{let e=sessionStorage.getItem(`webcraft_editable_content`);if(e)return JSON.parse(e)}catch{}return{business_name:`My Custom Web Platform`,business_description:``,logo_url:``,hero_image_url:``,images:{},image_pool:[],tagline:``,primary_color:`#2563eb`,contact_email:``,contact_phone:``,services:[],testimonials:[],ai_content:null}}),[D,O]=(0,_.useState)(!1),te=async()=>{O(!0);try{let e=await wr.generateAiCopy({business_name:T.business_name||w?.business_name||``,business_description:T.business_description||w?.business_description||``,category:w?.category_name||``,tagline:T.tagline||``});if(e.success&&e.data){let t=e.data;E(e=>({...e,ai_content:t,tagline:t.tagline||e.tagline,hero:t.hero||e.hero,about:t.about||e.about,services:t.services_or_products||e.services,testimonials:t.testimonials||e.testimonials,features:t.features||e.features,stats:t.stats||e.stats,cta_banner:t.cta_banner||e.cta_banner}))}}catch(e){console.error(`Failed to generate AI copy:`,e)}finally{O(!1)}};(0,_.useEffect)(()=>{try{sessionStorage.setItem(`webcraft_editable_content`,JSON.stringify(T))}catch{}},[T]);let ne=w?.price||w?.category_price||w?.content?.price||w?.amount||499,[k,A]=(0,_.useState)(`processing`),[j,re]=(0,_.useState)(``),[M,N]=(0,_.useState)(``),[ie,ae]=(0,_.useState)(``),[P,oe]=(0,_.useState)(``),[F,I]=(0,_.useState)(``),[se,L]=(0,_.useState)(!1),[ce,le]=(0,_.useState)(``),[ue,de]=(0,_.useState)(!1),fe=async(e=!1)=>{L(!0),le(``);let t=T.business_name||`My Website`,n=`Template ${o+1}`;try{let r=await wr.initiatePhonePePayment({business_name:t,template_name:n,amount:ne});if(L(!1),r.success&&r.data){let t=r.data.merchant_transaction_id,n=r.data.checkout_url||r.data.redirect_url,i=r.data.upi_intent_string||``;re(t);try{sessionStorage.setItem(`webcraft_last_txn_id`,t)}catch{}N(n||``),ae(i),oe(r.data.qr_code_url||(i?`https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(i)}`:``)),e&&n&&n.startsWith(`http`)?window.location.href=n:le(`Scan the QR code with PhonePe / GPay / Paytm or click Proceed to PhonePe Checkout.`)}else{let e=r.error||r.message||`Unable to connect to PhonePe Gateway. Please verify credentials.`;le(`❌ ${e}`)}}catch{L(!1),le(`❌ Connection error. Please try launching PhonePe Checkout again.`)}},pe=async()=>{v(!0),A(`processing`),await fe(!1)},me=async()=>{if(!j)return;de(!0),le(``);let e=T.business_name||`My Website`,t=`Template ${o+1}`;try{let n=await wr.verifyPhonePePayment({merchant_transaction_id:j,business_name:e,template_name:t});if(n.success&&n.data?.is_paid&&n.data?.status===`SUCCESS`){let r=n.data?.whatsapp_message||`I have paid on your website for ${e} using ${t} (Txn ID: ${j}). Now please help me making my website live.`,i=n.data?.whatsapp_url||`https://wa.me/919106312511?text=${encodeURIComponent(r)}`;I(i),A(`success`),setTimeout(()=>{window.open(i,`_blank`,`noopener,noreferrer`)},1500)}else if(n.data?.status===`FAILED`){let e=n.data?.message||n.error||`Payment was not completed or expired on PhonePe. Please click "Retry Payment" to start a new session.`;le(`❌ ${e}`)}else le(`⏳ Payment is pending on PhonePe. Please complete payment on the PhonePe checkout page.`)}catch{le(`⏳ Payment is pending verification with PhonePe. Please complete your payment.`)}finally{de(!1)}};(0,_.useEffect)(()=>{let e=null;return g&&k===`processing`&&j&&(e=setInterval(()=>{let t=T.business_name||`My Website`,n=`Template ${o+1}`;wr.verifyPhonePePayment({merchant_transaction_id:j,business_name:t,template_name:n}).then(r=>{if(r.success&&r.data?.is_paid&&r.data?.status===`SUCCESS`){let i=r.data?.whatsapp_message||`I have paid on your website for ${t} using ${n} (Txn ID: ${j}). Now please help me making my website live.`,a=r.data?.whatsapp_url||`https://wa.me/919106312511?text=${encodeURIComponent(i)}`;I(a),A(`success`),clearInterval(e),setTimeout(()=>{window.open(a,`_blank`,`noopener,noreferrer`)},1200)}else r.data?.status===`FAILED`&&le(r.data?.message||r.error||`❌ Payment session expired on PhonePe. Click Retry Payment to try again.`)}).catch(()=>{})},3500)),()=>{e&&clearInterval(e)}},[g,k,j,T.business_name,o]),(0,_.useEffect)(()=>{let e=new URLSearchParams(window.location.search),t=e.get(`merchantTransactionId`)||e.get(`txnId`)||e.get(`transactionId`)||sessionStorage.getItem(`webcraft_last_txn_id`);if(t&&(e.get(`merchantTransactionId`)||e.get(`txnId`))){re(t),v(!0),A(`processing`);let e=T.business_name||`My Website`,n=`Template ${o+1}`;wr.verifyPhonePePayment({merchant_transaction_id:t,business_name:e,template_name:n}).then(r=>{if(r.success&&r.data?.is_paid&&r.data?.status===`SUCCESS`){let i=r.data?.whatsapp_message||`I have paid on your website for ${e} using ${n} (Txn ID: ${t}). Now please help me making my website live.`,a=r.data?.whatsapp_url||`https://wa.me/919106312511?text=${encodeURIComponent(i)}`;I(a),A(`success`),setTimeout(()=>{window.open(a,`_blank`,`noopener,noreferrer`)},1500)}else r.data?.status===`FAILED`?le(r.data?.message||r.error||`❌ Payment was not completed. Click Retry Payment to launch a new session.`):le(`⏳ Checking payment status with PhonePe servers...`)}).catch(()=>{})}},[]),(0,_.useEffect)(()=>{let e=e=>{e.key===`Escape`&&u&&d(!1)};return window.addEventListener(`keydown`,e),()=>window.removeEventListener(`keydown`,e)},[u]),(0,_.useEffect)(()=>{if(u){p(!0);let e=setTimeout(()=>{p(!1)},2500);return()=>clearTimeout(e)}},[u]);let[he,ge]=(0,_.useState)({html:w?.source_code_html||``,css:w?.source_code_css||``,js:w?.source_code_js||``});(0,_.useEffect)(()=>{let e=a[o]||i;e&&(e.content&&E(t=>({...t,business_name:e.content.business_name||e.business_name||t.business_name,business_description:e.content.business_description||e.business_description||t.business_description,logo_url:e.content.logo_url===void 0?t.logo_url:e.content.logo_url,hero_image_url:e.content.hero_image_url||e.content.images?.hero||e.images?.hero||t.hero_image_url,images:e.content.images||e.images||t.images,image_pool:e.content.image_pool||e.image_pool||t.image_pool,tagline:e.content.tagline||t.tagline,primary_color:e.content.primary_color||t.primary_color,contact_email:e.content.contact_email||t.contact_email,contact_phone:e.content.contact_phone||t.contact_phone,services:e.content.services||t.services,testimonials:e.content.testimonials||t.testimonials,ai_content:e.content.ai_content||t.ai_content})),ge({html:e.source_code_html||``,css:e.source_code_css||``,js:e.source_code_js||``}))},[o,a]);let _e=c===`tablet`?{highlight:`Not liking the tablet view?`,body:`No worries! It's all 100% customizable to your exact needs. Please contact us for more details.`}:c===`mobile`?{highlight:`Not liking the phone view?`,body:`No worries! It's all 100% customizable to your exact needs. Please contact us for more details.`}:{highlight:`Don't like this design or a section?`,body:`No worries! Every section & layout is 100% customizable to your exact needs. Contact us for custom tweaks.`};return(0,_.useEffect)(()=>{!he.html&&w&&wr.getGitHubTemplateSource(void 0,w.business_type,w.template_id).then(e=>{e.success&&e.data&&ge({html:e.data.source_code_html||``,css:e.data.source_code_css||``,js:e.data.source_code_js||``})})},[w?.business_type,he.html]),(0,_.useEffect)(()=>{if(he.html){let e=Tr(he.html);C(e)}},[he.html]),(0,z.jsxs)(`div`,{style:{height:`100vh`,width:`100vw`,background:`#f8fafc`,display:`flex`,flexDirection:`column`,color:`#09090b`,overflow:`hidden`},children:[(0,z.jsx)(`header`,{className:`preview-header`,style:{background:`rgba(255, 255, 255, 0.92)`,backdropFilter:`blur(20px) saturate(180%)`,WebkitBackdropFilter:`blur(20px) saturate(180%)`,borderBottom:`1px solid rgba(226, 232, 240, 0.85)`,padding:`0 1.25rem`,height:`56px`,flexShrink:0,zIndex:100,boxShadow:`0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.015)`,display:`flex`,alignItems:`center`},children:(0,z.jsxs)(`div`,{className:`preview-header-inner`,style:{display:`flex`,alignItems:`center`,justifyContent:`space-between`,width:`100%`,gap:`1rem`},children:[(0,z.jsxs)(`div`,{className:`preview-header-brand`,style:{display:`flex`,alignItems:`center`,gap:`0.75rem`,flexShrink:0},children:[(0,z.jsxs)(`button`,{onClick:()=>e(`/`),style:{background:`#f8fafc`,border:`1px solid #e2e8f0`,color:`#475569`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.35rem`,fontSize:`0.8rem`,fontWeight:600,padding:`0.35rem 0.65rem`,borderRadius:`8px`,transition:`all 0.15s ease`},title:`Back to Home`,children:[(0,z.jsx)(Bn,{size:14}),` `,(0,z.jsx)(`span`,{children:`Home`})]}),(0,z.jsx)(`div`,{style:{height:`18px`,width:`1px`,background:`#e2e8f0`}}),(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.5rem`},children:[(0,z.jsx)(`div`,{style:{width:`26px`,height:`26px`,borderRadius:`7px`,background:`linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)`,display:`flex`,alignItems:`center`,justifyContent:`center`,boxShadow:`0 2px 6px rgba(59, 130, 246, 0.25)`},children:(0,z.jsx)(pr,{size:13,color:`#ffffff`})}),(0,z.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`},children:[(0,z.jsx)(`span`,{style:{fontSize:`0.88rem`,fontWeight:800,color:`#0f172a`,maxWidth:`150px`,overflow:`hidden`,textOverflow:`ellipsis`,whiteSpace:`nowrap`,lineHeight:1.2},title:T.business_name,children:T.business_name}),(0,z.jsxs)(`span`,{style:{fontSize:`0.66rem`,color:`#059669`,fontWeight:700,display:`flex`,alignItems:`center`,gap:`0.2rem`},children:[(0,z.jsx)(`span`,{style:{width:`5px`,height:`5px`,borderRadius:`50%`,background:`#10b981`,display:`inline-block`}}),a.length,` Variations`]})]})]})]}),a&&a.length>1&&(0,z.jsx)(`div`,{className:`custom-scrollbar`,style:{display:`flex`,alignItems:`center`,background:`#f1f5f9`,padding:`3px`,borderRadius:`9999px`,border:`1px solid rgba(226, 232, 240, 0.9)`,gap:`2px`,overflowX:`auto`,boxShadow:`inset 0 1px 2px rgba(0, 0, 0, 0.03)`,flex:`0 1 auto`},children:a.map((e,t)=>{let n=o===t;return(0,z.jsxs)(`button`,{onClick:()=>s(t),style:{padding:`0.32rem 0.85rem`,borderRadius:`9999px`,border:`none`,background:n?`#ffffff`:`transparent`,color:n?`#0f172a`:`#64748b`,fontSize:`0.78rem`,fontWeight:n?700:500,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.35rem`,whiteSpace:`nowrap`,transition:`all 0.18s cubic-bezier(0.16, 1, 0.3, 1)`,boxShadow:n?`0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04)`:`none`},children:[n&&(0,z.jsx)(`span`,{style:{width:`6px`,height:`6px`,borderRadius:`50%`,background:`#2563eb`,display:`inline-block`,boxShadow:`0 0 6px rgba(37, 99, 235, 0.6)`}}),(0,z.jsxs)(`span`,{children:[`Template `,t+1]})]},e.website_id||t)})}),(0,z.jsxs)(`div`,{className:`preview-actions`,style:{display:`flex`,alignItems:`center`,gap:`0.65rem`,flexShrink:0},children:[(0,z.jsxs)(`div`,{className:`preview-viewport-switcher`,style:{display:`flex`,background:`#f1f5f9`,padding:`3px`,borderRadius:`9999px`,border:`1px solid rgba(226, 232, 240, 0.9)`,gap:`2px`},children:[(0,z.jsxs)(`button`,{onClick:()=>l(`desktop`),style:{padding:`0.32rem 0.55rem`,borderRadius:`9999px`,border:`none`,background:c===`desktop`?`#ffffff`:`transparent`,color:c===`desktop`?`#0f172a`:`#64748b`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.3rem`,fontSize:`0.75rem`,fontWeight:700,boxShadow:c===`desktop`?`0 2px 6px rgba(0,0,0,0.06)`:`none`,transition:`all 0.15s ease`},title:`Desktop View`,children:[(0,z.jsx)(ir,{size:14}),` `,(0,z.jsx)(`span`,{children:`Desktop`})]}),(0,z.jsx)(`button`,{onClick:()=>l(`tablet`),style:{padding:`0.32rem 0.55rem`,borderRadius:`9999px`,border:`none`,background:c===`tablet`?`#ffffff`:`transparent`,color:c===`tablet`?`#0f172a`:`#64748b`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.3rem`,fontSize:`0.75rem`,fontWeight:700,boxShadow:c===`tablet`?`0 2px 6px rgba(0,0,0,0.06)`:`none`,transition:`all 0.15s ease`},title:`Tablet View`,children:(0,z.jsx)(hr,{size:14})}),(0,z.jsx)(`button`,{onClick:()=>l(`mobile`),style:{padding:`0.32rem 0.55rem`,borderRadius:`9999px`,border:`none`,background:c===`mobile`?`#ffffff`:`transparent`,color:c===`mobile`?`#0f172a`:`#64748b`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.3rem`,fontSize:`0.75rem`,fontWeight:700,boxShadow:c===`mobile`?`0 2px 6px rgba(0,0,0,0.06)`:`none`,transition:`all 0.15s ease`},title:`Mobile View`,children:(0,z.jsx)(fr,{size:14})}),(0,z.jsx)(`button`,{onClick:()=>d(!0),style:{padding:`0.32rem 0.65rem`,borderRadius:`9999px`,border:`none`,background:`transparent`,color:`#475569`,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.3rem`,fontSize:`0.75rem`,fontWeight:600,transition:`all 0.15s ease`},title:`Whole Screen View (Full Display)`,children:(0,z.jsx)(er,{size:14})})]}),(0,z.jsxs)(`button`,{onClick:()=>b(!y),className:`preview-editor-btn`,style:{padding:`0.38rem 0.85rem`,borderRadius:`9999px`,background:y?`#eff6ff`:`#ffffff`,border:y?`1px solid #bfdbfe`:`1px solid #e2e8f0`,color:y?`#2563eb`:`#334155`,fontSize:`0.78rem`,fontWeight:600,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.4rem`,boxShadow:`0 1px 2px rgba(0,0,0,0.04)`,transition:`all 0.15s ease`},children:[(0,z.jsx)(dr,{size:13,color:y?`#2563eb`:`#6366f1`}),(0,z.jsx)(`span`,{children:y?`Close Editor`:`Customize`})]}),(0,z.jsxs)(`button`,{onClick:pe,className:`preview-publish-btn`,style:{padding:`0.44rem 1.15rem`,borderRadius:`9999px`,background:`linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)`,border:`none`,color:`white`,fontSize:`0.8rem`,fontWeight:700,cursor:`pointer`,display:`flex`,alignItems:`center`,gap:`0.45rem`,boxShadow:`0 4px 14px rgba(79, 70, 229, 0.35)`,whiteSpace:`nowrap`,transition:`all 0.2s cubic-bezier(0.16, 1, 0.3, 1)`},children:[(0,z.jsx)(qn,{size:14}),(0,z.jsxs)(`span`,{children:[`Publish • ₹`,ne,`/mo`]})]})]})]})}),(0,z.jsxs)(`div`,{className:`preview-main-wrapper`,style:{flex:1,height:`calc(100vh - 56px)`,display:`flex`,position:`relative`,overflow:`hidden`},children:[y&&(0,z.jsxs)(`aside`,{className:`preview-editor-sidebar`,style:{width:`340px`,height:`100%`,background:`#ffffff`,borderRight:`1px solid #e4e4e7`,padding:`1.5rem`,overflowY:`auto`,display:`flex`,flexDirection:`column`,gap:`1.2rem`,zIndex:20,flexShrink:0,boxShadow:`2px 0 10px rgba(0,0,0,0.03)`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,alignItems:`center`,borderBottom:`1px solid #e4e4e7`,paddingBottom:`0.75rem`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.5rem`},children:[(0,z.jsx)(or,{size:18,color:`#2563eb`}),(0,z.jsx)(`h3`,{style:{fontSize:`1rem`,fontWeight:800,margin:0,color:`#09090b`},children:`Live Customizer`})]}),(0,z.jsx)(`button`,{onClick:()=>b(!1),style:{background:`transparent`,border:`none`,color:`#64748b`,cursor:`pointer`},children:(0,z.jsx)(vr,{size:18})})]}),(0,z.jsxs)(`div`,{style:{padding:`0.85rem`,background:`#f8fafc`,borderRadius:`8px`,border:`1px solid #e4e4e7`,marginBottom:`0.5rem`},children:[(0,z.jsxs)(`div`,{style:{marginBottom:`0.6rem`},children:[(0,z.jsx)(`span`,{style:{fontSize:`0.7rem`,fontWeight:700,color:`#64748b`,textTransform:`uppercase`,letterSpacing:`0.04em`},children:`Template Logo Detection`}),(0,z.jsx)(`div`,{style:{fontSize:`0.82rem`,fontWeight:700,color:`#09090b`},children:S===`text`?`🔤 Text Logo Format`:`🖼️ Image Logo Format`})]}),S===`text`?(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.78rem`,color:`#475569`,marginBottom:`0.3rem`,fontWeight:600},children:`Brand / Logo Text`}),(0,z.jsx)(`input`,{type:`text`,value:T.business_name,onChange:e=>E(t=>({...t,business_name:e.target.value})),style:{width:`100%`,padding:`0.5rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}):(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.78rem`,color:`#475569`,marginBottom:`0.3rem`,fontWeight:600},children:`Logo Image URL`}),(0,z.jsx)(`input`,{type:`text`,value:T.logo_url,onChange:e=>E(t=>({...t,logo_url:e.target.value})),style:{width:`100%`,padding:`0.5rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]})]}),(0,z.jsxs)(`div`,{style:{padding:`1rem`,background:`#eff6ff`,borderRadius:`10px`,border:`1px solid #bfdbfe`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,justifyContent:`space-between`,marginBottom:`0.5rem`},children:[(0,z.jsxs)(`span`,{style:{fontSize:`0.75rem`,fontWeight:800,color:`#1d4ed8`,textTransform:`uppercase`,letterSpacing:`0.04em`,display:`flex`,alignItems:`center`,gap:`0.35rem`},children:[(0,z.jsx)(pr,{size:14,color:`#2563eb`}),` AI Copywriting Engine`]}),(0,z.jsx)(`span`,{style:{fontSize:`0.65rem`,background:`#dbeafe`,color:`#1e40af`,padding:`1px 6px`,borderRadius:`4px`,fontWeight:700},children:`Gemini AI`})]}),(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.78rem`,color:`#1e3a8a`,marginBottom:`0.35rem`,fontWeight:600},children:`Business Description / Context`}),(0,z.jsx)(`textarea`,{rows:3,value:T.business_description,onChange:e=>E({...T,business_description:e.target.value}),placeholder:`e.g. Wood-fired pizza store with organic sourdough crust, San Marzano tomatoes, and craft Italian gelatos...`,style:{width:`100%`,padding:`0.5rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #93c5fd`,color:`#09090b`,fontSize:`0.82rem`,resize:`vertical`}}),(0,z.jsx)(`button`,{onClick:te,disabled:D,style:{width:`100%`,marginTop:`0.6rem`,padding:`0.55rem`,borderRadius:`6px`,background:`linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)`,border:`none`,color:`#ffffff`,fontSize:`0.82rem`,fontWeight:700,cursor:D?`not-allowed`:`pointer`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.4rem`,boxShadow:`0 2px 8px rgba(37, 99, 235, 0.3)`,opacity:D?.7:1},children:D?(0,z.jsxs)(z.Fragment,{children:[(0,z.jsx)(cr,{size:14,className:`spin-icon`}),(0,z.jsx)(`span`,{children:`Writing Custom Copy with AI...`})]}):(0,z.jsxs)(z.Fragment,{children:[(0,z.jsx)(pr,{size:14}),(0,z.jsx)(`span`,{children:`✨ AI Generate Website Text`})]})})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Business Title / Name`}),(0,z.jsx)(`input`,{type:`text`,value:T.business_name,onChange:e=>E({...T,business_name:e.target.value}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Hero Main Headline`}),(0,z.jsx)(`input`,{type:`text`,value:T.hero?.headline||``,placeholder:`Main hero banner heading...`,onChange:e=>E({...T,hero:{...T.hero,headline:e.target.value}}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Tagline / Subtitle`}),(0,z.jsx)(`input`,{type:`text`,value:T.hero?.subheadline||T.tagline||``,onChange:e=>E({...T,tagline:e.target.value,hero:{...T.hero,subheadline:e.target.value}}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`About Us / Story Narrative`}),(0,z.jsx)(`textarea`,{rows:3,value:T.about?.story||``,placeholder:`Story about your business, craftsmanship, or mission...`,onChange:e=>E({...T,about:{...T.about,story:e.target.value}}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`,resize:`vertical`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Hero Banner Image URL`}),(0,z.jsx)(`input`,{type:`text`,value:T.hero_image_url,onChange:e=>E({...T,hero_image_url:e.target.value}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Contact Email`}),(0,z.jsx)(`input`,{type:`email`,value:T.contact_email,onChange:e=>E({...T,contact_email:e.target.value}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`label`,{style:{display:`block`,fontSize:`0.8rem`,fontWeight:700,color:`#475569`,marginBottom:`0.4rem`},children:`Contact Phone`}),(0,z.jsx)(`input`,{type:`text`,value:T.contact_phone,onChange:e=>E({...T,contact_phone:e.target.value}),style:{width:`100%`,padding:`0.6rem 0.8rem`,borderRadius:`6px`,background:`#ffffff`,border:`1px solid #d4d4d8`,color:`#09090b`,fontSize:`0.85rem`}})]}),(0,z.jsx)(`div`,{style:{marginTop:`auto`,paddingTop:`1rem`,borderTop:`1px solid #e4e4e7`},children:(0,z.jsx)(`span`,{style:{fontSize:`0.75rem`,color:`#64748b`},children:`Changes auto-apply live inside the preview canvas.`})})]}),(0,z.jsxs)(`main`,{className:`preview-main-container`,style:{flex:1,height:`100%`,background:`#f8fafc`,display:`flex`,alignItems:`center`,justifyContent:`center`,padding:u?0:c===`desktop`?`0.75rem 1.25rem`:`1.25rem`,overflow:`hidden`,position:`relative`},children:[(0,z.jsx)(`div`,{className:`preview-iframe-box`,style:{position:u?`fixed`:`relative`,top:u?0:`auto`,left:u?0:`auto`,width:u?`100vw`:c===`desktop`?`100%`:c===`tablet`?`768px`:`375px`,height:u?`100vh`:c===`desktop`?`100%`:c===`tablet`?`92%`:`85%`,maxHeight:u?`100vh`:`100%`,zIndex:u?99999:`auto`,background:`#ffffff`,borderRadius:u?0:c===`desktop`?`12px`:`28px`,boxShadow:u?`none`:c===`desktop`?`0 12px 35px -10px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04)`:`0 25px 60px -15px rgba(0, 0, 0, 0.25)`,border:u?`none`:c===`desktop`?`1px solid rgba(226, 232, 240, 0.85)`:`8px solid #1e293b`,overflow:`hidden`,transition:`all 0.3s cubic-bezier(0.16, 1, 0.3, 1)`},children:(0,z.jsx)(Br,{html:he.html,css:he.css,js:he.js,content:T,viewportMode:u?`desktop`:c,repoUrl:w?.github_source?.repo_url||w?.repo_url||``})}),x&&(0,z.jsxs)(`div`,{className:`preview-floating-notice`,style:{position:`absolute`,bottom:`1.25rem`,left:`50%`,transform:`translateX(-50%)`,zIndex:90,background:`rgba(255, 255, 255, 0.94)`,backdropFilter:`blur(20px)`,WebkitBackdropFilter:`blur(20px)`,border:`1px solid rgba(226, 232, 240, 0.85)`,borderRadius:`9999px`,padding:`0.45rem 1rem`,boxShadow:`0 12px 32px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)`,display:`flex`,alignItems:`center`,gap:`0.75rem`,maxWidth:`640px`,width:`calc(100% - 2.5rem)`,transition:`all 0.3s cubic-bezier(0.16, 1, 0.3, 1)`},children:[(0,z.jsx)(`div`,{style:{width:`28px`,height:`28px`,borderRadius:`50%`,background:`linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)`,border:`1px solid #bfdbfe`,display:`flex`,alignItems:`center`,justifyContent:`center`,flexShrink:0},children:(0,z.jsx)(pr,{size:14,color:`#2563eb`})}),(0,z.jsx)(`div`,{style:{flex:1,minWidth:0},children:(0,z.jsxs)(`div`,{style:{fontSize:`0.82rem`,fontWeight:800,color:`#09090b`,display:`flex`,alignItems:`center`,gap:`0.4rem`},children:[(0,z.jsx)(`span`,{children:_e.highlight}),(0,z.jsx)(`span`,{style:{fontSize:`0.65rem`,background:`#ecfdf5`,color:`#065f46`,border:`1px solid #a7f3d0`,padding:`1px 6px`,borderRadius:`9999px`,fontWeight:700},children:`100% Customizable`})]})}),(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.5rem`,flexShrink:0},children:[(0,z.jsxs)(`button`,{onClick:pe,style:{background:`linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)`,border:`none`,color:`#ffffff`,padding:`0.32rem 0.8rem`,borderRadius:`9999px`,cursor:`pointer`,fontSize:`0.75rem`,fontWeight:700,display:`flex`,alignItems:`center`,gap:`0.35rem`,boxShadow:`0 2px 8px rgba(37, 99, 235, 0.3)`},children:[(0,z.jsx)(qn,{size:13}),` Publish Now`]}),(0,z.jsx)(`button`,{onClick:()=>ee(!1),style:{background:`transparent`,border:`none`,color:`#94a3b8`,cursor:`pointer`,display:`flex`,alignItems:`center`,padding:`3px`},title:`Dismiss notice`,children:(0,z.jsx)(vr,{size:14})})]})]})]})]}),g&&(0,z.jsx)(`div`,{style:{position:`fixed`,top:0,left:0,right:0,bottom:0,background:`rgba(15, 23, 42, 0.5)`,backdropFilter:`blur(8px)`,zIndex:1e3,display:`flex`,alignItems:`center`,justifyContent:`center`,padding:`1.5rem 1rem`,overflowY:`auto`},children:(0,z.jsxs)(`div`,{className:`custom-scrollbar`,style:{background:`#ffffff`,border:`1px solid #e4e4e7`,borderRadius:`20px`,padding:`1.75rem`,maxWidth:`520px`,width:`100%`,maxHeight:`90vh`,overflowY:`auto`,boxShadow:`0 25px 60px -15px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05)`,margin:`auto`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,alignItems:`center`,marginBottom:`1.25rem`,borderBottom:`1px solid #e4e4e7`,paddingBottom:`0.85rem`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.65rem`},children:[(0,z.jsx)(`div`,{style:{width:`36px`,height:`36px`,borderRadius:`10px`,background:`linear-gradient(135deg, #5f259f 0%, #7c3aed 100%)`,display:`flex`,alignItems:`center`,justifyContent:`center`,boxShadow:`0 4px 12px rgba(95, 37, 159, 0.35)`},children:(0,z.jsx)(qn,{size:20,color:`white`})}),(0,z.jsxs)(`div`,{children:[(0,z.jsx)(`div`,{style:{fontSize:`0.72rem`,fontWeight:800,color:`#7c3aed`,textTransform:`uppercase`,letterSpacing:`0.05em`},children:`PhonePe Payment Gateway`}),(0,z.jsx)(`h3`,{style:{fontSize:`1.15rem`,fontWeight:800,margin:0,color:`#09090b`},children:`Pay & Publish Website`})]})]}),(0,z.jsx)(`button`,{onClick:()=>{v(!1)},style:{background:`transparent`,border:`none`,color:`#64748b`,cursor:`pointer`,padding:`4px`},children:(0,z.jsx)(vr,{size:20})})]}),(0,z.jsxs)(`div`,{style:{background:`#f8fafc`,border:`1px solid #e4e4e7`,borderRadius:`12px`,padding:`1rem`,marginBottom:`1.25rem`},children:[(0,z.jsxs)(`div`,{style:{fontSize:`0.75rem`,fontWeight:800,color:`#64748b`,textTransform:`uppercase`,marginBottom:`0.75rem`,display:`flex`,justifyContent:`space-between`,alignItems:`center`},children:[(0,z.jsx)(`span`,{children:`Order Summary`}),(0,z.jsxs)(`span`,{style:{color:`#059669`,display:`flex`,alignItems:`center`,gap:`3px`,fontWeight:700},children:[(0,z.jsx)($n,{size:12}),` PhonePe Encrypted`]})]}),(0,z.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`,gap:`0.6rem`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,fontSize:`0.88rem`},children:[(0,z.jsx)(`span`,{style:{color:`#64748b`},children:`Website Name:`}),(0,z.jsx)(`strong`,{style:{color:`#09090b`},children:T.business_name})]}),(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,fontSize:`0.88rem`},children:[(0,z.jsx)(`span`,{style:{color:`#64748b`},children:`Selected Template:`}),(0,z.jsxs)(`span`,{style:{color:`#2563eb`,fontWeight:700},children:[`Template `,o+1]})]}),(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,fontSize:`0.88rem`},children:[(0,z.jsx)(`span`,{style:{color:`#64748b`},children:`Publishing & Hosting:`}),(0,z.jsx)(`span`,{style:{color:`#059669`,fontWeight:700},children:`Lifetime Access + Domain Setup`})]}),(0,z.jsx)(`div`,{style:{height:`1px`,background:`#e2e8f0`,margin:`0.2rem 0`}}),(0,z.jsxs)(`div`,{style:{display:`flex`,justifyContent:`space-between`,alignItems:`center`},children:[(0,z.jsx)(`span`,{style:{fontSize:`0.95rem`,fontWeight:800,color:`#09090b`},children:`Total Amount Payable:`}),(0,z.jsxs)(`span`,{style:{fontSize:`1.4rem`,fontWeight:900,color:`#7c3aed`},children:[`₹`,ne,`/month`]})]})]})]}),k===`processing`&&(0,z.jsxs)(`div`,{style:{textAlign:`center`,padding:`0.25rem 0`},children:[(0,z.jsx)(`h4`,{style:{fontSize:`1.1rem`,fontWeight:800,color:`#09090b`,margin:`0 0 0.35rem 0`},children:se?`Connecting to PhonePe Gateway...`:`PhonePe Standard Checkout`}),(0,z.jsxs)(`p`,{style:{fontSize:`0.85rem`,color:`#64748b`,margin:`0 0 1rem 0`,lineHeight:1.4},children:[`Complete payment of `,(0,z.jsxs)(`strong`,{style:{color:`#09090b`},children:[`₹`,ne,`/month`]}),` via PhonePe Checkout (UPI, Cards, NetBanking, QR).`]}),(0,z.jsx)(`div`,{style:{background:`#f8fafc`,border:`1px solid #e2e8f0`,borderRadius:`16px`,padding:`1.25rem`,textAlign:`center`,marginBottom:`1.1rem`,boxShadow:`0 4px 15px rgba(0, 0, 0, 0.04)`},children:se?(0,z.jsxs)(`div`,{style:{padding:`2rem 0`,display:`flex`,flexDirection:`column`,alignItems:`center`,gap:`0.75rem`},children:[(0,z.jsx)(cr,{size:32,color:`#7c3aed`,className:`spin-icon`}),(0,z.jsx)(`span`,{style:{fontSize:`0.85rem`,color:`#64748b`,fontWeight:600},children:`Generating secure PhonePe Checkout session...`})]}):(0,z.jsxs)(z.Fragment,{children:[P&&(0,z.jsx)(`div`,{style:{background:`white`,padding:`12px`,borderRadius:`16px`,display:`inline-block`,border:`2px solid #7c3aed`,boxShadow:`0 4px 20px rgba(124, 58, 237, 0.2)`,marginBottom:`0.75rem`},children:(0,z.jsx)(`a`,{href:ie||`#`,style:{cursor:ie?`pointer`:`default`,display:`block`},children:(0,z.jsx)(`img`,{src:P,alt:`UPI Payment QR Code`,style:{width:`200px`,height:`200px`,display:`block`,borderRadius:`8px`}})})}),(0,z.jsxs)(`div`,{style:{fontSize:`0.88rem`,color:`#09090b`,fontWeight:800,marginBottom:`0.2rem`},children:[`Scan & Pay ₹`,ne,` via Any UPI App`]}),(0,z.jsxs)(`div`,{style:{fontSize:`0.75rem`,color:`#64748b`},children:[`PhonePe • Google Pay • Paytm • BHIM • UPI ID: `,(0,z.jsx)(`strong`,{style:{color:`#7c3aed`},children:`m23cuq5thr1lw@ybl`})]})]})}),ce&&(0,z.jsx)(`div`,{style:{background:`#f5f3ff`,border:`1px solid #ddd6fe`,color:`#6d28d9`,padding:`0.65rem 0.85rem`,borderRadius:`8px`,fontSize:`0.8rem`,marginBottom:`1rem`,fontWeight:600,textAlign:`left`},children:ce}),(0,z.jsxs)(`div`,{style:{display:`flex`,flexDirection:`column`,gap:`0.65rem`,marginBottom:`1rem`},children:[ie&&(0,z.jsxs)(`a`,{href:ie,style:{width:`100%`,padding:`0.8rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #10b981 0%, #059669 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.92rem`,textDecoration:`none`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.55rem`,boxShadow:`0 4px 14px rgba(16, 185, 129, 0.3)`,boxSizing:`border-box`},children:[(0,z.jsx)(fr,{size:17}),` Pay with UPI App (PhonePe / GPay)`]}),M?(0,z.jsxs)(`button`,{onClick:()=>{window.location.href=M},style:{width:`100%`,padding:`0.85rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #5f259f 0%, #7c3aed 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.95rem`,cursor:`pointer`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.55rem`,boxShadow:`0 4px 18px rgba(95, 37, 159, 0.35)`,boxSizing:`border-box`},children:[(0,z.jsx)(qn,{size:18}),` Pay with Cards / NetBanking / PG `,(0,z.jsx)(Jn,{size:15})]}):(0,z.jsxs)(`button`,{onClick:()=>fe(!1),disabled:se,style:{width:`100%`,padding:`0.85rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #5f259f 0%, #7c3aed 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.92rem`,cursor:`pointer`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.55rem`,boxShadow:`0 4px 18px rgba(95, 37, 159, 0.35)`,boxSizing:`border-box`},children:[(0,z.jsx)(cr,{size:16,className:se?`spin-icon`:``}),se?`Connecting...`:`Retry Payment`]}),(0,z.jsxs)(`button`,{onClick:me,disabled:ue||!j,style:{width:`100%`,padding:`0.8rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #10b981 0%, #059669 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.88rem`,cursor:`pointer`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.5rem`,opacity:ue||!j?.7:1,boxShadow:`0 2px 10px rgba(16, 185, 129, 0.25)`},children:[ue?(0,z.jsx)(cr,{size:16,className:`spin-icon`}):(0,z.jsx)(ur,{size:16}),ue?`Verifying with PhonePe Server...`:`I Have Completed Payment - Verify Now`]})]}),(0,z.jsx)(`div`,{style:{fontSize:`0.73rem`,color:`#64748b`,fontWeight:600,marginTop:`0.5rem`},children:`🔒 Auto-verifying server status in real time`})]}),k===`success`&&(0,z.jsxs)(`div`,{style:{textAlign:`center`,padding:`1rem 0`},children:[(0,z.jsx)(`div`,{style:{width:`68px`,height:`68px`,borderRadius:`50%`,background:`#ecfdf5`,border:`2px solid #10b981`,display:`flex`,alignItems:`center`,justifyContent:`center`,margin:`0 auto 1rem auto`,boxShadow:`0 4px 20px rgba(16, 185, 129, 0.25)`},children:(0,z.jsx)(Gn,{size:38,color:`#059669`})}),(0,z.jsx)(`h4`,{style:{fontSize:`1.3rem`,fontWeight:900,color:`#059669`,margin:`0 0 0.35rem 0`},children:`✓ Payment Successful!`}),(0,z.jsxs)(`div`,{style:{display:`inline-block`,padding:`3px 12px`,background:`#ecfdf5`,border:`1px solid #a7f3d0`,borderRadius:`20px`,fontSize:`0.75rem`,fontWeight:800,color:`#059669`,marginBottom:`1rem`},children:[`Txn Ref: `,j]}),(0,z.jsxs)(`p`,{style:{fontSize:`0.88rem`,color:`#475569`,lineHeight:1.5,marginBottom:`1.25rem`},children:[`Your payment of `,(0,z.jsxs)(`strong`,{style:{color:`#09090b`},children:[`₹`,ne]}),` via PhonePe was completed! Opening WhatsApp to make your site "`,(0,z.jsx)(`strong`,{style:{color:`#09090b`},children:T.business_name}),`" live...`]}),(0,z.jsxs)(`a`,{href:F,target:`_blank`,rel:`noopener noreferrer`,style:{width:`100%`,padding:`0.85rem 1rem`,borderRadius:`10px`,background:`linear-gradient(135deg, #25D366 0%, #128C7E 100%)`,border:`none`,color:`white`,fontWeight:800,fontSize:`0.9rem`,textDecoration:`none`,display:`flex`,alignItems:`center`,justifyContent:`center`,gap:`0.5rem`,boxShadow:`0 4px 18px rgba(37, 211, 102, 0.35)`,boxSizing:`border-box`},children:[(0,z.jsx)(nr,{size:18}),` Proceed to WhatsApp to Make Site Live `,(0,z.jsx)(Jn,{size:15})]})]})]})}),u&&(0,z.jsxs)(`div`,{onMouseEnter:()=>h(!0),onMouseLeave:()=>h(!1),onClick:()=>{!f&&!m&&d(!1)},style:{position:`fixed`,top:`1.25rem`,right:`1.75rem`,zIndex:1e5,display:`flex`,alignItems:`center`,background:f||m?`rgba(255, 255, 255, 0.96)`:`rgba(255, 255, 255, 0.92)`,backdropFilter:`blur(16px)`,padding:`0.45rem`,paddingLeft:f||m?`1rem`:`0.45rem`,paddingRight:`0.45rem`,borderRadius:`30px`,border:f||m?`1px solid #e2e8f0`:`1px solid #fecaca`,boxShadow:f||m?`0 12px 35px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05)`:`0 8px 25px rgba(0, 0, 0, 0.08)`,transition:`all 0.45s cubic-bezier(0.16, 1, 0.3, 1)`,overflow:`hidden`,cursor:`pointer`,maxWidth:f||m?`620px`:`44px`,height:`44px`,boxSizing:`border-box`},title:f||m?`Full Screen Controls`:`Click to exit or hover to expand controls (Press Esc)`,children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.85rem`,opacity:f||m?1:0,maxWidth:f||m?`540px`:`0px`,transform:f||m?`scale(1)`:`scale(0.95)`,transformOrigin:`right center`,transition:`opacity 0.35s ease, max-width 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s ease`,overflow:`hidden`,whiteSpace:`nowrap`,pointerEvents:f||m?`auto`:`none`},children:[(0,z.jsxs)(`div`,{style:{display:`flex`,alignItems:`center`,gap:`0.55rem`,fontSize:`0.85rem`,fontWeight:800,color:`#09090b`},children:[(0,z.jsx)(pr,{size:16,color:`#2563eb`}),(0,z.jsxs)(`span`,{children:[T.business_name,` — Full Screen Live Preview`]})]}),(0,z.jsx)(`div`,{style:{height:`16px`,width:`1px`,background:`#e4e4e7`,flexShrink:0}}),(0,z.jsxs)(`button`,{onClick:e=>{e.stopPropagation(),d(!1)},style:{background:`#fef2f2`,border:`1px solid #fecaca`,color:`#dc2626`,padding:`0.35rem 0.85rem`,borderRadius:`20px`,cursor:`pointer`,fontSize:`0.78rem`,fontWeight:700,display:`flex`,alignItems:`center`,gap:`0.4rem`,boxShadow:`0 2px 6px rgba(220, 38, 38, 0.15)`,whiteSpace:`nowrap`,flexShrink:0,transition:`all 0.2s ease`},title:`Exit full screen preview mode (Press Esc)`,children:[(0,z.jsx)(rr,{size:14}),` Exit Full Screen`]})]}),(0,z.jsx)(`div`,{onClick:e=>{e.stopPropagation(),d(!1)},style:{width:`32px`,height:`32px`,borderRadius:`50%`,background:f||m?`#fee2e2`:`#ef4444`,display:`flex`,alignItems:`center`,justifyContent:`center`,flexShrink:0,marginLeft:f||m?`0.6rem`:`0`,transition:`all 0.35s cubic-bezier(0.16, 1, 0.3, 1)`,boxShadow:f||m?`none`:`0 2px 8px rgba(239, 68, 68, 0.35)`},title:`Exit Full Screen`,children:(0,z.jsx)(vr,{size:16,color:f||m?`#dc2626`:`#ffffff`})})]})]})},Hr=()=>{let{pathname:e}=ot();return(0,_.useEffect)(()=>{window.scrollTo(0,0),document.documentElement.scrollTop=0,document.body.scrollTop=0,document.querySelectorAll(`.app-container, main, body, #root`).forEach(e=>{e&&(e.scrollTop=0)})},[e]),null};function Ur(){return(0,z.jsxs)(yn,{children:[(0,z.jsx)(Hr,{}),(0,z.jsxs)(Pt,{children:[(0,z.jsx)(Mt,{path:`/`,element:(0,z.jsx)(Rr,{})}),(0,z.jsx)(Mt,{path:`/create`,element:(0,z.jsx)(zr,{})}),(0,z.jsx)(Mt,{path:`/preview`,element:(0,z.jsx)(Vr,{})}),(0,z.jsx)(Mt,{path:`*`,element:(0,z.jsx)(Rr,{})})]})]})}(0,v.createRoot)(document.getElementById(`root`)).render((0,z.jsx)(_.StrictMode,{children:(0,z.jsx)(Ur,{})}));
