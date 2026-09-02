@@ -36,19 +36,15 @@ SECRET_KEY = 'django-insecure-yi34j*qdme_4sgc5!^v^54=umczpuq@tc&$7fw5v7sdg6hj@jt
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-env_allowed_hosts = os.environ.get('ALLOWED_HOSTS')
-if env_allowed_hosts:
-    ALLOWED_HOSTS = [h.strip() for h in env_allowed_hosts.split(',') if h.strip()]
-else:
-    ALLOWED_HOSTS = [
-        'webcraft.biz499.com',
-        'localhost',
-        '127.0.0.1',
-        '*',
-    ]
+ALLOWED_HOSTS = [
+    'webcraft.biz499.com',
+    'localhost',
+    '127.0.0.1',
+]
 
 
 # Application definition
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -169,21 +165,39 @@ CORS_ALLOWED_ORIGINS = [
     f"http://{SITE_DOMAIN}",
     "https://webcraft.biz499.com",
     "http://webcraft.biz499.com",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost",
+    "http://127.0.0.1",
+    "https://localhost",
+    "https://127.0.0.1",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF Trusted Origins
+# CSRF Trusted Origins (Allows Django Admin & API strictly on webcraft.biz499.com and local server)
 CSRF_TRUSTED_ORIGINS = [
     f"https://{SITE_DOMAIN}",
     f"http://{SITE_DOMAIN}",
     "https://webcraft.biz499.com",
     "http://webcraft.biz499.com",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost",
+    "http://127.0.0.1",
+    "https://localhost",
+    "https://127.0.0.1",
 ]
 
 # Security & Proxy Settings
