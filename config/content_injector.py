@@ -1,3 +1,4 @@
+import os
 import re
 from typing import Dict, Any, List, Optional
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -11,103 +12,44 @@ def _clean_text(val: Any) -> str:
 
 def fit_text_to_length(
     target: str,
-    orig: str,
-    max_leeway: int = 3,
-    single_word_pool: Optional[List[str]] = None
+    orig: str = "",
+    max_leeway: int = 10,
+    single_word_pool: Optional[List[str]] = None,
+    is_heading: bool = False,
+    is_paragraph: bool = False
 ) -> str:
     """
-    Intelligent Length-Budgeted Text Fitter:
-    Guarantees replacement text has SAME OR LESS characters than the original template text
-    (with at most max_leeway = 2 to 3 characters leeway), strictly preserving design integrity,
-    grid columns, button widths, and visual aesthetics without overflowing.
-    Preserves original casing (UPPERCASE, Title Case, lowercase).
+    Intelligent Text Fitter:
+    Formats replacement text while preserving typography casing (UPPERCASE, Title Case).
+    Ensures complete, meaningful sentences and phrases without aggressive truncation.
     """
-    if not orig:
-        return target or ""
+    if not target:
+        return orig or ""
     
-    orig_clean = orig.strip()
-    if not orig_clean:
-        return ""
-    
-    orig_len = len(orig_clean)
-    orig_words = len(orig_clean.split())
-    target_clean = re.sub(r'[\r\n\t]+', ' ', target).strip() if target else ""
+    target_clean = re.sub(r'[\r\n\t]+', ' ', str(target)).strip()
+    orig_clean = orig.strip() if orig else ""
     
     if not target_clean:
         return orig_clean
-        
-    max_allowed = orig_len + max_leeway
+    
+    res = target_clean
 
-    # 1. Single-word slot (e.g. Nav link, button, badge, table cell, single-word header)
-    if orig_words == 1:
-        target_words = target_clean.split()
-        if len(target_words) == 1 and len(target_clean) <= max_allowed:
-            res = target_clean
-        elif single_word_pool:
-            best_w = ""
-            for candidate in single_word_pool:
-                cand_clean = candidate.strip().split()[0] if candidate.strip() else ""
-                if cand_clean and len(cand_clean) <= max_allowed:
-                    if not best_w or abs(len(cand_clean) - orig_len) < abs(len(best_w) - orig_len):
-                        best_w = cand_clean
-            if best_w:
-                res = best_w
-            else:
-                first_w = target_words[0] if target_words else target_clean
-                res = first_w[:max_allowed].strip()
-        else:
-            first_w = target_words[0] if target_words else target_clean
-            if len(first_w) <= max_allowed:
-                res = first_w
-            else:
-                res = first_w[:max_allowed].strip()
+    # Clean up double punctuation or awkward dangling prepositions
+    res = re.sub(r'\s{2,}', ' ', res)
+    res = re.sub(r'[,;:\-–—\s]+$', '', res)
 
-    # 2. Multi-word phrase or paragraph
-    else:
-        if len(target_clean) <= max_allowed:
-            res = target_clean
-        else:
-            words = target_clean.split()
-            accum = []
-            cur_len = 0
-            for w in words:
-                next_len = cur_len + (1 if accum else 0) + len(w)
-                if next_len <= max_allowed:
-                    accum.append(w)
-                    cur_len = next_len
-                else:
-                    break
-            if accum:
-                res = " ".join(accum)
-                # Strip trailing punctuation, commas, dashes, and dangling prepositions
-                res = re.sub(r'[,;:\-–—\s]+$', '', res)
-                res = re.sub(r'\b(?:and|or|with|of|in|to|for|the|a|an)\s*$', '', res, flags=re.I).strip()
-                if orig_clean.endswith('.') and not res.endswith('.'):
-                    if len(res) + 1 <= max_allowed:
-                        res += '.'
-            else:
-                first_w = words[0] if words else target_clean
-                res = first_w[:max_allowed].strip()
-
-    # 3. Preserve Casing and Formatting
-    if orig_clean.isupper() and len(orig_clean) >= 2:
+    # Preserve Casing if original was explicitly UPPERCASE
+    if orig_clean and orig_clean.isupper() and len(orig_clean) >= 3 and not any(c.islower() for c in orig_clean):
         res = res.upper()
-    elif orig_clean.istitle() or (orig_clean[0].isupper() and not any(c.isupper() for c in orig_clean[1:])):
-        if ' ' in res:
+    elif orig_clean and (orig_clean.istitle() or (orig_clean[0].isupper() and not any(c.isupper() for c in orig_clean[1:]))):
+        if is_heading and len(res.split()) <= 6:
             res = res.title()
-        else:
-            res = res.capitalize()
-    elif orig_clean.islower():
-        res = res.lower()
 
-    if len(res) > max_allowed:
-        res = res[:max_allowed].strip()
-        
     return res
 
 
 def mark_node_and_descendants(tag: Tag, node_set: set):
-    """Marks a tag and all its descendant nodes as processed to prevent double-replacements."""
+    """Marks a tag and all its direct child nodes as processed."""
     if not tag:
         return
     node_set.add(id(tag))
@@ -126,28 +68,30 @@ def set_tag_text_preserving_children(tag: Tag, new_text: str):
     if not tag or new_text is None:
         return
 
-    # Check for direct inner span (e.g., button > span or a > span)
+    # 1. Check for direct inner span (e.g., button > span or a > span)
     child_spans = [s for s in tag.find_all('span', recursive=False) if not s.find(['svg', 'img', 'i'])]
     if len(child_spans) == 1 and not [c for c in tag.contents if isinstance(c, NavigableString) and c.strip()]:
         child_spans[0].string = new_text
         return
 
-    # If tag has direct NavigableString contents:
+    # 2. If tag has direct NavigableString contents:
     text_children = [c for c in tag.contents if isinstance(c, NavigableString) and c.strip()]
     if text_children:
-        text_children[0].replace_with(NavigableString(f" {new_text.strip()} " if tag.find(['i', 'svg', 'img']) else new_text))
+        has_icons = bool(tag.find(['i', 'svg', 'img']))
+        text_children[0].replace_with(NavigableString(f" {new_text.strip()} " if has_icons else new_text))
         for extra in text_children[1:]:
             extra.replace_with(NavigableString(""))
         return
 
-    # If tag has inner leaf text child (e.g. <a>, <span>, <strong>, <em>, <b>):
-    leaf_text_children = [c for c in tag.find_all(['a', 'span', 'strong', 'em', 'b', 'small']) if not c.find_all(['a', 'span', 'strong', 'em', 'b', 'p', 'div'])]
+    # 3. If tag has inner leaf text child (e.g. <a>, <span>, <strong>, <em>, <b>):
+    leaf_text_children = [c for c in tag.find_all(['a', 'span', 'strong', 'em', 'b', 'small']) if not c.find_all(['a', 'span', 'strong', 'em', 'b', 'p', 'div', 'h1', 'h2', 'h3'])]
     if leaf_text_children:
         leaf_text_children[0].string = new_text
         for extra in leaf_text_children[1:]:
             extra.decompose()
         return
 
+    # 4. Fallback if tag contains icon elements
     has_icon_children = bool(tag.find(['i', 'svg', 'img']))
     if has_icon_children:
         icons = tag.find_all(['i', 'svg', 'img'])
@@ -159,14 +103,11 @@ def set_tag_text_preserving_children(tag: Tag, new_text: str):
         tag.string = new_text
 
 
-def _sanitize_nav_item(text: Any, max_chars: int = 14) -> str:
-    """
-    Sanitizes navbar item text to guarantee concise, elegant menu link names
-    with limited characters (default max 14 chars, 1-2 words).
-    """
+def _sanitize_nav_item(text: Any, max_chars: int = 18) -> str:
+    """Sanitizes navbar item text to guarantee concise, elegant menu link names."""
     raw = _clean_text(text)
     if not raw:
-        return "Offerings"
+        return "Services"
     
     cleaned = re.sub(r'[\r\n\t]+', ' ', raw)
     cleaned = re.sub(r'["\'`_#*~]+', '', cleaned).strip()
@@ -195,12 +136,11 @@ def inject_business_content_into_html(
     logo_type: str = 'both'
 ) -> str:
     """
-    Universal Length-Preserving & Whole-Page Semantic Content & Multi-Banner Image Injector:
-    1. Replaces all slider/carousel slides and section banners with distinct, unique images.
+    Universal Whole-Page Semantic Content & Image Injector:
+    1. Replaces all slider/carousel slides and section banners with distinct, unique Pexels images.
     2. Replaces all card images, product images, galleries, and remaining <img> tags with domain-relevant images.
     3. Replaces background-image CSS and data-background attributes.
-    4. Guarantees every replaced word and sentence across the ENTIRE page strictly respects
-       character length limits (same or fewer characters, max 2-3 leeway) to preserve design.
+    4. Replaces text across the ENTIRE page from navbar to footer with Gemini AI generated copywriting.
     """
     if not raw_html or not content:
         return raw_html
@@ -218,6 +158,10 @@ def inject_business_content_into_html(
         testimonials = content.get('testimonials') or []
         cta_banner = content.get('cta_banner') or {}
         stats = content.get('stats') or []
+        contact_email = _clean_text(content.get('contact_email') or '')
+        contact_phone = _clean_text(content.get('contact_phone') or '')
+        business_desc = _clean_text(content.get('business_description') or content.get('description') or '')
+
         micro_tags = content.get('micro_tags') or [
             "Fresh Daily", "Artisanal", "Best Seller", "Organic", "Handcrafted", "Signature", "Top Choice", "Pure Quality"
         ]
@@ -232,7 +176,6 @@ def inject_business_content_into_html(
             "Dedicated to an unforgettable experience",
             "Discover our finest seasonal selections"
         ]
-        business_desc = _clean_text(content.get('business_description') or content.get('description') or '')
 
         hero_headline = _clean_text(hero.get('headline') or f"Welcome to {brand_name}")
         hero_subheadline = _clean_text(hero.get('subheadline') or business_desc or f"Discover the finest quality products and dedicated services at {brand_name}.")
@@ -252,20 +195,72 @@ def inject_business_content_into_html(
             f"At {brand_name}, we take immense pride in our craftsmanship and unwavering dedication to customer satisfaction."
         ]
 
-        single_word_pool = (
-            micro_tags +
-            [str(s.get('title', '')).split()[0] for s in services if isinstance(s, dict) and s.get('title')] +
-            ["Fresh", "Artisanal", "Best", "Quality", "Pure", "Prime", "Select", "Choice", "Authentic", "Craft"]
-        )
+        # Combine all product/service items with complete semantic pairing
+        all_items: List[Dict[str, str]] = []
+        if isinstance(services, list) and services:
+            for s in services:
+                if isinstance(s, dict):
+                    all_items.append({
+                        'title': _clean_text(s.get('title') or s.get('name')),
+                        'desc': _clean_text(s.get('desc') or s.get('description')),
+                        'price': _clean_text(s.get('price') or '$24.00'),
+                        'tag': _clean_text(s.get('tag') or 'Featured')
+                    })
+        if not all_items:
+            all_items = [
+                {'title': f"Signature {brand_name} Special", 'desc': f"Prepared fresh daily using authentic recipes and supreme craftsmanship at {brand_name}.", 'tag': "Bestseller", 'price': "$19.99"},
+                {'title': f"Artisanal Handcrafted Offering", 'desc': f"Delight in our carefully curated selection, made to perfection for our guests at {brand_name}.", 'tag': "Chef Choice", 'price': "$24.99"},
+                {'title': f"Premium Deluxe Quality", 'desc': f"Crafted with top-tier grade elements, designed to exceed your highest expectations at {brand_name}.", 'tag': "Featured", 'price': "$29.99"},
+                {'title': f"Exclusive Seasonal Special", 'desc': f"An unforgettable culinary experience made with passion and dedication at {brand_name}.", 'tag': "Seasonal", 'price': "$34.99"}
+            ]
 
-        all_items = services if services else [
-            {'title': f"Signature {brand_name} Special", 'desc': f"Prepared fresh daily using authentic recipes and supreme craftsmanship at {brand_name}.", 'tag': "Bestseller", 'price': "$19.99"},
-            {'title': f"Artisanal Handcrafted Offering", 'desc': f"Delight in our carefully curated selection, made to perfection for our guests at {brand_name}.", 'tag': "Chef Choice", 'price': "$24.99"},
-            {'title': f"Premium Deluxe Quality", 'desc': f"Crafted with top-tier grade elements, designed to exceed your highest expectations at {brand_name}.", 'tag': "Featured", 'price': "$29.99"},
-            {'title': f"Exclusive Seasonal Special", 'desc': f"An unforgettable culinary experience made with passion and dedication at {brand_name}.", 'tag': "Seasonal", 'price': "$34.99"}
-        ]
+        # Features list
+        feature_items: List[Dict[str, str]] = []
+        if isinstance(features, list) and features:
+            for f in features:
+                if isinstance(f, dict):
+                    feature_items.append({
+                        'title': _clean_text(f.get('title')),
+                        'desc': _clean_text(f.get('desc') or f.get('description'))
+                    })
+        if not feature_items:
+            feature_items = [
+                {"title": "Unmatched Quality", "desc": "Every single detail is prepared with immense care, passion, and precision."},
+                {"title": "Customer First", "desc": "We provide a warm, responsive, and welcoming experience for every client."},
+                {"title": "Guaranteed Delight", "desc": "We back all our offerings with a total commitment to your satisfaction."}
+            ]
 
-        # Extract available images pool
+        # Fallback FAQ questions and answers if empty
+        if not faqs:
+            faqs = [
+                {
+                    "question": f"What makes {brand_name} stand out?",
+                    "answer": "We combine premium craftsmanship, rigorous standards, and personalized service tailored directly to your needs."
+                },
+                {
+                    "question": "How can I place an order or book a consultation?",
+                    "answer": "You can easily order online through our website or reach out directly to our team via phone or email."
+                },
+                {
+                    "question": "Do you offer custom options or special requests?",
+                    "answer": "Yes! We are delighted to accommodate custom orders and bespoke requests. Simply get in touch with our team."
+                },
+                {
+                    "question": "What is your satisfaction guarantee?",
+                    "answer": "We stand behind all our offerings with a complete commitment to your total delight and satisfaction."
+                }
+            ]
+
+        # Fallback Stats if empty
+        if not stats:
+            stats = [
+                {"number": "100%", "label": "Satisfaction"},
+                {"number": "15k+", "label": "Happy Clients"},
+                {"number": "4.9/5", "label": "Reviews"},
+                {"number": "Daily", "label": "Fresh Craft"}
+            ]
+
+        # Extract available images pool (100% UNTOUCHED IMAGE LOGIC)
         pool_urls: List[str] = []
         if image_pool:
             for item in image_pool:
@@ -309,79 +304,12 @@ def inject_business_content_into_html(
             processed_imgs.add(id(img_tag))
             processed_nodes.add(id(img_tag))
 
-        # Combine all product/service items with complete semantic pairing
-        all_items: List[Dict[str, str]] = []
-        if isinstance(services, list):
-            for s in services:
-                if isinstance(s, dict):
-                    all_items.append({
-                        'title': _clean_text(s.get('title') or s.get('name')),
-                        'desc': _clean_text(s.get('desc') or s.get('description')),
-                        'price': _clean_text(s.get('price') or '$19.99'),
-                        'tag': _clean_text(s.get('tag') or 'Featured')
-                    })
-        if isinstance(features, list):
-            for f in features:
-                if isinstance(f, dict):
-                    all_items.append({
-                        'title': _clean_text(f.get('title')),
-                        'desc': _clean_text(f.get('desc') or f.get('description')),
-                        'price': '',
-                        'tag': 'Key Benefit'
-                    })
-
-        # Fallback FAQ questions and answers if empty
-        if not faqs:
-            faqs = [
-                {
-                    "question": f"What makes {brand_name} stand out?",
-                    "answer": "We combine premium craftsmanship, rigorous standards, and personalized service tailored directly to your needs."
-                },
-                {
-                    "question": "How can I place an order or book a consultation?",
-                    "answer": "You can easily order online through our website or reach out directly to our team via phone or email."
-                },
-                {
-                    "question": "Do you offer custom options or special requests?",
-                    "answer": "Yes! We are delighted to accommodate custom orders and bespoke requests. Simply get in touch with our team."
-                },
-                {
-                    "question": "What is your satisfaction guarantee?",
-                    "answer": "We stand behind all our offerings with a complete commitment to your total delight and satisfaction."
-                }
-            ]
-
-        # Fallback Stats if empty
-        if not stats:
-            stats = [
-                {"number": "100%", "label": "Satisfaction"},
-                {"number": "15k+", "label": "Happy Clients"},
-                {"number": "4.9/5", "label": "Reviews"},
-                {"number": "Daily", "label": "Fresh Craft"}
-            ]
-
-        # Full Paragraphs Pool (> 20 words)
-        domain_paragraphs = content.get('domain_paragraphs') or [
-            hero_subheadline,
-            about_story,
-            f"Every single offering at {brand_name} is crafted with extreme precision, dedication, and attention to detail to ensure you receive the finest experience possible.",
-            f"We take immense pride in our craftsmanship and unwavering dedication to customer satisfaction. Discover what sets us apart from the rest.",
-            f"From initial concept to final delivery, our team focuses on quality ingredients, rigorous standards, and personalized service tailored to your exact needs."
-        ]
-
-        # Single word pool for 1-word slots
-        single_word_pool = [
-            "Menu", "Story", "Care", "Shop", "Plans", "Craft", "Boots", "Shoes", "Food",
-            "Order", "Book", "Prices", "Deals", "Offers", "Reviews", "Team", "About", "FAQ", "Contact"
-        ]
-
         # -------------------------------------------------------------
         # STEP 1: Document Title & Navbar Brand / Logo (Header & Footer)
         # -------------------------------------------------------------
         if soup.title:
-            orig_title = soup.title.get_text(strip=True)
             candidate_title = f"{brand_name} - {tagline}" if tagline else brand_name
-            soup.title.string = fit_text_to_length(candidate_title, orig_title, max_leeway=5)
+            soup.title.string = candidate_title
             processed_nodes.add(id(soup.title))
 
         brand_selectors = [
@@ -433,17 +361,16 @@ def inject_business_content_into_html(
                         processed_nodes.add(id(text_span))
                         processed_nodes.add(id(el))
                     else:
-                        orig_b_txt = el.get_text(strip=True)
                         inner_a = el.find('a')
                         if inner_a:
-                            inner_a.string = fit_text_to_length(brand_name, orig_b_txt, max_leeway=4)
+                            inner_a.string = brand_name
                             processed_nodes.add(id(inner_a))
                         else:
-                            el.string = fit_text_to_length(brand_name, orig_b_txt, max_leeway=4)
+                            el.string = brand_name
                         processed_nodes.add(id(el))
 
         # -------------------------------------------------------------
-        # STEP 1.8: MULTI-BANNER SLIDER & CAROUSEL IMAGE REPLACEMENT
+        # STEP 1.8: MULTI-BANNER SLIDER & CAROUSEL IMAGE REPLACEMENT (UNTOUCHED)
         # -------------------------------------------------------------
         slider_selectors = (
             '.rev_slider, .tp-banner, .swiper-container, .swiper, .owl-carousel, .slick-slider, .carousel, '
@@ -457,19 +384,16 @@ def inject_business_content_into_html(
                 top_sliders.append(sc)
 
         def get_actual_slides(container):
-            # 1. Revolution Slider / flexslider / ul slider
             rev_slides = container.select('.rev_slider ul > li, .tp-banner ul > li, .tp-banner-container ul > li, ul.slides > li, .rslides > li')
             if rev_slides:
                 valid_rev = [li for li in rev_slides if not any(c in ' '.join(li.get('class', [])).lower() for c in ['bullet', 'dot', 'arrow', 'thumb', 'nav', 'tab', 'indicator'])]
                 if valid_rev:
                     return valid_rev
 
-            # 2. Swiper
             swiper_slides = container.select('.swiper-wrapper > .swiper-slide') or container.select('.swiper-slide')
             if swiper_slides:
                 return list(swiper_slides)
 
-            # 3. Owl Carousel
             owl_slides = container.select('.owl-stage > .owl-item, .owl-carousel > .item, .owl-carousel > div, .owl-item, .owl-carousel .item')
             if owl_slides:
                 top_owl = []
@@ -479,17 +403,14 @@ def inject_business_content_into_html(
                 if top_owl:
                     return top_owl
 
-            # 4. Slick Slider
             slick_slides = container.select('.slick-track > .slick-slide, .slick-slide')
             if slick_slides:
                 return list(slick_slides)
 
-            # 5. Bootstrap Carousel
             bs_slides = container.select('.carousel-inner > .carousel-item, .carousel-item')
             if bs_slides:
                 return list(bs_slides)
 
-            # 6. Generic slide classes
             raw_slides = container.select('[class*="slide-item"], [class*="slider-item"], [class*="single-slide"], [class*="single-slider"], [class*="slide-inner"], .slide, .single-hero-slide')
             top_slides_cand = []
             for s in raw_slides:
@@ -498,7 +419,6 @@ def inject_business_content_into_html(
             if top_slides_cand:
                 return top_slides_cand
 
-            # 7. Direct child elements with images
             direct_children = [child for child in container.find_all(recursive=False) if child.name in ['div', 'li', 'article', 'section']]
             if len(direct_children) >= 2:
                 children_with_imgs = [c for c in direct_children if c.find('img') or re.search(r'background', str(c.get('style', '')), re.I) or any(c.has_attr(a) for a in ['data-background', 'data-bg', 'data-bg-image'])]
@@ -524,7 +444,6 @@ def inject_business_content_into_html(
                     live_pool_idx += 1
                 global_slide_idx += 1
 
-                # Update slide background attributes & style
                 for bg_attr in ['data-background', 'data-bg', 'data-bg-image', 'data-img-url']:
                     if slide_el.has_attr(bg_attr):
                         slide_el[bg_attr] = slide_banner_url
@@ -554,7 +473,7 @@ def inject_business_content_into_html(
                     processed_imgs.add(id(other_img))
 
         # -------------------------------------------------------------
-        # STEP 1.9: STANDALONE HERO & BANNER SECTIONS IMAGES
+        # STEP 1.9: STANDALONE HERO & BANNER SECTIONS IMAGES (UNTOUCHED)
         # -------------------------------------------------------------
         standalone_heroes = soup.select('section, header, div.hero, div.banner, div.masthead, main')
         for sec in standalone_heroes:
@@ -584,33 +503,32 @@ def inject_business_content_into_html(
                     processed_imgs.add(id(simg))
 
         # -------------------------------------------------------------
-        # STEP 1.5: Announcement Bar Text Replacement (Strict Length-Preserved)
+        # STEP 1.5: Announcement Bar / Top Bar Text Replacement
         # -------------------------------------------------------------
         announcement_text = tagline or f"WELCOME TO {brand_name.upper()} — PREMIER QUALITY & DEDICATED SERVICE"
         for ap in soup.select('#announcement-text, .announcement-text, aside p, .announcement-bar p, .top-bar p, .top-banner p, [class*="announcement"] p'):
-            if id(ap) in processed_nodes or ap.find_parent(['header', 'nav']) or ap.find(['svg', 'button', 'img']):
+            if id(ap) in processed_nodes or ap.find_parent(['nav']) or ap.find(['button']):
                 continue
             orig_ap = ap.get_text(strip=True)
             if orig_ap:
-                ap.string = fit_text_to_length(announcement_text, orig_ap, max_leeway=3)
+                set_tag_text_preserving_children(ap, fit_text_to_length(announcement_text, orig_ap))
                 processed_nodes.add(id(ap))
 
         # -------------------------------------------------------------
-        # STEP 2: Category-Specific Navigation & Footer Menu Items
-        # Maintains exact count & strict length preservation (same or fewer chars)
+        # STEP 2: Navbar & Footer Menu Navigation Items
         # -------------------------------------------------------------
         raw_nav_items = content.get('navbar_items') or []
         nav_categories = []
         for item in raw_nav_items:
-            sanitized = _sanitize_nav_item(item, max_chars=14)
+            sanitized = _sanitize_nav_item(item, max_chars=18)
             if sanitized and sanitized.lower() not in [c.lower() for c in nav_categories]:
                 nav_categories.append(sanitized)
         for mt in micro_tags:
-            sanitized = _sanitize_nav_item(mt, max_chars=14)
+            sanitized = _sanitize_nav_item(mt, max_chars=18)
             if sanitized and sanitized.lower() not in [c.lower() for c in nav_categories]:
                 nav_categories.append(sanitized)
         if not nav_categories:
-            nav_categories = ["Offerings", "Services", "Story", "Reviews", "Contact"]
+            nav_categories = ["Services", "Offerings", "Story", "Reviews", "Contact"]
 
         # 2A. Navbar Links Replacement
         nav_idx = 0
@@ -633,13 +551,13 @@ def inject_business_content_into_html(
 
             if lower in ['home', 'index', 'main']:
                 target_cand = "Home"
-            elif lower in ['contact', 'contact us', 'get in touch', 'reach us'] and (nav_idx >= 3 or 'contact' in lower):
+            elif lower in ['contact', 'contact us', 'get in touch', 'reach us']:
                 target_cand = "Contact"
             else:
                 target_cand = nav_categories[nav_idx % len(nav_categories)]
                 nav_idx += 1
 
-            fitted_nav = fit_text_to_length(target_cand, txt, max_leeway=2, single_word_pool=single_word_pool)
+            fitted_nav = fit_text_to_length(target_cand, txt)
             set_tag_text_preserving_children(nav_a, fitted_nav)
             processed_nodes.add(id(nav_a))
 
@@ -669,7 +587,7 @@ def inject_business_content_into_html(
 
             target_cand = nav_categories[footer_nav_idx % len(nav_categories)]
             footer_nav_idx += 1
-            fitted_f = fit_text_to_length(target_cand, f_txt, max_leeway=2, single_word_pool=single_word_pool)
+            fitted_f = fit_text_to_length(target_cand, f_txt)
             set_tag_text_preserving_children(f_a, fitted_f)
             processed_nodes.add(id(f_a))
 
@@ -689,19 +607,17 @@ def inject_business_content_into_html(
                 cand = "Contact Us"
             else:
                 cand = "Quick Links"
-            f_head.string = fit_text_to_length(cand, fh_txt, max_leeway=2)
+            set_tag_text_preserving_children(f_head, fit_text_to_length(cand, fh_txt, is_heading=True))
             processed_nodes.add(id(f_head))
 
         # -------------------------------------------------------------
         # STEP 3: Hero & Masthead & Main Slider Headlines, Subtitles & Badges
-        # Pure in-place length-budgeted text replacement
         # -------------------------------------------------------------
         hero_containers = soup.select(
             '.hero, .hero-section, .hero-area, .main-slider, .home-slider, .hero-slider, '
             '.masthead, .intro, .intro-section, .showcase, .welcome-section, .rev_slider, '
-            '.swiper-container, .swiper, .carousel, #hero, #home, #intro, #home-hero-container, '
-            '[class*="hero-"], [class*="slider-"], [class*="masthead"], '
-            'main > section:first-child, main > div:first-child'
+            '.swiper-container, .swiper, .carousel, #hero, #intro, #home-hero-container, '
+            '[class*="hero-area"], [class*="hero-slider"], [class*="banner-slider"]'
         )
 
         hero_headline_set = False
@@ -735,7 +651,7 @@ def inject_business_content_into_html(
                     continue
                 target_head = hero_headline_pool[h_pool_idx % len(hero_headline_pool)]
                 h_pool_idx += 1
-                fitted_head = fit_text_to_length(target_head, orig_ht, max_leeway=3)
+                fitted_head = fit_text_to_length(target_head, orig_ht, is_heading=True)
 
                 inner_a = ht.find('a')
                 if inner_a:
@@ -797,7 +713,7 @@ def inject_business_content_into_html(
                     continue
                 orig_hs = hs.get_text(strip=True)
                 if orig_hs:
-                    fit_hs = fit_text_to_length(hero_subheadline, orig_hs, max_leeway=3, single_word_pool=single_word_pool)
+                    fit_hs = fit_text_to_length(hero_subheadline, orig_hs, is_paragraph=True)
                     set_tag_text_preserving_children(hs, fit_hs)
                     processed_nodes.add(id(hs))
 
@@ -811,7 +727,7 @@ def inject_business_content_into_html(
                     continue
                 orig_hb = hb.get_text(strip=True)
                 if orig_hb:
-                    hb.string = fit_text_to_length(hero_badge, orig_hb, max_leeway=2)
+                    set_tag_text_preserving_children(hb, fit_text_to_length(hero_badge, orig_hb))
                     processed_nodes.add(id(hb))
 
             # 4. CTA Buttons inside hero
@@ -822,24 +738,19 @@ def inject_business_content_into_html(
             if hero_btns:
                 if len(hero_btns) >= 1 and id(hero_btns[0]) not in processed_nodes:
                     orig_b1 = hero_btns[0].get_text(strip=True)
-                    fit_b1 = fit_text_to_length(cta_pri, orig_b1, max_leeway=2, single_word_pool=single_word_pool)
-                    set_tag_text_preserving_children(hero_btns[0], fit_b1)
+                    set_tag_text_preserving_children(hero_btns[0], fit_text_to_length(cta_pri, orig_b1))
                     processed_nodes.add(id(hero_btns[0]))
                 if len(hero_btns) >= 2 and id(hero_btns[1]) not in processed_nodes:
                     orig_b2 = hero_btns[1].get_text(strip=True)
-                    fit_b2 = fit_text_to_length(cta_sec, orig_b2, max_leeway=2, single_word_pool=single_word_pool)
-                    set_tag_text_preserving_children(hero_btns[1], fit_b2)
+                    set_tag_text_preserving_children(hero_btns[1], fit_text_to_length(cta_sec, orig_b2))
                     processed_nodes.add(id(hero_btns[1]))
 
-            for el_in_hero in h_cont.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'button']):
-                processed_nodes.add(id(el_in_hero))
-
-        # Fallback first H1
+        # Fallback first H1 if not set
         if not hero_headline_set:
             first_h1 = soup.find('h1')
             if first_h1 and id(first_h1) not in processed_nodes and not first_h1.find_parent(['nav', 'footer', 'header', 'aside']):
                 orig_h1 = first_h1.get_text(strip=True)
-                fitted_h1 = fit_text_to_length(hero_headline, orig_h1, max_leeway=3)
+                fitted_h1 = fit_text_to_length(hero_headline, orig_h1, is_heading=True)
                 inner_a = first_h1.find('a')
                 if inner_a:
                     inner_a.string = fitted_h1
@@ -859,32 +770,28 @@ def inject_business_content_into_html(
             a_title_el = a_sec.find(['h2', 'h3', 'h4'], class_=re.compile(r'title|heading', re.I)) or a_sec.find(['h2', 'h3'])
             if a_title_el and id(a_title_el) not in processed_nodes:
                 orig_at = a_title_el.get_text(strip=True)
-                fitted_at = fit_text_to_length(about_title, orig_at, max_leeway=3, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(a_title_el, fitted_at)
-                mark_node_and_descendants(a_title_el, processed_nodes)
+                set_tag_text_preserving_children(a_title_el, fit_text_to_length(about_title, orig_at, is_heading=True))
+                processed_nodes.add(id(a_title_el))
 
             a_sub_el = a_sec.find(['span', 'p', 'h5', 'h6'], class_=re.compile(r'subtitle|sub-title|subheading', re.I))
             if a_sub_el and id(a_sub_el) not in processed_nodes:
                 orig_as = a_sub_el.get_text(strip=True)
-                fitted_as = fit_text_to_length(about_subtitle, orig_as, max_leeway=3, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(a_sub_el, fitted_as)
-                mark_node_and_descendants(a_sub_el, processed_nodes)
+                set_tag_text_preserving_children(a_sub_el, fit_text_to_length(about_subtitle, orig_as))
+                processed_nodes.add(id(a_sub_el))
 
             a_desc_el = a_sec.find('p', class_=re.compile(r'desc|story|text', re.I)) or a_sec.find('p')
             if a_desc_el and id(a_desc_el) not in processed_nodes:
                 orig_ad = a_desc_el.get_text(strip=True)
-                fitted_ad = fit_text_to_length(about_story, orig_ad, max_leeway=3, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(a_desc_el, fitted_ad)
-                mark_node_and_descendants(a_desc_el, processed_nodes)
+                set_tag_text_preserving_children(a_desc_el, fit_text_to_length(about_story, orig_ad, is_paragraph=True))
+                processed_nodes.add(id(a_desc_el))
 
             if about_highlights:
                 h_lis = a_sec.find_all('li')
                 for hl_idx, hl_li in enumerate(h_lis[:len(about_highlights)]):
                     if id(hl_li) not in processed_nodes:
                         orig_hl = hl_li.get_text(strip=True)
-                        fitted_hl = fit_text_to_length(about_highlights[hl_idx], orig_hl, max_leeway=3, single_word_pool=single_word_pool)
-                        set_tag_text_preserving_children(hl_li, fitted_hl)
-                        mark_node_and_descendants(hl_li, processed_nodes)
+                        set_tag_text_preserving_children(hl_li, fit_text_to_length(about_highlights[hl_idx], orig_hl))
+                        processed_nodes.add(id(hl_li))
 
         # -------------------------------------------------------------
         # STEP 5: FAQ / ACCORDION (Questions & Answers)
@@ -909,17 +816,15 @@ def inject_business_content_into_html(
 
             if q_el and id(q_el) not in processed_nodes:
                 orig_q = q_el.get_text(strip=True)
-                fitted_q = fit_text_to_length(faq_data['question'], orig_q, max_leeway=3, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(q_el, fitted_q)
-                mark_node_and_descendants(q_el, processed_nodes)
+                set_tag_text_preserving_children(q_el, fit_text_to_length(faq_data['question'], orig_q, is_heading=True))
+                processed_nodes.add(id(q_el))
 
             if a_el and id(a_el) not in processed_nodes and a_el != q_el:
                 orig_a = a_el.get_text(strip=True)
-                fitted_a = fit_text_to_length(faq_data['answer'], orig_a, max_leeway=3, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(a_el, fitted_a)
-                mark_node_and_descendants(a_el, processed_nodes)
+                set_tag_text_preserving_children(a_el, fit_text_to_length(faq_data['answer'], orig_a, is_paragraph=True))
+                processed_nodes.add(id(a_el))
 
-            mark_node_and_descendants(f_el, processed_nodes)
+            processed_nodes.add(id(f_el))
 
         # -------------------------------------------------------------
         # STEP 6: CARD-LEVEL SEMANTIC REPLACEMENT (Products, Services, Menu, Dishes, Pricing)
@@ -938,23 +843,25 @@ def inject_business_content_into_html(
         )
         all_raw_cards = list(soup.select(card_selectors))
 
-        for el in soup.find_all(['article', 'div', 'li']):
-            if el in all_raw_cards:
-                continue
-            if el.find_parent(['nav', 'footer', 'header']) or any(k in ' '.join(el.get('class', [])).lower() for k in ['header', 'footer', 'slider', 'banner', 'hero', 'nav', 'menu-bar', 'modal']):
-                continue
-            if el.find(['h2', 'h3', 'h4', 'h5', 'h6']) and (el.find('img') or el.select_one('[class*="price"], [class*="cost"], [class*="badge"], [class*="tag"], [class*="icon"]')):
-                sub_h = el.find_all(['h2', 'h3', 'h4', 'h5', 'h6'])
-                sub_i = el.find_all('img')
-                if 1 <= len(sub_h) <= 3 and len(sub_i) <= 2:
-                    all_raw_cards.append(el)
+        # Fast non-quadratic filtering for leaf cards
+        all_card_set = set(all_raw_cards)
+        parent_cards = set()
+        for c in all_raw_cards:
+            for p in c.parents:
+                if p in all_card_set:
+                    parent_cards.add(id(p))
 
         top_cards = []
         for c in all_raw_cards:
-            has_child_card = any(other in c.descendants for other in all_raw_cards if other != c)
-            if not has_child_card and not any(p in top_faq_items for p in c.parents) and c not in top_faq_items:
-                if not any(k in ' '.join(c.get('class', [])).lower() for k in ['hero', 'main-slider', 'rev_slider', 'home-slider', 'header', 'nav', 'footer']):
-                    top_cards.append(c)
+            if id(c) in parent_cards:
+                continue
+            if any(k in ' '.join(c.get('class', [])).lower() for k in ['hero', 'main-slider', 'rev_slider', 'home-slider', 'header', 'nav', 'footer', 'modal', 'drawer']):
+                continue
+            if c.find_parent(['nav', 'footer', 'header']):
+                continue
+            if c in top_faq_items or any(p in top_faq_items for p in c.parents):
+                continue
+            top_cards.append(c)
 
         for c_idx, card_el in enumerate(top_cards):
             item_data = all_items[c_idx % len(all_items)] if all_items else None
@@ -968,37 +875,33 @@ def inject_business_content_into_html(
             )
             if title_el and id(title_el) not in processed_nodes:
                 orig_ct = title_el.get_text(strip=True)
-                fitted_ct = fit_text_to_length(item_data['title'], orig_ct, max_leeway=3, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(title_el, fitted_ct)
-                mark_node_and_descendants(title_el, processed_nodes)
+                set_tag_text_preserving_children(title_el, fit_text_to_length(item_data['title'], orig_ct, is_heading=True))
+                processed_nodes.add(id(title_el))
 
             # 2. Card Tag / Badge
             badge_el = card_el.select_one('.badge, .tag, .card-tag, .tag-badge, .cat-name, .category, .subheading, .collection__category')
             if badge_el and id(badge_el) not in processed_nodes:
                 orig_bg = badge_el.get_text(strip=True)
-                cand_bg = item_data['tag'] or micro_tags[c_idx % len(micro_tags)]
-                fitted_bg = fit_text_to_length(cand_bg, orig_bg, max_leeway=2, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(badge_el, fitted_bg)
-                mark_node_and_descendants(badge_el, processed_nodes)
+                cand_bg = item_data.get('tag') or micro_tags[c_idx % len(micro_tags)]
+                set_tag_text_preserving_children(badge_el, fit_text_to_length(cand_bg, orig_bg))
+                processed_nodes.add(id(badge_el))
 
             # 3. Card Price
             price_el = card_el.select_one('.price, .bistro-price, .cost, .amount, [class*="price"]')
             if price_el and id(price_el) not in processed_nodes and item_data.get('price'):
                 orig_pr = price_el.get_text(strip=True)
-                fitted_pr = fit_text_to_length(item_data['price'], orig_pr, max_leeway=2, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(price_el, fitted_pr)
-                mark_node_and_descendants(price_el, processed_nodes)
+                set_tag_text_preserving_children(price_el, fit_text_to_length(item_data['price'], orig_pr))
+                processed_nodes.add(id(price_el))
 
             # 4. Card Description
             desc_el = card_el.find('p', class_=re.compile(r'desc|text|info|content|timeline-body', re.I)) or card_el.find('p')
             if desc_el and id(desc_el) not in processed_nodes:
                 orig_desc = desc_el.get_text(strip=True)
                 if orig_desc:
-                    fitted_desc = fit_text_to_length(item_data['desc'], orig_desc, max_leeway=3, single_word_pool=single_word_pool)
-                    set_tag_text_preserving_children(desc_el, fitted_desc)
-                    mark_node_and_descendants(desc_el, processed_nodes)
+                    set_tag_text_preserving_children(desc_el, fit_text_to_length(item_data['desc'], orig_desc, is_paragraph=True))
+                    processed_nodes.add(id(desc_el))
 
-            # 5. Card Image
+            # 5. Card Image (UNTOUCHED)
             if card_img_urls:
                 target_card_img = card_img_urls[c_idx % len(card_img_urls)]
                 card_imgs = card_el.find_all('img')
@@ -1014,11 +917,28 @@ def inject_business_content_into_html(
                 orig_btn = btn_el.get_text(strip=True)
                 if orig_btn and len(orig_btn) <= 30:
                     cand_btn = "Order Now" if "order" in orig_btn.lower() else "View Details"
-                    fitted_btn = fit_text_to_length(cand_btn, orig_btn, max_leeway=2, single_word_pool=single_word_pool)
-                    set_tag_text_preserving_children(btn_el, fitted_btn)
-                    mark_node_and_descendants(btn_el, processed_nodes)
+                    set_tag_text_preserving_children(btn_el, fit_text_to_length(cand_btn, orig_btn))
+                    processed_nodes.add(id(btn_el))
 
-            mark_node_and_descendants(card_el, processed_nodes)
+            processed_nodes.add(id(card_el))
+
+        # -------------------------------------------------------------
+        # STEP 6.5: FEATURES / WHY CHOOSE US GRID
+        # -------------------------------------------------------------
+        feature_blocks = soup.select('.feature, .feature-box, .service-box, .feature-card, .benefits-box, [class*="feature-box"], [class*="features-box"]')
+        for f_idx, fb in enumerate(feature_blocks):
+            if id(fb) in processed_nodes:
+                continue
+            fdata = feature_items[f_idx % len(feature_items)]
+            fh = fb.find(['h3', 'h4', 'h5', 'h6', 'strong'])
+            if fh and id(fh) not in processed_nodes:
+                set_tag_text_preserving_children(fh, fit_text_to_length(fdata['title'], fh.get_text(strip=True), is_heading=True))
+                processed_nodes.add(id(fh))
+            fp = fb.find('p')
+            if fp and id(fp) not in processed_nodes:
+                set_tag_text_preserving_children(fp, fit_text_to_length(fdata['desc'], fp.get_text(strip=True), is_paragraph=True))
+                processed_nodes.add(id(fp))
+            processed_nodes.add(id(fb))
 
         # -------------------------------------------------------------
         # STEP 7: STATS & COUNTERS (Number + Short Label)
@@ -1034,13 +954,13 @@ def inject_business_content_into_html(
             num_el = sb.select_one('.counter-value, .number, [data-to], h2, h3, h4, strong')
             if num_el and id(num_el) not in processed_nodes:
                 orig_num = num_el.get_text(strip=True)
-                num_el.string = fit_text_to_length(stat_data['number'], orig_num, max_leeway=2)
+                num_el.string = fit_text_to_length(stat_data['number'], orig_num)
                 processed_nodes.add(id(num_el))
 
             label_el = sb.select_one('p, span, h5, h6, .counter-title, .label, .stat-title')
             if label_el and id(label_el) not in processed_nodes and label_el != num_el:
                 orig_lbl = label_el.get_text(strip=True)
-                label_el.string = fit_text_to_length(stat_data['label'], orig_lbl, max_leeway=2, single_word_pool=single_word_pool)
+                label_el.string = fit_text_to_length(stat_data['label'], orig_lbl)
                 processed_nodes.add(id(label_el))
 
         # -------------------------------------------------------------
@@ -1060,20 +980,20 @@ def inject_business_content_into_html(
                 q_el = t_box.find(['p', 'blockquote']) or t_box.select_one('.quote, .testimonial-text, .text')
                 if q_el and q_text and id(q_el) not in processed_nodes:
                     orig_q = q_el.get_text(strip=True)
-                    fitted_q = fit_text_to_length(q_text, orig_q, max_leeway=3)
+                    fitted_q = fit_text_to_length(q_text, orig_q, is_paragraph=True)
                     set_tag_text_preserving_children(q_el, f'"{fitted_q.strip(chr(34) + chr(39))}"')
                     processed_nodes.add(id(q_el))
 
                 a_el = t_box.select_one('.author, .name, .client-name, h4, h5, strong')
                 if a_el and author and id(a_el) not in processed_nodes:
                     orig_a = a_el.get_text(strip=True)
-                    a_el.string = fit_text_to_length(author, orig_a, max_leeway=2)
+                    a_el.string = fit_text_to_length(author, orig_a)
                     processed_nodes.add(id(a_el))
 
                 r_el = t_box.select_one('.role, .title, .designation, span')
                 if r_el and r_el != a_el and role and id(r_el) not in processed_nodes:
                     orig_r = r_el.get_text(strip=True)
-                    r_el.string = fit_text_to_length(role, orig_r, max_leeway=2)
+                    r_el.string = fit_text_to_length(role, orig_r)
                     processed_nodes.add(id(r_el))
 
         # -------------------------------------------------------------
@@ -1087,26 +1007,40 @@ def inject_business_content_into_html(
             if cta_h and id(cta_h) not in processed_nodes:
                 orig_ch = cta_h.get_text(strip=True)
                 cand_ch = _clean_text(cta_banner.get('headline') or f"Ready to Experience {brand_name}?")
-                set_tag_text_preserving_children(cta_h, fit_text_to_length(cand_ch, orig_ch, max_leeway=3))
+                set_tag_text_preserving_children(cta_h, fit_text_to_length(cand_ch, orig_ch, is_heading=True))
                 processed_nodes.add(id(cta_h))
 
             cta_p = cta_sec_el.find('p')
             if cta_p and id(cta_p) not in processed_nodes:
                 orig_cp = cta_p.get_text(strip=True)
                 cand_cp = _clean_text(cta_banner.get('subheadline') or f"Get in touch with our team today to learn more.")
-                set_tag_text_preserving_children(cta_p, fit_text_to_length(cand_cp, orig_cp, max_leeway=3))
+                set_tag_text_preserving_children(cta_p, fit_text_to_length(cand_cp, orig_cp, is_paragraph=True))
                 processed_nodes.add(id(cta_p))
 
             cta_b = cta_sec_el.find(['a', 'button'], class_=re.compile(r'btn|button|cta', re.I))
             if cta_b and id(cta_b) not in processed_nodes:
                 orig_cb = cta_b.get_text(strip=True)
                 cand_cb = _clean_text(cta_banner.get('button_text') or "Get Started Now")
-                fitted_cb = fit_text_to_length(cand_cb, orig_cb, max_leeway=2, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(cta_b, fitted_cb)
+                set_tag_text_preserving_children(cta_b, fit_text_to_length(cand_cb, orig_cb))
                 processed_nodes.add(id(cta_b))
 
         # -------------------------------------------------------------
-        # STEP 9.5: ALL REMAINING <img> TAGS ACROSS ENTIRE PAGE
+        # STEP 9.2: CONTACT INFORMATION (EMAIL & PHONE)
+        # -------------------------------------------------------------
+        if contact_email:
+            for mail_a in soup.select('a[href^="mailto:"], a[href*="@"], .email, .contact-email, [data-editable="contact_email"]'):
+                mail_a['href'] = f"mailto:{contact_email}"
+                set_tag_text_preserving_children(mail_a, contact_email)
+                processed_nodes.add(id(mail_a))
+
+        if contact_phone:
+            for tel_a in soup.select('a[href^="tel:"], .phone, .contact-phone, [data-editable="contact_phone"]'):
+                tel_a['href'] = f"tel:{contact_phone.replace(' ', '')}"
+                set_tag_text_preserving_children(tel_a, contact_phone)
+                processed_nodes.add(id(tel_a))
+
+        # -------------------------------------------------------------
+        # STEP 9.5: ALL REMAINING <img> TAGS ACROSS ENTIRE PAGE (UNTOUCHED)
         # -------------------------------------------------------------
         for img in soup.find_all('img'):
             if id(img) in processed_imgs:
@@ -1139,7 +1073,7 @@ def inject_business_content_into_html(
             processed_imgs.add(id(img))
 
         # -------------------------------------------------------------
-        # STEP 9.6: ALL REMAINING data-background & CSS BACKGROUND IMAGES
+        # STEP 9.6: ALL REMAINING data-background & CSS BACKGROUND IMAGES (UNTOUCHED)
         # -------------------------------------------------------------
         for bg_attr in ['data-background', 'data-bg', 'data-bg-image']:
             for el in soup.find_all(attrs={bg_attr: True}):
@@ -1148,7 +1082,7 @@ def inject_business_content_into_html(
                 el[bg_attr] = target_src
 
         # -------------------------------------------------------------
-        # STEP 10: REMAINING HEADINGS & TITLES (Strict Length Budgeting)
+        # STEP 10: REMAINING HEADINGS & TITLES
         # -------------------------------------------------------------
         title_selectors = [
             'h1', 'h2', 'h3', 'h4', 'h5', 'h6', '.title', '.sub-title', '.subtitle',
@@ -1157,12 +1091,11 @@ def inject_business_content_into_html(
             '[class*="heading"]'
         ]
         h_idx = 0
+        heading_candidates = short_titles + [about_title, cta_banner.get('headline', '')] + [f['title'] for f in feature_items]
         for el in soup.select(', '.join(title_selectors)):
             if id(el) in processed_nodes:
                 continue
-            if el.find_parent(['script', 'style', 'head', 'footer', 'nav', 'header', '.navbar', '.announcement-bar', '#announcement-bar-container', '#top-banner-container', '#header-container', '#navbar-container']):
-                continue
-            if el.find_parent(class_=re.compile(r'hero|masthead|main-slider|home-slider|hero-slider', re.I)) or el.find_parent(id=re.compile(r'hero|home|intro', re.I)):
+            if el.find_parent(['script', 'style', 'head', 'footer', 'nav', 'header', '.navbar', '.announcement-bar']):
                 continue
             if el.find(['p', 'div', 'article', 'section', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'form', 'table']):
                 continue
@@ -1177,32 +1110,22 @@ def inject_business_content_into_html(
             if any(k in el_classes for k in ['copyright', 'email', 'phone', 'social', 'logo', 'brand-name', 'business-name', 'announcement', 'nav-link', 'menu-item']):
                 continue
 
-            orig_words = len(orig_txt.split())
-            orig_len = len(orig_txt)
-
-            if orig_words <= 2 or orig_len <= 16:
-                target_cand = micro_tags[h_idx % len(micro_tags)]
-            elif orig_words <= 5 or orig_len <= 35:
-                target_cand = short_titles[h_idx % len(short_titles)]
-            else:
-                target_cand = medium_phrases[h_idx % len(medium_phrases)]
+            target_cand = heading_candidates[h_idx % len(heading_candidates)]
             h_idx += 1
 
-            fitted_h = fit_text_to_length(target_cand, orig_txt, max_leeway=3, single_word_pool=single_word_pool)
+            fitted_h = fit_text_to_length(target_cand, orig_txt, is_heading=True)
             set_tag_text_preserving_children(el, fitted_h)
-            mark_node_and_descendants(el, processed_nodes)
+            processed_nodes.add(id(el))
 
         # -------------------------------------------------------------
-        # STEP 11: REMAINING PARAGRAPHS & BODY TEXTS (Strict Length Budgeting)
+        # STEP 11: REMAINING PARAGRAPHS & BODY TEXTS
         # -------------------------------------------------------------
         p_idx = 0
-        for p in soup.find_all(['p', 'div', 'blockquote', 'li', 'span']):
+        paragraph_candidates = domain_paragraphs + [about_story, hero_subheadline, cta_banner.get('subheadline', '')] + [i['desc'] for i in all_items]
+        for p in soup.find_all(['p', 'blockquote']):
             if id(p) in processed_nodes:
                 continue
-            # Exclude only scripts, styles, navigation bars, announcement banners, and copyright
-            if p.find_parent(['script', 'style', 'head', 'nav', '.navbar-nav', '.navbar-brand', '.copyright', '.footer-bottom', '.announcement-bar', '#announcement-bar', '#announcement-bar-container', '#top-banner-container']):
-                continue
-            if p.find_parent(class_=re.compile(r'hero|masthead|main-slider|home-slider|hero-slider', re.I)) or p.find_parent(id=re.compile(r'hero|home|intro', re.I)):
+            if p.find_parent(['script', 'style', 'head', 'nav', '.navbar-nav', '.navbar-brand', '.copyright', '.footer-bottom', '.announcement-bar']):
                 continue
             if p.find(['p', 'div', 'article', 'section', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'form', 'table', 'input', 'button', 'select']):
                 continue
@@ -1215,25 +1138,15 @@ def inject_business_content_into_html(
             if any(k in p_classes for k in ['copyright', 'email', 'phone', 'social', 'logo', 'brand', 'price', 'author', 'date', 'time']):
                 continue
 
-            orig_len = len(orig_txt)
-            orig_words = len(orig_txt.split())
-
-            if orig_words <= 2 or orig_len <= 18:
-                cand_p = micro_tags[p_idx % len(micro_tags)]
-            elif orig_words <= 6 or orig_len <= 45:
-                cand_p = medium_phrases[p_idx % len(medium_phrases)]
-            elif orig_words <= 16 or orig_len <= 110:
-                cand_p = all_items[p_idx % len(all_items)]['desc'] if all_items else medium_phrases[p_idx % len(medium_phrases)]
-            else:
-                cand_p = domain_paragraphs[p_idx % len(domain_paragraphs)]
-
-            fitted_p = fit_text_to_length(cand_p, orig_txt, max_leeway=3, single_word_pool=single_word_pool)
-            set_tag_text_preserving_children(p, fitted_p)
+            cand_p = paragraph_candidates[p_idx % len(paragraph_candidates)]
             p_idx += 1
-            mark_node_and_descendants(p, processed_nodes)
+
+            fitted_p = fit_text_to_length(cand_p, orig_txt, is_paragraph=True)
+            set_tag_text_preserving_children(p, fitted_p)
+            processed_nodes.add(id(p))
 
         # -------------------------------------------------------------
-        # STEP 12: ACTION BUTTONS & CTAs (Strict Length Budgeting)
+        # STEP 12: ACTION BUTTONS & CTAs
         # -------------------------------------------------------------
         action_ctas = [cta_pri, cta_sec, _clean_text(cta_banner.get('button_text') or "Get Started"), "Explore More", "Order Online", "Book Now", "View Details"]
         btn_idx = 0
@@ -1246,11 +1159,10 @@ def inject_business_content_into_html(
                 continue
 
             btn_txt = btn.get_text(strip=True)
-            if btn_txt and len(btn_txt) <= 30:
+            if btn_txt and len(btn_txt) <= 35:
                 target_btn = action_ctas[btn_idx % len(action_ctas)]
                 btn_idx += 1
-                fitted_btn = fit_text_to_length(target_btn, btn_txt, max_leeway=2, single_word_pool=single_word_pool)
-                set_tag_text_preserving_children(btn, fitted_btn)
+                set_tag_text_preserving_children(btn, fit_text_to_length(target_btn, btn_txt))
                 processed_nodes.add(id(btn))
 
         # -------------------------------------------------------------
@@ -1260,11 +1172,10 @@ def inject_business_content_into_html(
         for copy_el in soup.select('.copyright, .footer-bottom p, .copy-text, [class*="copyright"], .footer-copyright'):
             if id(copy_el) not in processed_nodes:
                 orig_copy = copy_el.get_text(strip=True)
-                copy_el.string = fit_text_to_length(footer_copy, orig_copy, max_leeway=4)
+                copy_el.string = fit_text_to_length(footer_copy, orig_copy)
                 processed_nodes.add(id(copy_el))
 
         return str(soup)
     except Exception as e:
         print(f"[Content Injector Notice] Error during universal content injection: {e}")
         return raw_html
-

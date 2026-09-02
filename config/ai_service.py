@@ -7,13 +7,38 @@ from typing import Dict, Any, List, Optional
 
 
 def get_gemini_api_key() -> str:
-    """Retrieves Google Gemini API key from environment variables."""
-    return (
+    """Retrieves Google Gemini API key from environment variables or settings."""
+    key = (
         os.environ.get('GEMINI_API_KEY')
         or os.environ.get('GOOGLE_API_KEY')
         or os.environ.get('GEMINI_KEY')
         or ''
     ).strip()
+    if not key:
+        try:
+            from django.conf import settings
+            key = (getattr(settings, 'GEMINI_API_KEY', '') or '').strip()
+        except Exception:
+            pass
+    if not key:
+        # Check backend/.env and root .env directly
+        try:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            for p in [os.path.join(base_dir, '.env'), os.path.join(os.path.dirname(base_dir), '.env')]:
+                if os.path.exists(p):
+                    with open(p, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith('GEMINI_API_KEY=') or line.startswith('GOOGLE_API_KEY='):
+                                key = line.split('=', 1)[1].strip().strip('"').strip("'")
+                                if key:
+                                    os.environ['GEMINI_API_KEY'] = key
+                                    break
+                if key:
+                    break
+        except Exception:
+            pass
+    return key.strip()
 
 
 def generate_business_content(
@@ -74,9 +99,9 @@ Create a complete, highly engaging, professional website copywriting package for
 CRITICAL RULES FOR DESIGN PRESERVATION:
 1. Micro tags, badges, and kickers MUST be 1-3 words only (maximum 14 characters, e.g. "Fresh Daily", "Artisanal", "Best Seller", "Certified").
 2. Navbar items (in "navbar_items") MUST be ultra-concise (1-2 words only, maximum 12 characters each, e.g. "Menu", "Story", "Services", "Reviews", "Contact").
-3. Hero headline MUST be concise (3-6 words only, max 32 characters, e.g. "Handcrafted Italian Leather Shoes" or "Pure Quality & Dedicated Craft").
-4. Card titles (2-4 words, max 24 chars) and card descriptions (8-16 words, max 100 chars) MUST be semantically paired with direct meaning together.
-5. All text should have same or fewer characters than standard templates so it NEVER overflows headers, buttons, or grid columns.
+3. Hero headline MUST be high-impact and engaging (3-6 words, e.g. "Handcrafted Italian Leather Shoes" or "Pure Quality & Dedicated Craft").
+4. Card titles (2-4 words) and card descriptions (8-18 words) MUST be semantically paired with direct meaning together.
+5. Generate at least 8 services or products and 6 features to cover full template homepages.
 
 Return ONLY a valid JSON object matching this exact schema:
 {{
@@ -97,7 +122,8 @@ Return ONLY a valid JSON object matching this exact schema:
     "highlights": [
       "Key highlight 1",
       "Key highlight 2",
-      "Key highlight 3"
+      "Key highlight 3",
+      "Key highlight 4"
     ]
   }},
   "micro_tags": [
@@ -112,27 +138,51 @@ Return ONLY a valid JSON object matching this exact schema:
   "services_or_products": [
     {{
       "title": "Product or Service 1 (2-4 words)",
-      "desc": "Persuasive 8-15 word description directly explaining this specific item.",
+      "desc": "Persuasive 8-18 word description directly explaining this specific item.",
       "price": "$24.00",
       "tag": "Signature"
     }},
     {{
       "title": "Product or Service 2 (2-4 words)",
-      "desc": "Persuasive 8-15 word description directly explaining this specific item.",
+      "desc": "Persuasive 8-18 word description directly explaining this specific item.",
       "price": "$38.00",
       "tag": "Best Seller"
     }},
     {{
       "title": "Product or Service 3 (2-4 words)",
-      "desc": "Persuasive 8-15 word description directly explaining this specific item.",
+      "desc": "Persuasive 8-18 word description directly explaining this specific item.",
       "price": "$29.00",
       "tag": "Popular"
     }},
     {{
       "title": "Product or Service 4 (2-4 words)",
-      "desc": "Persuasive 8-15 word description directly explaining this specific item.",
+      "desc": "Persuasive 8-18 word description directly explaining this specific item.",
       "price": "$45.00",
       "tag": "Special"
+    }},
+    {{
+      "title": "Product or Service 5 (2-4 words)",
+      "desc": "Persuasive 8-18 word description directly explaining this specific item.",
+      "price": "$32.00",
+      "tag": "Premium"
+    }},
+    {{
+      "title": "Product or Service 6 (2-4 words)",
+      "desc": "Persuasive 8-18 word description directly explaining this specific item.",
+      "price": "$54.00",
+      "tag": "Deluxe"
+    }},
+    {{
+      "title": "Product or Service 7 (2-4 words)",
+      "desc": "Persuasive 8-18 word description directly explaining this specific item.",
+      "price": "$27.00",
+      "tag": "Featured"
+    }},
+    {{
+      "title": "Product or Service 8 (2-4 words)",
+      "desc": "Persuasive 8-18 word description directly explaining this specific item.",
+      "price": "$49.00",
+      "tag": "Exclusive"
     }}
   ],
   "faqs": [
@@ -165,6 +215,18 @@ Return ONLY a valid JSON object matching this exact schema:
     {{
       "title": "Core Feature 3 (2-3 words)",
       "desc": "Compelling 8-14 word description of guarantee or reliability."
+    }},
+    {{
+      "title": "Core Feature 4 (2-3 words)",
+      "desc": "Compelling 8-14 word description of craftsmanship or service."
+    }},
+    {{
+      "title": "Core Feature 5 (2-3 words)",
+      "desc": "Compelling 8-14 word description of dedication and support."
+    }},
+    {{
+      "title": "Core Feature 6 (2-3 words)",
+      "desc": "Compelling 8-14 word description of seamless ordering."
     }}
   ],
   "testimonials": [
@@ -182,6 +244,11 @@ Return ONLY a valid JSON object matching this exact schema:
       "quote": "Third high-praise quote emphasizing overall experience and strong recommendation.",
       "author": "Full Name",
       "role": "Loyal Guest"
+    }},
+    {{
+      "quote": "Fourth glowing review highlighting prompt communication and outstanding results.",
+      "author": "Full Name",
+      "role": "Happy Client"
     }}
   ],
   "cta_banner": {{
@@ -200,9 +267,10 @@ Return ONLY a valid JSON object matching this exact schema:
 
     models_to_try = [
         "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
         "gemini-flash-latest",
-        "gemini-2.5-flash",
-        "gemini-3.5-flash-lite"
+        "gemini-2.5-flash-lite",
+        "gemini-pro-latest"
     ]
 
     for model in models_to_try:
@@ -223,7 +291,7 @@ Return ONLY a valid JSON object matching this exact schema:
             headers={"Content-Type": "application/json"}
         )
         try:
-            with urllib.request.urlopen(req, timeout=15.0) as response:
+            with urllib.request.urlopen(req, timeout=10.0) as response:
                 if response.status == 200:
                     resp_json = json.loads(response.read().decode('utf-8'))
                     candidates = resp_json.get('candidates', [])
@@ -239,6 +307,13 @@ Return ONLY a valid JSON object matching this exact schema:
                                     data.get('about', {}).get('story', ''),
                                     f"Every single offering at {business_name} is crafted with extreme precision and dedicated attention to detail.",
                                     f"At {business_name}, we take immense pride in our craftsmanship and unwavering dedication to customer satisfaction."
+                                ]
+                            if not data.get('action_ctas'):
+                                data['action_ctas'] = [
+                                    data.get('hero', {}).get('cta_primary', 'Get Started'),
+                                    data.get('hero', {}).get('cta_secondary', 'Explore More'),
+                                    data.get('cta_banner', {}).get('button_text', 'Order Online'),
+                                    "Book Now", "View Details", "Get Started", "Learn More", "Contact Us"
                                 ]
                             return data
         except Exception as e:
