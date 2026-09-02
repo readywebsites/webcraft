@@ -1,7 +1,11 @@
 import os
 import re
-from typing import Dict, Any, List, Optional
-from bs4 import BeautifulSoup, NavigableString, Tag
+try:
+    from bs4 import BeautifulSoup, NavigableString, Tag
+except ImportError:
+    BeautifulSoup = None
+    NavigableString = None
+    Tag = None
 
 
 def _clean_text(val: Any) -> str:
