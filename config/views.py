@@ -1357,7 +1357,7 @@ def initiate_phonepe_payment(request):
 
     # Direct NPCI Standard UPI Payment URI & Universal QR Code
     # Standard format: upi://pay?pa=...&pn=...&am=...&cu=INR&tn=...&tr=...
-    upi_vpa = os.environ.get('PHONEPE_UPI_ID', 'm23cuq5thr1lw@ybl').strip()
+    upi_vpa = os.environ.get('PHONEPE_UPI_ID', 'rajilpatel15@okicici').strip()
     formatted_amount = f"{float(amount):.2f}"
     clean_bname = str(business_name).strip() or "Website"
 
