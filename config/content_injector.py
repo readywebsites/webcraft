@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Dict, Any, List, Optional, Union
 try:
     from bs4 import BeautifulSoup, NavigableString, Tag
 except ImportError:
@@ -150,6 +151,18 @@ def inject_business_content_into_html(
         return raw_html
 
     try:
+        if BeautifulSoup is None:
+            return raw_html
+
+        if not isinstance(content, dict):
+            content = {'brand_name': str(content), 'business_name': str(content)}
+
+        if not isinstance(images_by_role, dict):
+            images_by_role = {}
+
+        if not isinstance(image_pool, list):
+            image_pool = []
+
         soup = BeautifulSoup(raw_html, 'html.parser')
 
         brand_name = _clean_text(content.get('brand_name') or content.get('business_name') or 'My Business')
