@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib import messages
-from .models import BusinessCategory, GeneratedWebsite, GitHubTemplate, PhonePeOrderTransaction
+from django.utils.html import format_html
+from .models import BusinessCategory, GeneratedWebsite, GitHubTemplate, PhonePeOrderTransaction, UserProject
 
 @admin.register(BusinessCategory)
 class BusinessCategoryAdmin(admin.ModelAdmin):
@@ -9,12 +10,76 @@ class BusinessCategoryAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('name',)}
     search_fields = ('name', 'description')
 
+@admin.register(UserProject)
+class UserProjectAdmin(admin.ModelAdmin):
+    list_display = (
+        'business_name',
+        'category_display',
+        'contact_phone',
+        'contact_email',
+        'status',
+        'created_at'
+    )
+    list_display_links = ('business_name',)
+    list_filter = ('category', 'status', 'created_at')
+    search_fields = ('business_name', 'contact_phone', 'contact_email', 'business_description', 'tagline')
+    readonly_fields = ('created_at', 'updated_at', 'logo_preview', 'hero_preview')
+    ordering = ('-created_at',)
+    list_per_page = 25
+
+    fieldsets = (
+        ('Business Identity (Main)', {
+            'fields': ('business_name', 'status', 'category', 'category_name'),
+            'description': 'Main identification and category of the user project'
+        }),
+        ('Customer Contact Details', {
+            'fields': ('contact_phone', 'contact_email'),
+            'description': '10-digit customer phone number and contact email'
+        }),
+        ('Business Description & Details', {
+            'fields': ('business_description', 'tagline', 'primary_color'),
+        }),
+        ('Branding & Media', {
+            'fields': ('logo_mode', 'custom_logo_text', 'logo_url', 'logo_preview', 'hero_image_url', 'hero_preview'),
+        }),
+        ('Linked Website & Metadata', {
+            'classes': ('collapse',),
+            'fields': ('website_id', 'generated_website', 'extra_details', 'created_at', 'updated_at'),
+        }),
+    )
+
+    def category_display(self, obj):
+        if obj.category:
+            return obj.category.name
+        return obj.category_name or "—"
+    category_display.short_description = "Selected Category"
+
+    def logo_preview(self, obj):
+        if obj.logo_url:
+            return format_html(
+                '<a href="{0}" target="_blank"><img src="{0}" style="max-height: 80px; max-width: 180px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 4px; background: #fff;" /></a>',
+                obj.logo_url
+            )
+        return "Text logo or no logo uploaded"
+    logo_preview.short_description = "Logo Preview"
+
+    def hero_preview(self, obj):
+        if obj.hero_image_url:
+            return format_html(
+                '<a href="{0}" target="_blank"><img src="{0}" style="max-height: 100px; max-width: 250px; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: cover;" /></a>',
+                obj.hero_image_url
+            )
+        return "No banner uploaded"
+    hero_preview.short_description = "Hero Banner Preview"
+
+
 @admin.register(GeneratedWebsite)
 class GeneratedWebsiteAdmin(admin.ModelAdmin):
-    list_display = ('business_name', 'website_id', 'category', 'github_template', 'created_at')
+    list_display = ('business_name', 'category', 'contact_phone', 'contact_email', 'website_id', 'created_at')
     list_filter = ('category', 'created_at')
-    search_fields = ('business_name', 'website_id', 'contact_email')
+    search_fields = ('business_name', 'website_id', 'contact_email', 'contact_phone', 'business_description')
     readonly_fields = ('created_at',)
+    ordering = ('-created_at',)
 
 @admin.register(GitHubTemplate)
 class GitHubTemplateAdmin(admin.ModelAdmin):

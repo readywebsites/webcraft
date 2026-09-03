@@ -18,7 +18,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import BusinessCategory, GeneratedWebsite, GitHubTemplate, PhonePeOrderTransaction
+from .models import BusinessCategory, GeneratedWebsite, GitHubTemplate, PhonePeOrderTransaction, UserProject
 
 def apply_user_details_to_template(raw_html, raw_css, details):
     """
@@ -462,28 +462,42 @@ def generate_website(request):
         time.sleep(0.5)
 
         data = request.data
-        business_name = data.get('business_name') or 'My Business'
+        business_name = (data.get('business_name') or 'My Business').strip()
         business_description = (data.get('business_description') or data.get('description') or '').strip()
         business_type_id = data.get('business_type') or 'general'
         tagline = data.get('tagline') or ''
         primary_color = data.get('primary_color') or ''
-        contact_email = data.get('contact_email') or ''
-        contact_phone = data.get('contact_phone') or ''
+        contact_email = (data.get('contact_email') or '').strip()
+        contact_phone = (data.get('contact_phone') or '').strip()
+
+        # Validate 10-digit phone number (compulsory 10 digits requirement)
+        phone_digits = re.sub(r'\D', '', contact_phone)
+        if len(phone_digits) == 12 and phone_digits.startswith('91'):
+            final_10_phone = phone_digits[2:]
+        elif len(phone_digits) == 11 and phone_digits.startswith('0'):
+            final_10_phone = phone_digits[1:]
+        elif len(phone_digits) == 10:
+            final_10_phone = phone_digits
+        else:
+            return Response({
+                "success": False,
+                "error": "Phone number must have exactly 10 digits."
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         category_name = business_type_id.replace('-', ' ').replace('_', ' ').title() if (business_type_id and business_type_id != 'general') else "General Business"
         db_cat = None
         candidate_templates = []
 
         if business_type_id and business_type_id != 'general':
-            db_cat = BusinessCategory.objects.filter(slug__iexact=business_type_id).first()
+            db_cat = BusinessCategory.objects.filter(slug__iexact=str(business_type_id)).first()
             if not db_cat and str(business_type_id).isdigit():
                 db_cat = BusinessCategory.objects.filter(id=int(business_type_id)).first()
             if not db_cat:
-                db_cat = BusinessCategory.objects.filter(name__iexact=business_type_id).first()
+                db_cat = BusinessCategory.objects.filter(name__iexact=str(business_type_id)).first()
             if not db_cat:
-                db_cat = BusinessCategory.objects.filter(slug__icontains=business_type_id).first()
+                db_cat = BusinessCategory.objects.filter(slug__icontains=str(business_type_id)).first()
             if not db_cat:
-                db_cat = BusinessCategory.objects.filter(name__icontains=business_type_id).first()
+                db_cat = BusinessCategory.objects.filter(name__icontains=str(business_type_id)).first()
 
         if db_cat:
             category_name = db_cat.name
@@ -546,7 +560,7 @@ def generate_website(request):
         final_tagline = tagline.strip() if tagline and tagline.strip() else matched_preset['default_tagline']
         final_color = primary_color.strip() if primary_color and primary_color.strip() else matched_preset['default_primary_color']
         final_email = contact_email.strip() if contact_email and contact_email.strip() else f"contact@{business_name.lower().replace(' ', '')}.com"
-        final_phone = contact_phone.strip() if contact_phone and contact_phone.strip() else "+1 (555) 234-5678"
+        final_phone = final_10_phone
 
         # Build unified Pexels image pool once for all candidate templates
         from .pexels_service import build_image_pool_for_business
@@ -674,10 +688,39 @@ def generate_website(request):
         primary_data = dict(clean_previews[0])
         primary_data["previews"] = clean_previews
 
+        user_project = None
         try:
-            GeneratedWebsite.objects.create(
+            user_project = UserProject.objects.create(
+                business_name=business_name,
+                category=db_cat,
+                category_name=category_name,
+                business_description=business_description,
+                contact_phone=final_phone,
+                contact_email=final_email,
+                tagline=final_tagline,
+                primary_color=final_color,
+                logo_mode=logo_mode or 'text',
+                custom_logo_text=data.get('custom_logo_text', '') or (business_name if logo_mode == 'text' else ''),
+                logo_url=logo_url if isinstance(logo_url, str) else '',
+                hero_image_url=hero_image_url if isinstance(hero_image_url, str) else '',
+                status='SUBMITTED',
+                website_id=primary_data['website_id'],
+                extra_details={
+                    'option_count': len(clean_previews),
+                    'template_id': primary_data.get('template_id', ''),
+                    'extracted_keywords': extracted_keywords
+                }
+            )
+        except Exception as e:
+            print(f"Error saving UserProject in admin: {e}")
+
+        gen_website = None
+        try:
+            gen_website = GeneratedWebsite.objects.create(
                 website_id=primary_data['website_id'],
                 business_name=business_name,
+                category=db_cat,
+                business_description=business_description,
                 logo_url=logo_url if isinstance(logo_url, str) else '',
                 hero_image_url=hero_image_url if isinstance(hero_image_url, str) else '',
                 tagline=final_tagline,
@@ -689,8 +732,11 @@ def generate_website(request):
                 source_code_css=primary_data['source_code_css'],
                 source_code_js=primary_data['source_code_js']
             )
-        except Exception:
-            pass
+            if user_project and gen_website:
+                user_project.generated_website = gen_website
+                user_project.save(update_fields=['generated_website'])
+        except Exception as e:
+            print(f"Error saving GeneratedWebsite in admin: {e}")
 
         return Response({
             "success": True,
@@ -949,7 +995,16 @@ def generate_from_github_template(request):
     tagline = data.get('tagline') or data.get('TAGLINE') or f"Custom build from {owner}/{repo_name}"
     primary_color = data.get('primary_color') or data.get('PRIMARY_COLOR') or "#3b82f6"
     contact_email = data.get('contact_email') or data.get('CONTACT_EMAIL') or f"hello@{repo_name.lower()}.io"
-    contact_phone = data.get('contact_phone', '+1 (555) 019-2831')
+    contact_phone_raw = (data.get('contact_phone') or '').strip()
+    phone_digits = re.sub(r'\D', '', contact_phone_raw)
+    if len(phone_digits) == 12 and phone_digits.startswith('91'):
+        contact_phone = phone_digits[2:]
+    elif len(phone_digits) == 11 and phone_digits.startswith('0'):
+        contact_phone = phone_digits[1:]
+    elif len(phone_digits) == 10:
+        contact_phone = phone_digits
+    else:
+        contact_phone = contact_phone_raw or "9876543210"
 
     logo_mode = data.get('logo_mode', '').strip().lower()
     logo_url = ""
@@ -1124,10 +1179,38 @@ def generate_from_github_template(request):
         }
     }
 
+    user_project = None
     try:
-        GeneratedWebsite.objects.create(
+        user_project = UserProject.objects.create(
+            business_name=business_name,
+            category=db_tpl.category if (db_tpl and db_tpl.category) else None,
+            category_name=db_tpl.category.name if (db_tpl and db_tpl.category) else f"{owner}/{repo_name}",
+            business_description=business_description,
+            contact_phone=contact_phone,
+            contact_email=contact_email,
+            tagline=tagline,
+            primary_color=primary_color,
+            logo_mode=logo_mode or 'text',
+            logo_url=logo_url if isinstance(logo_url, str) else '',
+            hero_image_url=hero_image_url if isinstance(hero_image_url, str) else '',
+            status='SUBMITTED',
+            website_id=generated_website['website_id'],
+            extra_details={
+                'github_template': f"{owner}/{repo_name}",
+                'repo_url': repo_url
+            }
+        )
+    except Exception as e:
+        print(f"Error saving UserProject from GitHub template: {e}")
+
+    gen_website = None
+    try:
+        gen_website = GeneratedWebsite.objects.create(
             website_id=generated_website['website_id'],
             business_name=business_name,
+            category=db_tpl.category if (db_tpl and db_tpl.category) else None,
+            github_template=db_tpl if db_tpl else None,
+            business_description=business_description,
             logo_url=logo_url if isinstance(logo_url, str) else '',
             hero_image_url=hero_image_url if isinstance(hero_image_url, str) else '',
             tagline=tagline,
@@ -1139,8 +1222,11 @@ def generate_from_github_template(request):
             source_code_css=css_src,
             source_code_js=js_src
         )
-    except Exception:
-        pass
+        if user_project and gen_website:
+            user_project.generated_website = gen_website
+            user_project.save(update_fields=['generated_website'])
+    except Exception as e:
+        print(f"Error saving GeneratedWebsite from GitHub template: {e}")
 
     return Response({
         "success": True,
@@ -1661,6 +1747,175 @@ def generate_ai_copy(request):
         "success": True,
         "data": copy_data
     }, status=status.HTTP_200_OK)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+def save_user_project(request):
+    """
+    Directly creates or updates a UserProject in Django Admin.
+    Business Name is the main identity, with category, description,
+    10-digit phone number, email, and media.
+    """
+    try:
+        data = request.data
+        business_name = (data.get('business_name') or '').strip()
+        if not business_name:
+            return Response({
+                "success": False,
+                "error": "Business Name is required as the main project identity."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        contact_phone = (data.get('contact_phone') or '').strip()
+        phone_digits = re.sub(r'\D', '', contact_phone)
+        if len(phone_digits) == 12 and phone_digits.startswith('91'):
+            final_10_phone = phone_digits[2:]
+        elif len(phone_digits) == 11 and phone_digits.startswith('0'):
+            final_10_phone = phone_digits[1:]
+        elif len(phone_digits) == 10:
+            final_10_phone = phone_digits
+        else:
+            return Response({
+                "success": False,
+                "error": "Phone number must have exactly 10 digits."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        business_description = (data.get('business_description') or data.get('description') or '').strip()
+        contact_email = (data.get('contact_email') or '').strip()
+        business_type_id = data.get('business_type') or data.get('category_id') or data.get('category') or ''
+        category_name_in = data.get('category_name') or ''
+        tagline = data.get('tagline') or ''
+        primary_color = data.get('primary_color') or '#2563eb'
+        logo_mode = data.get('logo_mode') or 'text'
+        custom_logo_text = data.get('custom_logo_text') or ''
+        website_id = data.get('website_id') or ''
+
+        # Category Lookup
+        db_cat = None
+        if business_type_id:
+            if str(business_type_id).isdigit():
+                db_cat = BusinessCategory.objects.filter(id=int(business_type_id)).first()
+            if not db_cat:
+                db_cat = BusinessCategory.objects.filter(slug__iexact=str(business_type_id)).first()
+            if not db_cat:
+                db_cat = BusinessCategory.objects.filter(name__iexact=str(business_type_id)).first()
+            if not db_cat:
+                db_cat = BusinessCategory.objects.filter(slug__icontains=str(business_type_id)).first()
+
+        category_name = db_cat.name if db_cat else (category_name_in or str(business_type_id).replace('-', ' ').title())
+
+        # Handle Logo File/URL
+        logo_url = data.get('logo_url') or ''
+        logo_file = request.FILES.get('logo')
+        if logo_file and hasattr(logo_file, 'name'):
+            ext = os.path.splitext(logo_file.name)[1]
+            filename = f"logo_{uuid.uuid4().hex[:8]}{ext}"
+            saved_path = default_storage.save(os.path.join('uploads', filename), ContentFile(logo_file.read()))
+            try:
+                logo_url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+            except Exception:
+                logo_url = f"/media/{saved_path}"
+
+        # Handle Hero File/URL
+        hero_image_url = data.get('hero_image_url') or ''
+        hero_file = request.FILES.get('hero_image')
+        if hero_file and hasattr(hero_file, 'name'):
+            ext = os.path.splitext(hero_file.name)[1]
+            filename = f"hero_{uuid.uuid4().hex[:8]}{ext}"
+            saved_path = default_storage.save(os.path.join('uploads', filename), ContentFile(hero_file.read()))
+            try:
+                hero_image_url = request.build_absolute_uri(settings.MEDIA_URL + saved_path)
+            except Exception:
+                hero_image_url = f"/media/{saved_path}"
+
+        # Find existing project by website_id or (business_name and phone), or create new
+        user_project = None
+        if website_id:
+            user_project = UserProject.objects.filter(website_id=website_id).first()
+        if not user_project:
+            user_project = UserProject.objects.filter(business_name=business_name, contact_phone=final_10_phone).first()
+
+        if user_project:
+            user_project.business_name = business_name
+            if db_cat:
+                user_project.category = db_cat
+            user_project.category_name = category_name
+            if business_description:
+                user_project.business_description = business_description
+            user_project.contact_phone = final_10_phone
+            if contact_email:
+                user_project.contact_email = contact_email
+            if tagline:
+                user_project.tagline = tagline
+            if primary_color:
+                user_project.primary_color = primary_color
+            if logo_url:
+                user_project.logo_url = logo_url
+            if hero_image_url:
+                user_project.hero_image_url = hero_image_url
+            if logo_mode:
+                user_project.logo_mode = logo_mode
+            if custom_logo_text:
+                user_project.custom_logo_text = custom_logo_text
+            user_project.save()
+            action = "updated"
+        else:
+            user_project = UserProject.objects.create(
+                business_name=business_name,
+                category=db_cat,
+                category_name=category_name,
+                business_description=business_description,
+                contact_phone=final_10_phone,
+                contact_email=contact_email,
+                tagline=tagline,
+                primary_color=primary_color,
+                logo_mode=logo_mode,
+                custom_logo_text=custom_logo_text,
+                logo_url=logo_url,
+                hero_image_url=hero_image_url,
+                website_id=website_id,
+                status='SUBMITTED'
+            )
+            action = "created"
+
+        # If website_id provided, link/update GeneratedWebsite too
+        if website_id:
+            gen_web = GeneratedWebsite.objects.filter(website_id=website_id).first()
+            if gen_web:
+                if not gen_web.category and db_cat:
+                    gen_web.category = db_cat
+                if business_description and not gen_web.business_description:
+                    gen_web.business_description = business_description
+                gen_web.contact_phone = final_10_phone
+                if contact_email:
+                    gen_web.contact_email = contact_email
+                gen_web.save()
+                user_project.generated_website = gen_web
+                user_project.save(update_fields=['generated_website'])
+
+        return Response({
+            "success": True,
+            "message": f"Project for '{business_name}' successfully {action} in Admin!",
+            "data": {
+                "id": user_project.id,
+                "business_name": user_project.business_name,
+                "category": category_name,
+                "contact_phone": user_project.contact_phone,
+                "contact_email": user_project.contact_email,
+                "website_id": user_project.website_id
+            }
+        }, status=status.HTTP_200_OK if action == "updated" else status.HTTP_201_CREATED)
+
+    except Exception as e:
+        import traceback
+        print("SAVE USER PROJECT ERROR:\n", traceback.format_exc())
+        return Response({
+            "success": False,
+            "error": f"Failed to save user project: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 

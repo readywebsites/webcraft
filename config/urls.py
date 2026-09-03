@@ -12,13 +12,15 @@ from .views import (
     initiate_phonepe_payment,
     verify_phonepe_payment,
     phonepe_webhook_handler,
-    generate_ai_copy
+    generate_ai_copy,
+    save_user_project
 )
 
 urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('business-types/', get_business_types, name='get_business_types'),
     path('generate-website/', generate_website, name='generate_website'),
+    path('projects/save/', save_user_project, name='save_user_project'),
     
     # GitHub Template endpoints
     path('github/popular/', get_popular_github_templates, name='get_popular_github_templates'),

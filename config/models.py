@@ -25,9 +25,10 @@ class GeneratedWebsite(models.Model):
     """
     website_id = models.CharField(max_length=64, unique=True)
     business_name = models.CharField(max_length=150)
-    category = models.ForeignKey(BusinessCategory, on_delete=models.SET_NULL, null=True)
+    category = models.ForeignKey(BusinessCategory, on_delete=models.SET_NULL, null=True, blank=True)
     github_template = models.ForeignKey('GitHubTemplate', on_delete=models.SET_NULL, null=True, blank=True)
     
+    business_description = models.TextField(blank=True, default='', help_text="User business description")
     logo_url = models.URLField(max_length=500, blank=True)
     hero_image_url = models.URLField(max_length=500, blank=True)
     tagline = models.CharField(max_length=255, blank=True)
@@ -47,7 +48,75 @@ class GeneratedWebsite(models.Model):
         verbose_name_plural = "Generated Websites"
 
     def __str__(self):
-        return f"{self.business_name} ({self.website_id})"
+        cat = self.category.name if self.category else "Uncategorized"
+        return f"{self.business_name} ({cat})"
+
+
+class UserProject(models.Model):
+    """
+    Stores user's project submission and business info from the creation form.
+    The Business Name acts as the main identity of the project, holding category, description,
+    contact information (verified 10-digit phone, email), branding assets, and generated website references.
+    """
+    STATUS_CHOICES = [
+        ('SUBMITTED', 'Submitted / Generated'),
+        ('IN_REVIEW', 'In Review'),
+        ('PAYMENT_PENDING', 'Payment Pending'),
+        ('PUBLISHED', 'Published / Live'),
+        ('ARCHIVED', 'Archived'),
+    ]
+
+    business_name = models.CharField(max_length=200, db_index=True, help_text="Business Title / Company Name (Main Identity)")
+    category = models.ForeignKey(
+        BusinessCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_projects',
+        help_text="Selected Business Industry / Category"
+    )
+    category_name = models.CharField(max_length=150, blank=True, help_text="Category Name")
+    business_description = models.TextField(help_text="Business Description & Services summary")
+    contact_phone = models.CharField(max_length=20, help_text="10-digit Contact Phone Number")
+    contact_email = models.EmailField(help_text="Contact Email Address")
+
+    # Branding & Customization
+    tagline = models.CharField(max_length=255, blank=True, help_text="Business Tagline or Slogan")
+    primary_color = models.CharField(max_length=30, blank=True, default="#2563eb", help_text="Theme primary color")
+    logo_mode = models.CharField(
+        max_length=20,
+        default="text",
+        choices=[('text', 'Text Logo'), ('image', 'Image Logo')],
+        help_text="Selected logo style (text or image)"
+    )
+    custom_logo_text = models.CharField(max_length=150, blank=True, help_text="Custom Logo Text if applicable")
+    logo_url = models.URLField(max_length=500, blank=True, help_text="Uploaded Logo image URL")
+    hero_image_url = models.URLField(max_length=500, blank=True, help_text="Uploaded or selected Hero banner image URL")
+
+    # Status & Website Reference
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='SUBMITTED', db_index=True)
+    website_id = models.CharField(max_length=100, blank=True, db_index=True, help_text="Generated Website Unique ID")
+    generated_website = models.ForeignKey(
+        'GeneratedWebsite',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_projects',
+        help_text="Linked Generated Website record"
+    )
+
+    extra_details = models.JSONField(default=dict, blank=True, help_text="Additional metadata, AI options, or custom payload")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "User Project"
+        verbose_name_plural = "User Projects"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        # Business Name is the main identity!
+        return self.business_name
 
 
 class GitHubTemplate(models.Model):
